@@ -1,0 +1,77 @@
+// ===== ファイルアップロード画面の型定義 =====
+
+// アップロードの処理ステータス
+export type UploadStatusType = 'PROCESSING' | 'COMPLETED' | 'ERROR';
+
+// アップロード・ダウンロード対象（テンプレートファイルのシートと1対1）
+export type UploadTargetType =
+  | 'managed_product_target'
+  | 'alliance_additional_sales'
+  | 'sales_equipment_lease'
+  | 'partner_machine'
+  | 'alliance_product';
+
+// アップロードエラー明細（1行ごとのエラー内容）
+export interface UploadErrorItem {
+  rowNumber: number; // 行番号
+  errorMessage: string; // エラー内容
+}
+
+// アップロード履歴の1件分
+export interface UploadHistoryItem {
+  uploadId: string; // アップロードID
+  // 対象年月 From／To（YYYY/MM）。ファイル内の明細の対象年月（更新キー）の最小／最大。
+  // 読み取れない場合は空
+  targetYearMonthFrom: string;
+  targetYearMonthTo: string;
+  uploadTarget: UploadTargetType; // 対象データ（value）
+  uploadTargetName: string; // 対象データ（表示名）
+  fileName: string; // ファイル名
+  uploadedAt: string; // 登録日時（ISO形式）
+  uploadedBy: string; // 登録者
+  status: UploadStatusType; // ステータス
+  errorCount: number; // エラー件数
+  errors?: UploadErrorItem[]; // エラー明細
+  isSysError: boolean; // システムエラーか（true＝システムエラー／false＝入力内容エラー）
+}
+
+// セレクトの選択肢
+export interface UploadTargetOption {
+  value: UploadTargetType;
+  label: string;
+}
+
+// テンプレート（Excel）1シート分の定義
+export interface TemplateDefinition {
+  sheetName: string; // シート名
+  fileName: string; // ダウンロード時のファイル名
+  // 見出しの上段（グループ見出し）。null は空セル。上段が無いシートは undefined
+  groupHeaders?: (string | null)[];
+  headers: string[]; // 見出し（項目名）
+  colWidths: { wch: number }[]; // Excel列幅
+}
+
+// 商流（販売店・三次店・一次店）。テンプレートの販売店CD〜一次店名の列に対応する
+export interface SalesChannel {
+  retailerCode: number; // 販売店CD
+  retailerName: string; // 販売店名
+  tertiaryStoreCode: number; // 三次店CD
+  tertiaryStoreName: string; // 三次店名
+  primaryStoreCode: number; // 一次店CD
+  primaryStoreName: string; // 一次店名
+}
+
+// ダウンロード用の明細1行
+export interface TemplateRow {
+  yearMonth: string; // 対象年月（YYYY/MM）
+  channel: SalesChannel; // 商流（販売店CD〜一次店名）
+  // 商流より右の列の値（一次店名の次〜最終列）
+  values: (string | number)[];
+}
+
+// ダウンロード条件の販売店・三次店・一次店（各コード。''＝未選択）
+export interface StoreFilter {
+  retailer: string;
+  tertiaryStore: string;
+  primaryStore: string;
+}

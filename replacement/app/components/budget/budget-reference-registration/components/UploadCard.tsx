@@ -1,0 +1,114 @@
+import type { ChangeEvent, DragEvent, RefObject } from 'react';
+import { AlertCircle, Upload } from 'lucide-react';
+import { Alert, AlertDescription } from '../../../ui/alert';
+import { SingleCombobox } from '../../../ui/single-combobox';
+import { UPLOAD_TARGET_OPTIONS } from '../budgetReferenceData';
+import { CARD_ICON_CLASS, WHITE_CARD_CLASS } from '../budgetReferenceStyles';
+import { CardHeader } from './CardHeader';
+import { FilePicker } from './FilePicker';
+import { FormField } from './FormField';
+
+interface UploadCardProps {
+  uploadTarget: string;
+  onUploadTargetChange: (value: string) => void;
+  selectedFile: File | null;
+  isDragging: boolean;
+  validationError: string | null;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  canUpload: boolean;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
+  onFileInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onOpenFileDialog: () => void;
+  onRemoveFile: () => void;
+  // アップロードボタン押下（置換確認ダイアログを開く）
+  onUploadClick: () => void;
+}
+
+// 左：予算データアップロードカード
+export function UploadCard({
+  uploadTarget,
+  onUploadTargetChange,
+  selectedFile,
+  isDragging,
+  validationError,
+  fileInputRef,
+  canUpload,
+  onDrop,
+  onDragOver,
+  onDragLeave,
+  onFileInputChange,
+  onOpenFileDialog,
+  onRemoveFile,
+  onUploadClick,
+}: UploadCardProps) {
+  return (
+    <section className={`${WHITE_CARD_CLASS} shrink-0`}>
+      <CardHeader
+        icon={<Upload className={CARD_ICON_CLASS} aria-hidden="true" />}
+        title="予算データアップロード"
+      />
+      <div className="p-3 space-y-2.5">
+        {/* アップロード対象 */}
+        <FormField
+          label="アップロード対象"
+          required
+          htmlFor="budget-upload-target"
+        >
+          <SingleCombobox
+            id="budget-upload-target"
+            className="w-full"
+            options={UPLOAD_TARGET_OPTIONS}
+            value={uploadTarget}
+            onChange={onUploadTargetChange}
+            placeholder="選択してください"
+            searchable={false}
+          />
+        </FormField>
+
+        {/* ファイル選択 */}
+        <FormField label="ファイル" required labelId="budget-upload-file-label">
+          <FilePicker
+            labelId="budget-upload-file-label"
+            selectedFile={selectedFile}
+            isDragging={isDragging}
+            fileInputRef={fileInputRef}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onFileInputChange={onFileInputChange}
+            onOpenFileDialog={onOpenFileDialog}
+            onRemoveFile={onRemoveFile}
+          />
+        </FormField>
+
+        {/* バリデーションエラー */}
+        {validationError && (
+          <Alert variant="destructive" className="py-2">
+            <AlertCircle className="h-4 w-4" aria-hidden="true" />
+            <AlertDescription className="text-xs">
+              {validationError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* アップロードボタン */}
+        <div className="pt-1 flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={onUploadClick}
+            disabled={!canUpload}
+            className="btn-action-base btn-action-blue"
+          >
+            <Upload className="h-4 w-4" aria-hidden="true" />
+            アップロード
+          </button>
+          <p className="text-xs text-gray-500">
+            処理状況は右側の履歴で確認してください
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,439 @@
+/* AG Grid のスタイル（共通 → 画面専用の順）。
+   テーマ（高さ・フォント・色）は grid/gridCommon.ts の GRID_THEME（Theming API）で持ち、
+   ここにはテーマで表せない指定だけを置く。読み込みは index.css。
+   色は gridStyles.ts（GRID_COLORS）が正。ここでは hex を書かず、applyGridColorVariables が登録する
+   CSS 変数（--grid-changed-bg 等。キーのケバブケース）で参照する。 */
+
+/* ============================================
+   AG Grid 共通スタイル
+   ============================================ */
+
+/* AG Grid ベースのフォント（font-family / font-size）は gridTheme.ts の
+   fontFamily / fontSize へ移管（公式 Theming API）。 */
+
+/* AG Grid ヘッダー・セルの行高（line-height はテーマparamに無いためCSSで維持） */
+.ag-header-cell-text,
+.ag-header-cell,
+.ag-header-group-cell,
+.ag-header-group-text,
+.ag-cell {
+  line-height: 2rem;
+}
+
+/* AG Grid セルエディタのフォントサイズ */
+.ag-select,
+.ag-input-field-input,
+.ag-text-field-input,
+.ag-picker-field-wrapper,
+.ag-select-list,
+.ag-list-item,
+.ag-select-list-item,
+.ag-cell-inline-editing,
+.ag-picker-field-display {
+  font-size: 0.875rem;
+}
+
+.ag-select-list-item {
+  padding: 0.25rem 0.5rem;
+}
+
+/* AG Grid 行ホバー効果。ホバー色は gridTheme.ts の rowHoverColor へ移管（公式 Theming API）。
+   ここではテーマparamに無いトランジション（フェード）のみ補う。 */
+.ag-row:not(.ag-full-width-row):not(.ag-row-pinned) {
+  transition: background-color 150ms ease-in-out;
+}
+
+/* セルが cellStyle のインライン背景色を持つ場合、行ホバー色がセル背景に隠れて
+   一部の列しか色が変わらない。ホバー時は対象行の全セルを薄い青で上書きする（全グリッド共通）。
+   特定セル色を維持したいグリッドは、より詳細なセレクタ（クラス＋属性）で個別に上書きする。
+   色は --grid-row-hover（GRID_COLORS.rowHover。GRID_THEME の rowHoverColor と同じ色）。 */
+.ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell {
+  background-color: var(--grid-row-hover) !important;
+}
+
+/* ============================================
+   AG Grid チェックボックス中央配置
+   ============================================ */
+
+/* データ行のチェックボックス列セル */
+.ag-cell.ag-selection-checkbox-cell,
+.ag-cell[col-id='ag-Grid-AutoColumn'],
+.ag-cell[aria-colindex='1'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* ヘッダー行のチェックボックス列セル */
+.ag-header-cell.ag-selection-checkbox-header,
+.ag-header-cell[col-id='ag-Grid-AutoColumn'],
+.ag-header-cell[aria-colindex='1'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* チェックボックスラッパー */
+.ag-selection-checkbox,
+.ag-header-select-all,
+.ag-checkbox,
+.ag-checkbox-input-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.ag-selection-checkbox,
+.ag-header-select-all {
+  width: 100%;
+  height: 100%;
+}
+
+/* ヘッダーセル内のコンテンツラッパー */
+.ag-header-cell[col-id='ag-Grid-AutoColumn'] .ag-header-cell-comp-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* チェックボックスセルの全ての子要素を中央配置 */
+.ag-cell[aria-colindex='1'] > *,
+.ag-header-cell[aria-colindex='1'] > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* チェックボックス input要素 */
+.ag-checkbox-input {
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* 先頭列（aria-colindex=1）は上のチェックボックス中央寄せ規則で
+   display:flex; justify-content:center; padding:0 が強制される。
+   先頭が実データ列（メタブランド・対象年月など、明示的に左寄せクラスを持つ）の
+   場合だけ左寄せに戻す。チェックボックス列・アクション列はこのクラスを持たないため影響しない。
+   ※flex セルのため text-align ではなく justify-content で制御する。 */
+.ag-cell[aria-colindex='1'].ag-cell-left,
+.ag-cell[aria-colindex='1'].ag-cell-left-pinned {
+  justify-content: flex-start;
+  text-align: left;
+  /* padding:0 を解除し、他セルと同じ左右余白を復元（テーマ値・フォールバック 0.5rem） */
+  padding-inline: var(--ag-cell-horizontal-padding, 0.5rem);
+}
+
+/* ============================================
+   AG Grid セルの寄せ（cellClass で使用）
+   ※ display:flex は AG Grid 標準のセル値省略表示(text-overflow:ellipsis)を
+     無効化し、列幅を締めた際に値がはみ出して重なる。よって flex は使わず、
+     横寄せは text-align で行う（縦中央寄せはAG Grid標準の line-height に任せる）。
+   ・プレーンテキスト列：本クラスのみで省略表示・縦中央寄せが効く。
+   ・カスタムレンダラー列：レンダラーのルート要素に `h-full` と
+     `flex items-center`（必要なら `truncate`）を付けて自前で縦中央寄せ・省略する。
+   詳細度確保のため .ag-cell と複合指定する。余白は rem(0.5rem=8px)。
+   ============================================ */
+.ag-cell.cell-left {
+  text-align: left;
+  padding-left: 0.5rem;
+}
+.ag-cell.cell-right {
+  text-align: right;
+  padding-right: 0.5rem;
+}
+.ag-cell.cell-center {
+  text-align: center;
+}
+/* 結合セル（rowSpan）の左寄せラベル列を「行の高さ中央」に配置する。
+   通常セルは line-height で縦中央になるが、rowSpan で背が高くなった結合セルは
+   内容が上寄せになるため、当該列だけ flex で縦中央寄せする（1列目は上の
+   チェックボックス規則で既に flex 中央のため対象外。2列目以降の pinned ラベル列で使用）。
+   例：年間計画作成の容器容量G・サマリ商品名（メタブランド列と表示を統一）。
+   flex による省略表示の無効化を避けるため、値要素側で ellipsis を復元する。 */
+.ag-cell.cell-left-vmiddle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  padding-left: 0.5rem;
+}
+.ag-cell.cell-left-vmiddle .ag-cell-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ギフト等でセル結合（rowSpan）した背の高いセル（cellClassRules で付与される
+   .gift-merged-bottom）は内容が上寄せになるため、行の高さ中央に配置する。
+   flex を「縦方向（column）」にすることで、主軸＝縦の justify-content:center で
+   縦中央寄せしつつ、交差軸＝横は既定の align-items:stretch で子が全幅になり、
+   各セルの text-align（文字・カレンダー＝左／数値＝右）がそのまま効く（横寄せを壊さない）。
+   計画詳細（マージン率固定・NET固定）／販売計画シミュレーション（同）の
+   明細グリッド `.sales-detail-grid` に適用。 */
+.sales-detail-grid .ag-cell.gift-merged-bottom {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* 交差軸（横）は全幅にして各セルの text-align を活かす。
+     1列目（aria-colindex=1）はチェックボックス規則で align-items:center が入り
+     横中央寄せになってしまうため、明示的に stretch で上書きする（メタブランド／
+     対象年月など先頭列も text-align どおり左寄せにする）。 */
+  align-items: stretch;
+}
+
+/* 計算式（派生）セルのホバー中、その算出元セルの枠線を濃い青で強調する。
+   useFormulaSourceHighlight フックが付与する .formula-ref-highlight に対応。
+   色は --grid-source-highlight-border（GRID_COLORS.sourceHighlightBorder）。
+   背景色は変えない（編集可セルの黄・変更済セルの橙枠・コピー元カラーバーを潰さないため）。
+   セル独自の inline box-shadow（既存函数値枠 等）より優先させるため !important。 */
+.ag-cell.formula-ref-highlight {
+  box-shadow: inset 0 0 0 0.125rem var(--grid-source-highlight-border) !important;
+}
+
+/* 編集で値が変わったセルの共通ハイライト（→ 02 §7.2）。
+   GRID_DEFAULT_COL_DEF の cellClassRules('ag-cell-changed') が付与し、
+   変更判定は各グリッドの context.isCellChanged（useChangedCells）。
+   編集可セルのみ変更セットに入るため、readonly セルには付かない。
+   色は --grid-changed-bg／--grid-changed-border（GRID_COLORS.changedBg／changedBorder）。
+   セル独自の inline 背景（編集可＝白 等）に勝たせるため !important。 */
+.ag-cell.ag-cell-changed {
+  background-color: var(--grid-changed-bg) !important;
+  box-shadow: inset 0 0 0 0.0625rem var(--grid-changed-border);
+}
+
+/* 計算式ツールチップは「式」と「実値」の2行構成のため、改行を保持する。 */
+.ag-tooltip {
+  white-space: pre-line;
+}
+
+/* マスタメンテ画面（shared/master）：過去・将来の世代や無効化済みの行はグレーの文字で表示する。
+   AG Grid のセルは色を自身で持つため、行クラスからセルへ色を渡す。 */
+.ag-row.master-row-muted .ag-cell {
+  color: var(--color-gray-500);
+}
+
+/* ============================================
+   AG Grid 数値・テキストフィルタの入力欄の×（クリア）
+   grid/gridCommon.ts の attachFilterInputClearButtons が入力欄の右端に置く。
+   年月フィルタ（MonthYearPicker の×）と同じ見た目・操作にそろえる。
+   値が空（プレースホルダ表示中）のときは隠す。
+   ============================================ */
+.ag-filter-filter .ag-input-wrapper {
+  position: relative;
+}
+.ag-filter-filter .ag-input-field-input:not(:placeholder-shown) {
+  padding-right: 1.5rem;
+}
+.grid-filter-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.375rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.875rem;
+  height: 0.875rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-gray-500);
+  cursor: pointer;
+}
+.grid-filter-input-clear:hover {
+  color: var(--color-gray-700);
+}
+.grid-filter-input-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--color-blue-500);
+  border-radius: 0.25rem;
+}
+.grid-filter-input-clear svg {
+  width: 100%;
+  height: 100%;
+}
+.ag-filter-filter
+  .ag-input-field-input:placeholder-shown
+  ~ .grid-filter-input-clear {
+  display: none;
+}
+
+/* 値が無いセルの「-」（グレー・半角。画面設計標準 3.11・4.2 ⑥）。
+   GRID_DEFAULT_COL_DEF の cellClassRules('cell-empty') が付与する。 */
+.ag-cell.cell-empty {
+  color: var(--color-gray-400);
+}
+
+/* ============================================
+   ヘッダー中央配置ユーティリティ
+   ============================================ */
+.grid-header-center .ag-header-cell-label {
+  justify-content: center;
+  width: 100%;
+}
+
+/* ============================================
+   画面専用（特定の画面だけで使うグリッドの指定）
+   ============================================ */
+
+/* ============================================
+   販売計画一覧グリッド専用スタイル
+   ============================================ */
+
+/* データ行のチェックボックス - 中央配置 */
+.sales-plan-list-grid .ag-cell[aria-colindex='1'],
+.sales-plan-list-grid .ag-cell.ag-selection-checkbox-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 3.75rem;
+}
+
+/* ヘッダーチェックボックス - 左寄せ配置 */
+.sales-plan-list-grid .ag-header-cell[aria-colindex='1'],
+.sales-plan-list-grid .ag-header-cell.ag-selection-checkbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 0 0 1.25rem;
+}
+
+/* ヘッダーのチェックボックス内部要素 - 左寄せ */
+.sales-plan-list-grid .ag-header-cell[aria-colindex='1'] .ag-selection-checkbox,
+.sales-plan-list-grid .ag-header-cell[aria-colindex='1'] .ag-checkbox,
+.sales-plan-list-grid
+  .ag-header-cell[aria-colindex='1']
+  .ag-checkbox-input-wrapper,
+.sales-plan-list-grid
+  .ag-header-cell.ag-selection-checkbox-header
+  .ag-selection-checkbox,
+.sales-plan-list-grid .ag-header-cell.ag-selection-checkbox-header .ag-checkbox,
+.sales-plan-list-grid
+  .ag-header-cell.ag-selection-checkbox-header
+  .ag-checkbox-input-wrapper {
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+}
+
+/* データ行のチェックボックス内部要素 - 中央配置 */
+.sales-plan-list-grid .ag-cell[aria-colindex='1'] .ag-selection-checkbox,
+.sales-plan-list-grid .ag-cell[aria-colindex='1'] .ag-checkbox,
+.sales-plan-list-grid .ag-cell[aria-colindex='1'] .ag-checkbox-input-wrapper,
+.sales-plan-list-grid
+  .ag-cell.ag-selection-checkbox-cell
+  .ag-selection-checkbox,
+.sales-plan-list-grid .ag-cell.ag-selection-checkbox-cell .ag-checkbox,
+.sales-plan-list-grid
+  .ag-cell.ag-selection-checkbox-cell
+  .ag-checkbox-input-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+}
+
+/* チェックボックス input要素 */
+.sales-plan-list-grid .ag-checkbox-input {
+  margin: 0;
+  vertical-align: middle;
+  position: static;
+}
+
+/* チェックボックスの活性・非活性を配色で区別する。
+   AG Grid 既定の非活性表現は `filter: grayscale(); opacity: .5` の半透明のみで
+   活性との差が視認しにくいため、非活性はセル全体を灰色で塗りつぶし、
+   チェックボックス自体は枠線・内側とも薄い色にして「選べない」ことを示す。 */
+
+/* 活性・未チェック：枠線を濃いグレーにしてコントラストを確保する。
+   チェック済み・不確定（ヘッダーの一部選択）はテーマ既定の青を活かすため除外する。 */
+.sales-plan-list-grid
+  .ag-checkbox-input-wrapper:not(.ag-checked):not(.ag-indeterminate):not(
+    .ag-disabled
+  ) {
+  border-color: #6b7280;
+}
+
+/* 非活性（承認待ち以外の行）はチェックボックス列のセル全体を灰色で塗りつぶす。
+   クラスは selectionColumnDef の cellClass（AG Grid 公式）で付与している。
+   !important はセル独自の背景（cellStyle）に勝たせるため（本ファイルの
+   .ag-cell.ag-cell-changed 等と同じ方針）。
+   ただし行ホバーの一律上書き（.ag-row-hover:not(…):not(…) .ag-cell）は
+   詳細度が高く同じく !important のため、ホバー中は全グリッド共通の薄い青が
+   優先される（＝全グリッド共通のホバー仕様どおり。意図した挙動）。 */
+.sales-plan-list-grid .ag-cell.cell-selection-disabled {
+  background-color: #f7f7f7 !important;
+}
+/* 非活性のチェックボックスは枠線・内側とも薄くする。
+   内側はセルの灰色を透かすため塗らない（transparent）。
+   AG Grid 既定の filter／opacity を解除しないと半透明のままになる。 */
+.sales-plan-list-grid .ag-checkbox-input-wrapper.ag-disabled {
+  background-color: transparent;
+  border-color: #d1d5db;
+  filter: none;
+  opacity: 1;
+}
+
+/* 非活性のカーソル形状もボタンの非活性（cursor-not-allowed）に揃える */
+.sales-plan-list-grid
+  .ag-checkbox-input-wrapper.ag-disabled
+  .ag-checkbox-input {
+  cursor: not-allowed;
+}
+
+/* ============================================
+   AG Grid グリッド統一スタイル
+   ============================================ */
+.grid-unified.ag-theme-quartz {
+  --grid-border-color: #cfcfcf;
+  --grid-border-width: 0.125rem;
+}
+
+/* 外枠 */
+.grid-unified.ag-theme-quartz .ag-root-wrapper {
+  border: var(--grid-border-width) solid var(--grid-border-color);
+}
+
+/* 行区切り（横線） */
+.grid-unified.ag-theme-quartz .ag-row {
+  border-bottom: var(--grid-border-width) solid var(--grid-border-color);
+}
+
+.grid-unified.ag-theme-quartz .ag-row-last {
+  border-bottom: none;
+}
+
+/* ============================================
+   Top画面ToDo一覧グリッド専用スタイル
+   ============================================ */
+
+/* 販売計画表のヘッダー色 */
+.grid-sales-plan.ag-theme-quartz .ag-header-cell {
+  background-color: #1e90ff;
+  color: white;
+}
+
+/* 支払表のヘッダー色 */
+.grid-payment.ag-theme-quartz .ag-header-cell {
+  background-color: #32cd32;
+  color: white;
+}
+
+/* コンパクト表示 */
+.grid-sales-plan.ag-theme-quartz .ag-cell,
+.grid-payment.ag-theme-quartz .ag-cell,
+.grid-sales-plan.ag-theme-quartz .ag-header-cell,
+.grid-payment.ag-theme-quartz .ag-header-cell {
+  font-size: 0.875rem;
+  line-height: 2rem;
+  padding: 0 0.25rem;
+}

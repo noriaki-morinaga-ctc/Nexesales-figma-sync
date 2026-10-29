@@ -1,0 +1,444 @@
+/* 画面共通のスタイル：色トークン（ライト・ダーク）、Tailwind のテーマ定義、ベーススタイル、
+   共通部品・画面横断のクラス（ボタン・カード見出し・画面ロック・お知らせエディタ等）。
+   AG Grid に関するものは grid.css（セル配色の TS は gridStyles.ts）、className の定数は commonStyles.ts。
+   読み込みは index.css。 */
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   ルート設定
+   ============================================ */
+:root {
+  /* shadcn/uiテーマ変数 */
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #4979f5;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: oklch(0.922 0 0);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #4979f5;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.390625rem;
+  --sidebar: #334a78;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #4979f5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: #4979f5;
+}
+
+/* ============================================
+   ダークモードテーマ
+   ============================================ */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+/* ============================================
+   Tailwind テーマインライン定義
+   ============================================ */
+@theme inline {
+  /* カラー設定 */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* 角丸（shadcn/ui の rounded-sm/md/lg/xl が参照。--radius を基準に算出） */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* サイドバー設定 */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ============================================
+   ベーススタイル
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'メイリオ', 'Meiryo', sans-serif;
+    font-size: 0.875rem; /* 14px - デフォルトのボディフォントサイズ */
+  }
+}
+
+/* ============================================
+   HTMLとBodyの基本設定
+   ============================================ */
+html {
+  overflow: hidden;
+}
+
+body {
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ============================================
+   shadcn/ui コンポーネントのフォントサイズ統一
+   ============================================ */
+
+/* Select コンポーネント */
+[data-slot='select-trigger'],
+[data-slot='select-trigger'] *,
+[data-slot='select-value'],
+[data-slot='select-content'],
+[data-slot='select-item'],
+[data-slot='select-viewport'] {
+  font-size: 0.875rem;
+}
+
+/* Input コンポーネント */
+[data-slot='input'] {
+  font-size: 0.875rem;
+}
+
+/* ============================================
+   数値入力のスピナー非表示
+   ============================================ */
+input[type='number'].no-spinner::-webkit-inner-spin-button,
+input[type='number'].no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'].no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* ============================================
+   共通アクションボタン（ネイティブ button 用）
+   ガイドライン 02_component-rules.md「6. ネイティブ button」準拠。
+   使い方: className="btn-action-base btn-action-green" 等
+   ============================================ */
+
+/* 主要アクションボタン基底（フッター等）。shadcn Button(h-9)と同じ高さ */
+.btn-action-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  /* 計画系画面のフッターボタン（shadcn Button: h-9 + px-3 相当）と同じ大きさに揃える。
+     上下 padding は付けない（border-box でも padding が高さを押し上げ、
+     指定した height: 2.25rem を超えてしまうため）。 */
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 0.125rem solid transparent;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+.btn-action-base:focus {
+  outline: none;
+}
+.btn-action-outline {
+  background-color: var(--color-white);
+  color: var(--color-gray-700);
+  border-color: var(--color-gray-300);
+}
+.btn-action-outline:hover {
+  background-color: var(--color-gray-50);
+}
+.btn-action-outline:focus {
+  box-shadow: 0 0 0 0.125rem var(--color-blue-500);
+}
+.btn-action-red {
+  background-color: var(--color-red-500);
+  border-color: var(--color-red-500);
+  color: var(--color-white);
+}
+.btn-action-red:hover {
+  background-color: var(--color-red-600);
+}
+.btn-action-red:focus {
+  box-shadow: 0 0 0 0.125rem var(--color-red-500);
+}
+.btn-action-green {
+  background-color: var(--color-green-500);
+  border-color: var(--color-green-500);
+  color: var(--color-white);
+}
+.btn-action-green:hover {
+  background-color: var(--color-green-600);
+}
+.btn-action-green:focus {
+  box-shadow: 0 0 0 0.125rem var(--color-green-500);
+}
+.btn-action-blue {
+  background-color: var(--color-blue-500);
+  border-color: var(--color-blue-500);
+  color: var(--color-white);
+}
+.btn-action-blue:hover {
+  background-color: var(--color-blue-600);
+}
+.btn-action-blue:focus {
+  box-shadow: 0 0 0 0.125rem var(--color-blue-500);
+}
+/* 承認ワークフローの引戻し（申請者が自分の申請を取り下げる）＝白地・青枠（画面設計標準 3.8 No.4）。
+   データを消す操作ではないため赤にしない。アイコンは CornerUpLeft */
+.btn-action-outline-blue {
+  background-color: var(--color-white);
+  color: var(--color-blue-600);
+  border-color: var(--color-blue-600);
+}
+.btn-action-outline-blue:hover {
+  background-color: var(--color-blue-50);
+}
+.btn-action-outline-blue:focus {
+  box-shadow: 0 0 0 0.125rem var(--color-blue-500);
+}
+/* 非活性（画面設計標準 スライド18／commonStyles の BUTTON_STYLES.disabled と同配色）。
+   配色クラス（-green 等）より後ろ・高い詳細度で定義し、塗り色とホバーを打ち消す。
+   disabled でも :hover は一致するため、:disabled:hover も併せて指定する。 */
+.btn-action-base:disabled,
+.btn-action-base:disabled:hover {
+  background-color: var(--color-gray-300);
+  border-color: var(--color-gray-400);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+}
+/* 削除（赤）・取消し系（アウトライン）の非活性は、グレーではなく薄い色にする（画面設計標準 3.8 1/2）。
+   上の共通の非活性より後ろ・同じ詳細度＋配色クラスで上書きする。 */
+.btn-action-base.btn-action-red:disabled,
+.btn-action-base.btn-action-red:disabled:hover {
+  background-color: var(--color-red-200);
+  border-color: var(--color-red-200);
+  color: var(--color-white);
+}
+.btn-action-base.btn-action-outline:disabled,
+.btn-action-base.btn-action-outline:disabled:hover {
+  background-color: var(--color-white);
+  border-color: var(--color-gray-200);
+  color: var(--color-gray-400);
+}
+
+/* ツールバーのアウトライン補助ボタン（青枠・小） */
+.btn-toolbar-outline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--color-white);
+  color: var(--color-blue-600);
+  padding: 0.25rem 0.75rem;
+  border: 0.125rem solid var(--color-blue-600);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.btn-toolbar-outline:hover {
+  background-color: var(--color-blue-50);
+}
+.btn-toolbar-outline:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--color-blue-500);
+}
+/* 非活性（btn-action-base:disabled／commonStyles の BUTTON_STYLES.disabled と同配色）。
+   disabled でも :hover は一致するため、:disabled:hover も併せて指定する。 */
+.btn-toolbar-outline:disabled,
+.btn-toolbar-outline:disabled:hover {
+  background-color: var(--color-gray-300);
+  border-color: var(--color-gray-400);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+}
+
+/* カードヘッダーの区切り線（共通）。
+   開閉カードのタイトル下線。amber-400→透明の横グラデーションで、
+   従来のベタ塗り2px線より軽やかで洗練された見た目にする。
+   旧 .border-b-2.border-b-amber-400 の置き換え（commonStyles 相当の共通スタイル）。 */
+.card-header-accent {
+  border-bottom: 0.125rem solid transparent;
+  border-image: linear-gradient(to right, #fbbf24, rgba(251, 191, 36, 0)) 1;
+}
+
+/* 画面ロック（検印済み／明細種類：振替）時：操作要素をグレーアウトして非活性を明示する。
+   機能的な操作不可は pointer-events で別途制御。ここは見た目（色）のみ担う。
+   data-keep-active を付けた要素（状態切替ボタン・モード別の例外要素）とその配下は活性色のまま。 */
+.screen-locked button,
+.screen-locked input,
+.screen-locked select,
+.screen-locked textarea,
+.screen-locked [role='tab'] {
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+.screen-locked [data-keep-active],
+.screen-locked [data-keep-active] button,
+.screen-locked [data-keep-active] input,
+.screen-locked [data-keep-active] select,
+.screen-locked [data-keep-active] textarea {
+  opacity: 1;
+  filter: none;
+}
+
+/* お知らせメンテ（master/notice-admin）のリッチ本文エディタ（contenteditable）。
+   execCommand が生成するタグ（strong/em/u/s/a/ul/ol/blockquote/img）の見た目を定義する。
+   プレビュー側（noticeBody.tsx の renderNoticeBody）と表示を揃えること。 */
+.notice-editor strong,
+.notice-editor b {
+  font-weight: 700;
+}
+.notice-editor em,
+.notice-editor i {
+  font-style: italic;
+}
+.notice-editor u {
+  text-decoration: underline;
+}
+.notice-editor s,
+.notice-editor strike,
+.notice-editor del {
+  text-decoration: line-through;
+}
+.notice-editor a {
+  color: var(--color-blue-600);
+  text-decoration: underline;
+}
+.notice-editor ul {
+  list-style: disc;
+  padding-left: 1.4rem;
+  margin: 0.2rem 0;
+}
+.notice-editor ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.2rem 0;
+}
+.notice-editor li {
+  margin: 0.1rem 0;
+}
+.notice-editor blockquote {
+  border-left: 0.25rem solid var(--color-gray-300);
+  padding-left: 0.6rem;
+  color: var(--color-gray-600);
+  font-style: italic;
+  margin: 0.3rem 0;
+}
+.notice-editor img {
+  display: inline-block;
+  vertical-align: bottom;
+  max-width: 100%;
+  max-height: 12.5rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 0.25rem;
+  margin: 0.15rem;
+}
+/* 画像の2段階削除（1回目の Backspace/Delete で選択）時のハイライト */
+.notice-editor img.img-selected {
+  outline: 0.1875rem solid var(--color-blue-500);
+  outline-offset: 0.0625rem;
+}
+.notice-editor:focus {
+  outline: none;
+}
+.notice-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--color-gray-500);
+}

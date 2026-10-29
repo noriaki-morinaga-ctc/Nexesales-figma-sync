@@ -1,0 +1,2501 @@
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import {
+  GRID_DEFAULT_COL_DEF,
+  GRID_STATUS_BAR,
+  GRID_BASE_PROPS,
+  gridFilterContextMenuItems,
+  GRID_COLORS,
+  changedCellStyle,
+  formatEmptyAsDash,
+  useFormulaSourceHighlight,
+  useGridColumnState,
+  copySourceLeftBorder,
+  CopySourceLegend,
+  type FormulaDefs,
+  withHeaderTooltips,
+  GRID_NUMBER_TEXT_FILTER,
+  GRID_MONTH_TEXT_FILTER,
+} from '../../../grid';
+import { GRID_EMPTY_TEXT, parseFormulaNumber } from '../../../grid/gridCommon';
+import { planDetailTotalRatesOf } from '../../../../utils/planDetailTotalRates';
+import { NO_DELIVERY_PRICE_NOTE } from '../../../../constants/aggregationTree';
+import { planDetailCodeColumns } from '../../../shared/planDetailCodeColumns';
+import { PlanRateLinks } from '../../../shared/PlanRateLinks';
+import {
+  ColDef,
+  FilterChangedEvent,
+  GridApi,
+  ICellRendererParams,
+  RowClassParams,
+} from 'ag-grid-community';
+import { Input } from '../../../ui/input';
+import { MonthYearCellEditor } from '../../../ui/month-year-cell-editor';
+import {
+  SingleComboboxCellEditor,
+  toComboOptions,
+} from '../../../ui/single-combobox-cell-editor';
+import { Trash2, Copy } from 'lucide-react';
+import { hasPriorYearActual } from '../../../../constants/nonProductExpenseTypes';
+import { toast } from 'sonner';
+import { PlanCopyPane } from '../../../shared/PlanCopyPane';
+import type { SalesPlanCopyResult } from '../../../shared/PlanCopyPane';
+import { ConfirmDialog } from '../../../ui/confirm-dialog';
+import {
+  type ProductData,
+  SAMPLE_STORES,
+  REGULAR_PRODUCTS_DATA,
+  NEW_PRODUCTS_DATA,
+  PROMOTION_PRODUCTS_DATA,
+  GIFT_PRODUCTS_DATA,
+  withWholesaleRowDummies,
+} from '../../../../constants/salesPlanWholesaleMockData';
+import {
+  firstStoreCode,
+  thirdStoreCode,
+} from '../../../../constants/storeTierMockData';
+import {
+  getPromotionLabels,
+  CATEGORY_LABELS_NET,
+  CATEGORY_LABELS_NET_ADDABLE,
+} from '../../../../constants/promotionCategories';
+import {
+  SUMMARY_PRODUCT_BY_VALUE,
+  SUMMARY_PRODUCT_VALUES,
+  WHOLESALE_MESH_BY_VALUE,
+  WHOLESALE_MESH_VALUES,
+  SUMMARY_PRODUCT_BY_WHOLESALE_MESH,
+  SUMMARY_PRODUCT_OPTIONS,
+  WHOLESALE_MESH_OPTIONS,
+} from '../../../../constants/productMasters';
+import {
+  promotionComboOptions,
+  summaryProductComboOptions,
+} from '../../../../constants/comboFieldOptions';
+import {
+  makeExternalUnitPriceOf,
+  makeCostUnitPriceOf,
+  markupAmountOf,
+  unitTimesQuantityTimesPlan,
+  makeDetailValueOf,
+  makeDetailTooltip,
+} from '../../../../utils/formulaCellHelpers';
+import {
+  PLAN_DETAIL_DIGITS,
+  formatPlanRate,
+  planAmountFormatter,
+  planCountFormatter,
+  planRateFormatter,
+  planNumberParser,
+} from '../../../../utils/planDetailNumberFormat';
+import { currentMonthEstimate } from '../../../../utils/currentMonthEstimate';
+import { buildCategoryChangeRows } from '../../../../utils/productCategoryChange';
+import { toAxisMetaBrand } from '../../../../constants/aggregationAxisMapping';
+import { volumeAddRateOf } from '../../../../constants/aggregationMasterDummy';
+import {
+  CARD_TITLE_CLASS,
+  FORM_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+} from '../../../../../styles/commonStyles';
+
+// 計画詳細・シミュレーション共通のダミー補完（salesPlanWholesaleMockData）。
+const withRowId = withWholesaleRowDummies;
+
+// 商品区分の変更で表示中のタブに残す行の識別キー（id優先。区分が変わっても変わらない値で作る）。
+const heldRowKeyOf = (row: ProductData): string =>
+  row.id ??
+  `${row.metaBrand}-${row.summaryProduct}-${row.giftSetId ?? ''}-${row.period ?? ''}`;
+
+// 行の照合（id優先。無ければ従来の商品名+メタブランド）。
+const matchesRow = (item: any, updatedData: any): boolean =>
+  updatedData.id != null
+    ? item.id === updatedData.id
+    : item.summaryProduct === updatedData.summaryProduct &&
+      item.metaBrand === updatedData.metaBrand;
+
+// ── ギフト（上旬・中旬・下旬の3行1セット）ユーティリティ ──
+// 販売期間の並び（上旬→中旬→下旬）。
+const GIFT_PERIOD_ORDER = ['上旬', '中旬', '下旬'];
+// 新しいセット識別キーを採番。
+const newGiftSetId = (): string =>
+  `giftset-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+// 販売期間の並び順インデックス。
+const giftPeriodIndex = (period?: string): number => {
+  const i = GIFT_PERIOD_ORDER.indexOf(period ?? '');
+  return i < 0 ? GIFT_PERIOD_ORDER.length : i;
+};
+// セル結合用 rowSpan：セット先頭行のみセット行数を返し、他は1（先頭セルが覆う）。
+const giftRowSpan = (params: any): number =>
+  params.data?._giftFirst ? (params.data?._giftSpan ?? 1) : 1;
+
+// EDI反映の表示値（行ベース）。定番商品・新商品はEDI連携が無いため空欄。
+// セルの valueGetter と合計行の集計で同じ判定を使えるようモジュールスコープに置く。
+const ediValueOf = (row: any): string => {
+  if (!row || row._isHeader) return '';
+  const category = row.productCategory;
+  if (category === '定番商品' || category === '新商品') return '';
+  return row.ediPrice ?? '';
+};
+
+// 全項目が空の明細行テンプレート（明細追加・ギフトセット生成で共通利用）。
+const makeEmptyProduct = (section: string): ProductData => ({
+  section,
+  productCategory: section,
+  metaBrand: '',
+  summaryProduct: '',
+  wholesaleMesh: '',
+  endSale: '',
+  promotion: '',
+  quantity: '',
+  plan: '',
+  estimate: '',
+  actual: '',
+  prevYear: '',
+  ratio: '',
+  net: '',
+  planPrice: '',
+  prevYearPrice: '',
+  price: '',
+  margin: '',
+  volumeAddRate: '',
+  externalSales: '',
+  delivery: '',
+  discount: '',
+  profit: '',
+  exp1PlannedAmount: '',
+  exp1PostingMonth: '',
+  exp1ManagementCode: '',
+  exp1AccountItem: '',
+  exp1ManagementClass: '',
+  exp1Description: '',
+  exp2PlannedAmount: '',
+  exp2PostingMonth: '',
+  exp2ManagementCode: '',
+  exp2AccountItem: '',
+  exp2ManagementClass: '',
+  exp2Description: '',
+});
+
+export interface DetailTableHandle {
+  addCopiedRow: (data: ProductData) => void;
+  // 明細追加：フォーム値から新規行を生成し、合計行直下（先頭）へ追加
+  addNewRow: (overrides: Partial<ProductData> & { section: string }) => void;
+  // 明細削除：一意な id で対象行を表から除去
+  deleteRow: (target: ProductData | string) => void;
+  // ギフト以外の明細編集を id 一致で更新（商品区分＝section で対象配列を選択）
+  updateRow: (data: ProductData) => void;
+  // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）
+  addGiftSet: (
+    base: Partial<ProductData>,
+    plans: [string, string, string]
+  ) => void;
+  // ギフト：セットをまるごと複製して新規セット（3行）を追加（コピー由来）
+  addCopiedGiftSet: (
+    base: Partial<ProductData>,
+    plans: [string, string, string]
+  ) => void;
+  // ギフト：セットの共通項目・各期間の計画(箱数)を更新
+  updateGiftSet: (
+    giftSetId: string,
+    base: Partial<ProductData>,
+    plans: [string, string, string]
+  ) => void;
+  // ギフト：セットの現在値を取得（編集ペインの初期表示用）
+  getGiftSet: (
+    giftSetId: string
+  ) => { base: ProductData; plans: [string, string, string] } | null;
+  // 計画保存時：明細コピー・明細追加の帯と編集セルの強調を消し、未保存状態を解除する
+  clearSavedMarks: () => void;
+}
+
+interface DetailTableProps {
+  onOpenFixedMargin?: () => void;
+  onOpenAddDetail?: (section: string) => void;
+  onOpenDeleteDetail?: (data: ProductData) => void;
+  onOpenAnnualContract?: () => void;
+  onOpenCenterFee?: () => void;
+  onOpenWholesaleIncentive?: () => void;
+  // 前月計画コピー右ペイン。他の右ペインと排他表示するため開閉は親が管理する。
+  copyPaneOpen?: boolean;
+  onOpenCopyPane?: () => void;
+  onCloseCopyPane?: () => void;
+  // 各ペインで設定した値。**単位を含んだ表示用文字列**（率は `8.70%`、直接入力の金額は `123,000円`）。
+  // 金額に「%」を付けないため、単位は渡す側で付与する。
+  annualContractAvg?: string;
+  centerFeeAvg?: string;
+  wholesaleIncentiveAvg?: string;
+  // 年間計画／シミュレーションへの画面遷移コールバック
+  onNavigate?: (menuId: string) => void;
+  // グリッドの全明細行が変わったときに親へ通知する（販売計画(集計)の算出元）。
+  // 親側は必ず useCallback で安定化したハンドラを渡すこと（毎レンダリング再生成すると無限ループになる）。
+  onRowsChange?: (rows: ProductData[]) => void;
+}
+
+// 行 → 商品マスタ。定番商品はサマリ商品を持たず一般卸メッシュで商品を特定する（補足4-2）。
+const masterOf = (row: ProductData) =>
+  SUMMARY_PRODUCT_OPTIONS.find((o) => o.value === row.summaryProduct) ??
+  WHOLESALE_MESH_OPTIONS.find((o) => o.value === row.wholesaleMesh);
+
+// 行の社外売単価（補足2-2）／売上原価単価（補足2-3）。
+const externalUnitPriceOf = makeExternalUnitPriceOf(masterOf);
+const costUnitPriceOf = makeCostUnitPriceOf(masterOf);
+
+// ギフト/特殊商品：NET・納価・売価の変更に応じてマージン率・値入率を再計算する。
+// マージン率 = (納価 - NET) / 納価 × 100（納価未入力時は0表示）、値入率 = (売価 - 納価) / 売価 × 100。
+// マージン率・値入率の算出はギフト・特殊商品のときだけ行う（既存仕様を維持）。
+// 社外売上高・売上原価は入数・函数(計画)・マスタに依存するため、商品区分によらず算出する。
+// 初期表示（useState の初期化子）とセル編集後の両方から呼べるよう、
+// コンポーネントの外＝モジュールスコープの純関数として定義する。
+function recalcGiftLikeRates(data: ProductData): ProductData {
+  const netVal = parseFormulaNumber(data.net) || 0;
+  const planPriceVal = parseFormulaNumber(data.planPrice) || 0;
+  const priceVal = parseFormulaNumber(data.price) || 0;
+  const next = { ...data };
+  if (
+    data.productCategory === 'ギフト' ||
+    data.productCategory === '特殊商品'
+  ) {
+    // マージン率：納価未入力時は0表示（補足1-2）
+    next.margin =
+      planPriceVal > 0
+        ? formatPlanRate(
+            ((planPriceVal - netVal) / planPriceVal) * 100,
+            PLAN_DETAIL_DIGITS.marginRate
+          )
+        : '0.00%';
+    if (priceVal > 0) {
+      // 値入率は小数第1位（％）で保持・表示する
+      next.discount = formatPlanRate(
+        ((priceVal - planPriceVal) / priceVal) * 100,
+        PLAN_DETAIL_DIGITS.rate
+      );
+    }
+  }
+  // 値入額 ＝ (売価 − 納価(計画)) × 入数 × 函数(計画)（課題1757）
+  next.markupAmount = markupAmountOf(next);
+  // 社外売上高 ＝ 社外売単価(補足2-2) × 入数 × 函数(計画)
+  next.externalSales = unitTimesQuantityTimesPlan(
+    externalUnitPriceOf(next),
+    next.quantity,
+    next.plan
+  );
+  // 売上原価 ＝ 売上原価単価(補足2-3) × 入数 × 函数(計画)
+  next.delivery = unitTimesQuantityTimesPlan(
+    costUnitPriceOf(next),
+    next.quantity,
+    next.plan
+  );
+  // 量経追加口率は明細表に量経追加口の列が無いため、集計と同じダミーマスタから引く
+  // （補足1-1 No.29：量経追加口 ÷ 社外売上高 × 100%。率そのものをマスタが持つ）。
+  // 量経追加口率は小数第1位（％）で保持・表示する
+  next.volumeAddRate = formatPlanRate(
+    volumeAddRateOf(toAxisMetaBrand(next.metaBrand)) * 100,
+    PLAN_DETAIL_DIGITS.rate
+  );
+  return next;
+}
+
+// 計算式（派生）セル → 計算式テンプレートと算出元フィールド。
+// 計算式セルにホバーすると、計算式ツールチップ（式＋実値の2行）を表示し、
+// 同時に当該行内の算出元セルの枠線を強調する（マウスが離れると消える）。
+// 「補足資料_手売り_販売計画_計算式一覧表」補足1-2・補足2-1・補足2-2・補足2-3 に準拠。
+// refs は当該行内かつ「明細表に表示される列」の算出元のみを対象とする。
+// テンプレートの `{token}` は実値を代入できる算出元、素のテキストは画面外の算出元。
+// NET固定パターンのため NET は入力値、マージン率が算出セル。
+const WHOLESALE_COLUMN_LABELS: Record<string, string> = {
+  plan: '計画',
+  prevYear: '前年実績',
+  planPrice: '納価',
+  net: 'NET',
+  price: '売価',
+  quantity: '入数',
+  __unitPrice: '社外売単価',
+  __costUnitPrice: '売上原価単価',
+};
+
+const wholesaleTooltip = makeDetailTooltip<ProductData>(
+  WHOLESALE_COLUMN_LABELS,
+  makeDetailValueOf(externalUnitPriceOf, costUnitPriceOf)
+);
+
+// セル自身の値を結果として使う（明細表は算出結果を行データに保持している）。
+const fieldResult =
+  (field: keyof ProductData) =>
+  (row: ProductData): string =>
+    String(row[field] ?? '');
+
+const WHOLESALE_FORMULA_DEFS: FormulaDefs<ProductData> = {
+  // 当月着地見込 ＝ 当月実績 ÷ 当月実績反映日数 × 当月日数（日数は明細表に列が無い）
+  estimate: {
+    refs: () => ['actual'],
+    tooltip: wholesaleTooltip(
+      { template: '当月実績 ÷ 当月実績反映日数 × 当月日数', valueLine: false },
+      (row) =>
+        String(
+          currentMonthEstimate(
+            parseFormulaNumber(row.actual) || 0,
+            row.summaryProduct || row.wholesaleMesh
+          )
+        )
+    ),
+  },
+  // 計画/前年実績比 ＝ 計画 ÷ 前年実績 × 100%
+  ratio: {
+    refs: () => ['plan', 'prevYear'],
+    tooltip: wholesaleTooltip(
+      { template: '{plan} ÷ {prevYear} × 100%' },
+      fieldResult('ratio')
+    ),
+  },
+  // マージン率 ＝ (納価 − NET) ÷ 納価 × 100%（補足1-2：納価未入力時は 0 表示）
+  margin: {
+    refs: () => ['planPrice', 'net'],
+    tooltip: wholesaleTooltip(
+      { template: '({planPrice} − {net}) ÷ {planPrice} × 100%' },
+      fieldResult('margin')
+    ),
+  },
+  // 値入率 ＝ (売価 − 納価) ÷ 売価 × 100%
+  discount: {
+    refs: () => ['price', 'planPrice'],
+    tooltip: wholesaleTooltip(
+      { template: '({price} − {planPrice}) ÷ {price} × 100%' },
+      fieldResult('discount')
+    ),
+  },
+  // 値入額 ＝ (売価 − 納価) × 入数 × 函数(計画)（課題1757）
+  markupAmount: {
+    refs: () => ['price', 'planPrice', 'quantity', 'plan'],
+    tooltip: wholesaleTooltip(
+      { template: '({price} − {planPrice}) × {quantity} × {plan}' },
+      fieldResult('markupAmount')
+    ),
+  },
+  // 量経追加口率 ＝ 量経追加口 ÷ 社外売上高 × 100%（量経追加口は明細表に列が無い）
+  volumeAddRate: {
+    refs: () => ['externalSales'],
+    tooltip: wholesaleTooltip(
+      { template: '量経追加口 ÷ 社外売上高 × 100%', valueLine: false },
+      fieldResult('volumeAddRate')
+    ),
+  },
+  // 社外売上高 ＝ 社外売単価(補足2-2) × 入数 × 函数(計画)
+  externalSales: {
+    refs: () => ['quantity', 'plan'],
+    tooltip: wholesaleTooltip(
+      { template: '{__unitPrice} × {quantity} × {plan}' },
+      fieldResult('externalSales')
+    ),
+  },
+  // 売上原価 ＝ 売上原価単価(補足2-3) × 入数 × 函数(計画)
+  delivery: {
+    refs: () => ['quantity', 'plan'],
+    tooltip: wholesaleTooltip(
+      { template: '{__costUnitPrice} × {quantity} × {plan}' },
+      fieldResult('delivery')
+    ),
+  },
+  // 売買差益率 ＝ 売買差益 ÷ 売上高 × 100%（両方とも明細表に列が無い）
+  profit: {
+    refs: () => [],
+    tooltip: wholesaleTooltip(
+      { template: '売買差益 ÷ 売上高 × 100%', valueLine: false },
+      fieldResult('profit')
+    ),
+  },
+};
+
+export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
+  function DetailTable(
+    {
+      onOpenAddDetail,
+      onOpenDeleteDetail,
+      onOpenAnnualContract,
+      onOpenCenterFee,
+      onOpenWholesaleIncentive,
+      copyPaneOpen = false,
+      onOpenCopyPane,
+      onCloseCopyPane,
+      annualContractAvg = '0.00%',
+      centerFeeAvg = '0.00%',
+      wholesaleIncentiveAvg = '0.00%',
+      onNavigate,
+      onRowsChange,
+    },
+    ref
+  ) {
+    // 計算式セルのクリック中、算出元セルの枠線を強調するフック。
+    const formulaHL = useFormulaSourceHighlight<ProductData>(
+      WHOLESALE_FORMULA_DEFS,
+      { isEligibleRow: (r) => !r._isHeader && r.metaBrand !== '合計' }
+    );
+
+    // 保存時に編集セルの強調を消す（値は変わらないため再描画を明示する）ためのAPI
+    const gridApiRef = useRef<GridApi | null>(null);
+
+    // 列状態（列幅・並び順・ソート・固定・表示）を localStorage へ永続化。
+    // 既定の列幅を維持するため autoSize:false。復元後に既存の onGridReady
+    // （計算式ハイライト用のAPI捕捉）を連結実行する。
+    const gridColumnStateProps = useGridColumnState(
+      'Wholesale.detailTable.columnState',
+      {
+        autoSize: false,
+        onGridReady: (p: any) => {
+          formulaHL.captureApi(p.api);
+          gridApiRef.current = p.api;
+        },
+      }
+    );
+
+    // セル編集による未保存状態を保持（画面遷移時のアラート判定に使用）
+    const hasUnsavedRef = useRef(false);
+
+    // 編集されたセル（行ID::列ID）の集合。編集後に黄色＋オレンジ枠で強調する。
+    const changedCellsRef = useRef<Set<string>>(new Set());
+    // 各セルの元値（初回編集時に記録）。元値に戻したら強調を解除するため。
+    const originalCellValuesRef = useRef<Map<string, string>>(new Map());
+    const cellChangeKey = (params: any) =>
+      `${params.node?.id}::${params.column?.getColId?.() ?? params.colDef?.field}`;
+    const isCellChanged = (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return false;
+      return changedCellsRef.current.has(cellChangeKey(params));
+    };
+
+    // 未保存があれば確認のうえ画面遷移する共通ハンドラ
+    // 年間計画／シミュレーションへの遷移は確認ダイアログで「入力中のデータがリセット
+    // される」旨を確認してから遷移する。
+    const [pendingNavMenuId, setPendingNavMenuId] = useState<string | null>(
+      null
+    );
+    const handleNavigateWithGuard = (menuId: string) => {
+      setPendingNavMenuId(menuId);
+    };
+
+    // State management for dynamic data
+    // 初期表示時から社外売上高・売上原価等が算出値になるよう、各行に
+    // recalcGiftLikeRates を1度通す（recalcGiftLikeRates はモジュールスコープの純関数）。
+    const [regularProductsData, setRegularProductsData] = useState<
+      Array<ProductData>
+    >(() => withRowId(REGULAR_PRODUCTS_DATA, 'reg').map(recalcGiftLikeRates));
+
+    const [newProductsData, setNewProductsData] = useState<ProductData[]>(() =>
+      withRowId(NEW_PRODUCTS_DATA, 'new').map(recalcGiftLikeRates)
+    );
+
+    const [promotionProductsData, setPromotionProductsData] = useState<
+      Array<ProductData>
+    >(() =>
+      withRowId(PROMOTION_PRODUCTS_DATA, 'promo').map(recalcGiftLikeRates)
+    );
+
+    const [giftProductsData, setGiftProductsData] = useState<
+      Array<ProductData>
+    >(() => withRowId(GIFT_PRODUCTS_DATA, 'gift').map(recalcGiftLikeRates));
+
+    // 販売計画(集計)へ渡す全明細行。4つの商品区分タブの行をまとめる。
+    const allProductRows = useMemo(
+      () => [
+        ...regularProductsData,
+        ...newProductsData,
+        ...promotionProductsData,
+        ...giftProductsData,
+      ],
+      [
+        regularProductsData,
+        newProductsData,
+        promotionProductsData,
+        giftProductsData,
+      ]
+    );
+
+    // 明細行が変わるたびに親へ通知する（集計値をグリッドの現在値へ追従させる）
+    useEffect(() => {
+      onRowsChange?.(allProductRows);
+    }, [allProductRows, onRowsChange]);
+
+    const allData = [
+      ...regularProductsData,
+      ...newProductsData,
+      ...promotionProductsData,
+      ...giftProductsData,
+    ].map((row) => {
+      // 販促区分のダミー値を商品区分に応じて補完
+      // 特殊商品はリスト無し→空欄（グリッドで'-'表示）
+      if (row.productCategory === '特殊商品') {
+        return { ...row, promotion: '' };
+      }
+      if (row.promotion) return row;
+      const labels = getPromotionLabels(row.productCategory);
+      return { ...row, promotion: labels[0] ?? '' };
+    });
+
+    // State for case plan initial display percentage
+    const [casePlanPercentage, setCasePlanPercentage] = useState('100');
+
+    // State for total store count
+    const [totalStoreCount, setTotalStoreCount] = useState('50');
+
+    // State for section tab filter
+    const [activeTab, setActiveTab] = useState<string>('all');
+
+    // 表示中のタブで商品区分を変更した行。変更直後に行が消えると利用者が混乱するため、
+    // 別の商品区分タブへ切り替えるまでは表示中のタブに残し、切替時に変更後のタブへ移す。
+    const [heldRowKeys, setHeldRowKeys] = useState<Set<string>>(
+      () => new Set()
+    );
+    const switchTab = useCallback((tab: string) => {
+      setHeldRowKeys(new Set());
+      setActiveTab(tab);
+    }, []);
+    // 表示中のタブに属する行か（商品区分を変更して保留中の行を含む）
+    const isRowInActiveTab = (row: ProductData) =>
+      activeTab === 'all' ||
+      row.section === activeTab ||
+      heldRowKeys.has(heldRowKeyOf(row));
+
+    // グリッド再構築トークン。セル編集（AG Gridがnode.dataを直接更新済み）以外の
+    // 値更新（モーダル編集・函数反映・コピーペイン適用など）は、行の構造が変わらず
+    // rowStructureSignature が変化しないため、このトークンを bump して rowData を
+    // 明示的に再構築し、状態の新値をグリッドへ反映する。
+    // ※再構築で rowData 参照が変わり Undo 履歴はクリアされるが、これらは意図的な
+    //   一括/モーダル操作であり許容する（セル編集の Undo は維持される）。
+    const [gridRebuildToken, setGridRebuildToken] = useState(0);
+    const bumpGridRebuild = useCallback(
+      () => setGridRebuildToken((t) => t + 1),
+      []
+    );
+
+    // Handle adding new row
+    const handleAddRow = useCallback(
+      (section: string) => {
+        if (onOpenAddDetail) {
+          onOpenAddDetail(section);
+        }
+      },
+      [onOpenAddDetail]
+    );
+
+    // Handle delete click
+    const handleDeleteClick = useCallback(
+      (data: ProductData) => {
+        if (onOpenDeleteDetail) {
+          onOpenDeleteDetail(data);
+        }
+      },
+      [onOpenDeleteDetail]
+    );
+
+    // Handle copy row
+    const handleCopyRow = useCallback(
+      (data: ProductData) => {
+        // Create a deep copy of the row data
+        const copiedData = {
+          ...data,
+          // コピー行には一意なIDを再採番（getRowId 衝突・編集時の源行巻き込みを防止）
+          id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          // 挿入順を採番。商品区分によらず表示時は合計行直下（先頭）へ並ぶ
+          _addedSeq: Date.now(),
+        } as ProductData;
+
+        // 編集ルーティング維持のため行は商品区分ごとの配列へ格納する（表示順は
+        // rowData 側で _addedSeq により合計行直下へ並べ替える）。
+        if (data.section === '定番商品') {
+          setRegularProductsData((prev) => [...prev, copiedData]);
+        } else if (data.section === '新商品') {
+          setNewProductsData((prev) => [...prev, copiedData]);
+        } else if (data.section === '特殊商品') {
+          setPromotionProductsData((prev) => [...prev, copiedData]);
+        } else if (data.section === 'ギフト') {
+          setGiftProductsData((prev) => [...prev, copiedData]);
+        }
+        bumpGridRebuild();
+      },
+      [bumpGridRebuild]
+    );
+
+    // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）。
+    const handleAddGiftSet = useCallback(
+      (base: Partial<ProductData>, plans: [string, string, string]) => {
+        const seq = Date.now();
+        const newId = newGiftSetId();
+        const rows: ProductData[] = GIFT_PERIOD_ORDER.map((period, i) => ({
+          ...makeEmptyProduct('ギフト'),
+          ...base,
+          section: 'ギフト',
+          productCategory: 'ギフト',
+          giftSetId: newId,
+          period,
+          plan: plans[i] ?? '',
+          estimate: plans[i] ?? '',
+          id: `new-${seq}-${i}`,
+          _addedSeq: seq,
+          _copySource: 'new' as const,
+        }));
+        setGiftProductsData((prev) => [...prev, ...rows]);
+        bumpGridRebuild();
+      },
+      [bumpGridRebuild]
+    );
+
+    // ギフト：セットをまるごと複製して新規セット（上旬/中旬/下旬の3行）を追加。
+    // handleAddGiftSet と同様だが、行の追加経路をコピー由来（_copySource:'detail'・id=copy-...）とする。
+    const handleAddCopiedGiftSet = useCallback(
+      (base: Partial<ProductData>, plans: [string, string, string]) => {
+        const seq = Date.now();
+        const newId = newGiftSetId();
+        const rows: ProductData[] = GIFT_PERIOD_ORDER.map((period, i) => ({
+          ...makeEmptyProduct('ギフト'),
+          ...base,
+          section: 'ギフト',
+          productCategory: 'ギフト',
+          giftSetId: newId,
+          period,
+          plan: plans[i] ?? '',
+          estimate: plans[i] ?? '',
+          id: `copy-${seq}-${i}`,
+          _addedSeq: seq,
+          _copySource: 'detail' as const,
+        }));
+        setGiftProductsData((prev) => [...prev, ...rows]);
+        bumpGridRebuild();
+      },
+      [bumpGridRebuild]
+    );
+
+    // ギフト：セットの共通項目・各期間の計画(箱数)を更新。
+    const handleUpdateGiftSet = useCallback(
+      (
+        giftSetId: string,
+        base: Partial<ProductData>,
+        plans: [string, string, string]
+      ) => {
+        setGiftProductsData((prev) =>
+          prev.map((r) => {
+            if (r.giftSetId !== giftSetId) return r;
+            const idx = giftPeriodIndex(r.period);
+            const plan = plans[idx] ?? r.plan;
+            return {
+              ...r,
+              ...base,
+              section: 'ギフト',
+              productCategory: 'ギフト',
+              giftSetId,
+              period: r.period,
+              plan,
+              estimate: plan,
+            };
+          })
+        );
+        bumpGridRebuild();
+      },
+      [bumpGridRebuild]
+    );
+
+    // ギフト：セットの現在値を取得（編集ペインの初期表示用）。
+    const getGiftSet = useCallback(
+      (
+        giftSetId: string
+      ): { base: ProductData; plans: [string, string, string] } | null => {
+        const rows = giftProductsData
+          .filter((r) => r.giftSetId === giftSetId)
+          .sort(
+            (a, b) => giftPeriodIndex(a.period) - giftPeriodIndex(b.period)
+          );
+        if (rows.length === 0) return null;
+        return {
+          base: rows[0],
+          plans: [
+            rows[0]?.plan ?? '',
+            rows[1]?.plan ?? '',
+            rows[2]?.plan ?? '',
+          ],
+        };
+      },
+      [giftProductsData]
+    );
+
+    // Expose 行操作（追加・コピー・削除）to parent via ref
+    useImperativeHandle(ref, () => ({
+      addCopiedRow: (data: ProductData) => {
+        handleCopyRow({ ...data, _copySource: 'detail' });
+      },
+      // 明細追加：完全な空テンプレートにフォーム値を上書きし、合計行直下（先頭）へ追加。
+      // id・_addedSeq の採番と商品区分配列への振り分けは handleCopyRow が行う。
+      addNewRow: (overrides: Partial<ProductData> & { section: string }) => {
+        const base = makeEmptyProduct(overrides.section);
+        handleCopyRow({ ...base, ...overrides, _copySource: 'new' });
+      },
+      // 明細削除：ギフトはセット単位（giftSetId）、その他は一意な id で除去
+      deleteRow: (target: ProductData | string) => {
+        const row = typeof target === 'string' ? null : target;
+        if (row?.section === 'ギフト' && row.giftSetId) {
+          setGiftProductsData((prev) =>
+            prev.filter((item) => item.giftSetId !== row.giftSetId)
+          );
+          bumpGridRebuild();
+          return;
+        }
+        const id = typeof target === 'string' ? target : target?.id;
+        if (!id) return;
+        const del = (prev: ProductData[]) =>
+          prev.filter((item) => item.id !== id);
+        setRegularProductsData(del);
+        setNewProductsData(del);
+        setPromotionProductsData(del);
+        setGiftProductsData(del);
+        bumpGridRebuild();
+      },
+      // ギフト以外の明細編集を id 一致で更新（商品区分＝section で対象配列を選択）
+      // ※モーダル経由の編集は AG Grid のセル編集を通らず node.data が未更新のため、
+      //   トークンを bump して rowData を再構築し新値を反映する（セル編集とは別経路）。
+      updateRow: (data: ProductData) => {
+        if (data.section === '新商品') handleUpdateNewProduct(data);
+        else if (data.section === '特殊商品')
+          handleUpdatePromotionProduct(data);
+        else if (data.section === 'ギフト') handleUpdateGiftProduct(data);
+        else handleUpdateRegularProduct(data);
+        bumpGridRebuild();
+      },
+      addGiftSet: handleAddGiftSet,
+      addCopiedGiftSet: handleAddCopiedGiftSet,
+      updateGiftSet: handleUpdateGiftSet,
+      getGiftSet,
+      // 計画保存時：左端の帯（明細コピー・明細追加由来）と編集セルの強調を消す。
+      // 保存した値を新たな元値とするため、元値の記録と未保存状態もリセットする。
+      clearSavedMarks: () => {
+        const strip = (prev: ProductData[]) =>
+          prev.map((r) =>
+            r._copySource ? { ...r, _copySource: undefined } : r
+          );
+        setRegularProductsData(strip);
+        setNewProductsData(strip);
+        setPromotionProductsData(strip);
+        setGiftProductsData(strip);
+        changedCellsRef.current.clear();
+        originalCellValuesRef.current.clear();
+        hasUnsavedRef.current = false;
+        // 帯の有無は行構造シグネチャに含まれないため、再構築を明示する
+        bumpGridRebuild();
+        setTimeout(() => gridApiRef.current?.refreshCells({ force: true }), 0);
+      },
+    }));
+
+    // 明細コピー：ペインを開かず、明細グリッドへ直接行を複製する。
+    // ギフトは上旬/中旬/下旬の3行を1セットとしてまとめて複製する。
+    const handleCopyClick = useCallback(
+      (data: ProductData) => {
+        if (data.section === 'ギフト' && data.giftSetId) {
+          const set = getGiftSet(data.giftSetId);
+          if (set) {
+            handleAddCopiedGiftSet(set.base, set.plans);
+            toast.success('明細をコピーしました。');
+            return;
+          }
+        }
+        handleCopyRow({ ...data, _copySource: 'detail' });
+        toast.success('明細をコピーしました。');
+      },
+      [getGiftSet, handleAddCopiedGiftSet, handleCopyRow]
+    );
+
+    // Handle checkbox update for expTarget
+    const handleUpdateRegularProduct = useCallback(
+      (updatedData: ProductData) => {
+        setRegularProductsData((prev) =>
+          prev.map((item) =>
+            matchesRow(item, updatedData) ? updatedData : item
+          )
+        );
+      },
+      []
+    );
+
+    const handleUpdateNewProduct = useCallback((updatedData: ProductData) => {
+      setNewProductsData((prev) =>
+        prev.map((item) => (matchesRow(item, updatedData) ? updatedData : item))
+      );
+    }, []);
+
+    const handleUpdatePromotionProduct = useCallback(
+      (updatedData: ProductData) => {
+        setPromotionProductsData((prev) =>
+          prev.map((item) =>
+            matchesRow(item, updatedData) ? updatedData : item
+          )
+        );
+      },
+      []
+    );
+
+    const handleUpdateGiftProduct = useCallback((updatedData: ProductData) => {
+      setGiftProductsData((prev) =>
+        prev.map((item) => (matchesRow(item, updatedData) ? updatedData : item))
+      );
+    }, []);
+
+    // 商品区分の変更（グリッド内のセル編集）。
+    // タブ振り分けに使う section・販促区分を連動させ、ギフト⇄他区分では
+    // 販売期間の 1行⇔3行（上旬・中旬・下旬）を組み替える。
+    // サマリ商品名など既に選択済みの商品情報は変更しない。
+    const handleChangeProductCategory = useCallback(
+      (data: ProductData, newCategory: string) => {
+        // ギフトは3行1セットのためセット全行を変更対象にする。
+        const sourceRows =
+          data.section === 'ギフト' && data.giftSetId
+            ? giftProductsData.filter((r) => r.giftSetId === data.giftSetId)
+            : [data];
+        const seq = Date.now();
+        const rows = buildCategoryChangeRows(sourceRows, newCategory, {
+          newGiftSetId,
+          newRowId: (i) => `new-${seq}-${i}`,
+        });
+        if (rows.length === 0) return;
+        const removedIds = new Set(sourceRows.map((r) => r.id));
+        // 変更前の区分の配列から取り除き、変更後の区分の配列へ入れ替える。
+        const replaceIn =
+          (category: string) =>
+          (prev: ProductData[]): ProductData[] => {
+            const kept = prev.filter((r) => !removedIds.has(r.id));
+            return newCategory === category ? [...kept, ...rows] : kept;
+          };
+        setRegularProductsData(replaceIn('定番商品'));
+        setNewProductsData(replaceIn('新商品'));
+        setPromotionProductsData(replaceIn('特殊商品'));
+        setGiftProductsData(replaceIn('ギフト'));
+        // 「全て」以外のタブでは、別タブへ切り替えるまで変更した行を表示中のタブに残す。
+        if (activeTab !== 'all') {
+          setHeldRowKeys((prev) => {
+            const next = new Set(prev);
+            rows.forEach((r) => next.add(heldRowKeyOf(r)));
+            return next;
+          });
+        }
+        // 行構成が変わるためグリッドを再構築して新しい行を反映する。
+        bumpGridRebuild();
+      },
+      [giftProductsData, bumpGridRebuild, activeTab]
+    );
+
+    // Calculate totals
+    // 値は文字列で保持するのが基本だが、グリッドの編集経路によっては数値で
+    // 渡ることがあるため、文字列化してから解釈する。
+    const parseNumber = (value: string | number | undefined | null) => {
+      if (value === null || value === undefined || value === '') return 0;
+      const num = parseFloat(String(value).replace(/,/g, ''));
+      return isNaN(num) ? 0 : num;
+    };
+
+    // 前年実績×率% を計画函数へ反映するヘルパー（前年実績が無い行は据え置き）
+    const applyRateToRows = (rows: ProductData[], rate: number) =>
+      rows.map((row) => {
+        const base = parseNumber(row.prevYear);
+        if (base <= 0) return row;
+        return {
+          ...row,
+          plan: String(Math.round((base * rate) / 100)),
+          // 率は小数点以下2桁を四捨五入し、小数点以下1桁で表示する。
+          ratio: formatPlanRate(rate, PLAN_DETAIL_DIGITS.ratio),
+        };
+      });
+
+    // 函数反映の確認ダイアログ表示状態
+    const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+
+    // 「函数反映」ボタン押下：表示中の商品区分の計画函数へ前年実績比の率を適用
+    // （確認ダイアログでOK後に実行）
+    const handleApplyCasePlan = useCallback(() => {
+      const rate = parseNumber(casePlanPercentage);
+      if (activeTab === 'all' || activeTab === '定番商品')
+        setRegularProductsData((prev) => applyRateToRows(prev, rate));
+      if (activeTab === 'all' || activeTab === '新商品')
+        setNewProductsData((prev) => applyRateToRows(prev, rate));
+      if (activeTab === 'all' || activeTab === '特殊商品')
+        setPromotionProductsData((prev) => applyRateToRows(prev, rate));
+      if (activeTab === 'all' || activeTab === 'ギフト')
+        setGiftProductsData((prev) => applyRateToRows(prev, rate));
+      // セル編集を通らない一括更新のため rowData を再構築して新値を反映する。
+      bumpGridRebuild();
+      toast.success('函数を反映しました。');
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）
+    }, [activeTab, casePlanPercentage]);
+
+    // ペインで指定した商品区分・率でコピーを実行（コピー元＝前年実績を基準）
+    const handlePlanCopyExecute = useCallback((result: SalesPlanCopyResult) => {
+      const rate = parseNumber(result.percentage);
+      const isSelected = (category: string) =>
+        result.categories.includes(category);
+      if (isSelected('定番商品'))
+        setRegularProductsData((prev) => applyRateToRows(prev, rate));
+      if (isSelected('新商品'))
+        setNewProductsData((prev) => applyRateToRows(prev, rate));
+      if (isSelected('特殊商品'))
+        setPromotionProductsData((prev) => applyRateToRows(prev, rate));
+      if (isSelected('ギフト'))
+        setGiftProductsData((prev) => applyRateToRows(prev, rate));
+      // 拡売費は別表（拡売費計画）のため本表では対象外
+      // セル編集を通らない一括更新のため rowData を再構築して新値を反映する。
+      bumpGridRebuild();
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）
+    }, []);
+
+    // Yellow: 手入力可能セル（編集後は黄色＋オレンジ枠で強調 / gridStyles準拠）
+    // 定番商品の行か（NET固定は一般卸メッシュ単位のため商品区分を変更できない）。
+    const isRegularProductRow = (params: any) =>
+      params.data?.section === '定番商品' ||
+      params.data?.productCategory === '定番商品';
+
+    const yellowCellStyle = (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return undefined;
+      const base = { backgroundColor: GRID_COLORS.editable, cursor: 'pointer' };
+      return isCellChanged(params) ? { ...base, ...changedCellStyle() } : base;
+    };
+
+    // White: 自動表示・参照セル
+    const whiteCellStyle = (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return undefined;
+      return { backgroundColor: GRID_COLORS.readonly };
+    };
+
+    // 一次店/三次店 のサンプル（モック行に値が無い場合のフォールバック表示用）
+
+    // 行インデックスから決定的にサンプル店舗を割り当てる
+    const sampleStore = (node: any) => {
+      const idx =
+        typeof node?.rowIndex === 'number' && node.rowIndex >= 0
+          ? node.rowIndex
+          : 0;
+      return SAMPLE_STORES[idx % SAMPLE_STORES.length];
+    };
+
+    // 一次店/三次店 セルの値取得（実データ優先・無ければサンプル）
+    const storeValueGetter = (key: 'tier1' | 'tier3') => (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return '';
+      return params.data?.[key] || sampleStore(params.node)[key];
+    };
+
+    // 一次店コード/三次店コード セルの値取得。表示中の店舗名から共通マスタのコードを引く
+    // （基本情報エリアの「コード:名称」表示と同じ storeTierMockData を参照）。
+    const storeCodeValueGetter = (key: 'tier1' | 'tier3') => (params: any) => {
+      const name = storeValueGetter(key)(params);
+      if (!name) return '';
+      return key === 'tier1' ? firstStoreCode(name) : thirdStoreCode(name);
+    };
+
+    // 行ID由来の決定的シード（並び替え・絞り込みでも安定する擬似ランダム種）。
+    const rowSeed = (params: any) => {
+      const id = params.data?.id;
+      if (typeof id === 'string') {
+        let h = 0;
+        for (let i = 0; i < id.length; i += 1)
+          h = (h * 31 + id.charCodeAt(i)) | 0;
+        return Math.abs(h);
+      }
+      const idx = params.node?.rowIndex;
+      return typeof idx === 'number' && idx >= 0 ? idx : 0;
+    };
+
+    // 終売区分のダミー値（決定的擬似ランダムなYYYY/MM）。一部行はデータなし（ー表示）。
+    const endSaleDummy = (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return '';
+      if (params.data?.endSale) return params.data.endSale;
+      const s = rowSeed(params);
+      if (s % 7 === 0) return ''; // 一部はデータなし（ー）
+      return `${2025 + (s % 3)}/${String((s % 12) + 1).padStart(2, '0')}`;
+    };
+
+    // EDI反映は withRowId で固定値（data.ediPrice）を設定済み（定番商品・新商品はー）。
+    const ediDummy = (params: any) => {
+      if (params.node?.rowPinned) return '';
+      return ediValueOf(params.data);
+    };
+
+    // NET・納価（計画／EDI反映／前年実績）は単価のため合計行では集計せず「-」を表示する（課題1758）。
+    const priceFormatterExceptTotal = (params: any) =>
+      params.node?.rowPinned
+        ? GRID_EMPTY_TEXT
+        : planAmountFormatter(PLAN_DETAIL_DIGITS.price)(params);
+
+    // 入数・売価も合計行では集計せず「-」を表示する（課題1758）。
+    const countFormatterExceptTotal = (params: any) =>
+      params.node?.rowPinned ? GRID_EMPTY_TEXT : planCountFormatter(params);
+    const amountFormatterExceptTotal = (params: any) =>
+      params.node?.rowPinned
+        ? GRID_EMPTY_TEXT
+        : planAmountFormatter(PLAN_DETAIL_DIGITS.amount)(params);
+
+    // 納価-計画セルのスタイル：EDI反映との差異が±1.00以上なら赤字・太字で強調。
+    // 強調しない場合は元のスタイル（baseStyleFn）をそのまま返す。
+    const withEdiDiffHighlight =
+      (baseStyleFn: (p: any) => any) => (params: any) => {
+        const base = baseStyleFn(params) || {};
+        if (params.data?._isHeader || params.node?.rowPinned) return base;
+        const plan = parseNumber(params.data?.planPrice);
+        const ediStr = ediDummy(params);
+        const edi = parseNumber(ediStr);
+        if (ediStr !== '' && plan > 0 && Math.abs(plan - edi) >= 1.0) {
+          return { ...base, color: GRID_COLORS.overText, fontWeight: 'bold' };
+        }
+        return base;
+      };
+
+    // 商品区分ごとに背景色を切り替えるファクトリ
+    const makeCellStyle =
+      (
+        rules: Record<string, 'yellow' | 'white' | 'gray'>,
+        defaultStyle: 'yellow' | 'white' | 'gray' = 'white'
+      ) =>
+      (params: any) => {
+        if (params.data?._isHeader || params.node?.rowPinned) return undefined;
+        const cat: string = params.data?.productCategory ?? '';
+        const style = rules[cat] ?? defaultStyle;
+        if (style === 'yellow') {
+          const base = {
+            backgroundColor: GRID_COLORS.editable,
+            cursor: 'pointer',
+          };
+          return isCellChanged(params)
+            ? { ...base, ...changedCellStyle() }
+            : base;
+        }
+        if (style === 'gray') return { backgroundColor: GRID_COLORS.readonly };
+        return { backgroundColor: GRID_COLORS.readonly };
+      };
+
+    // 指定商品区分のみ編集可能にするファクトリ
+    const makeEditable = (categories: string[]) => (params: any) => {
+      if (params.data?._isHeader || params.node?.rowPinned) return false;
+      return categories.includes(params.data?.productCategory ?? '');
+    };
+
+    // マージン率・値入率・社外売上高・売上原価の算出は recalcGiftLikeRates（モジュールスコープ）を参照。
+
+    // 列フィルタを通過した行のID（フィルタ無しは null）。合計行を表示中の行だけで計算し直すために使う
+    // （画面設計標準 4.4 ③）。公式の onFilterChanged／forEachNodeAfterFilter で取得する。
+    const [filteredRowIds, setFilteredRowIds] = useState<Set<string> | null>(
+      null
+    );
+    const handleFilterChanged = useCallback((e: FilterChangedEvent) => {
+      if (!e.api.isAnyFilterPresent()) {
+        setFilteredRowIds(null);
+        return;
+      }
+      const ids = new Set<string>();
+      e.api.forEachNodeAfterFilter((node) => {
+        if (node.id) ids.add(node.id);
+      });
+      setFilteredRowIds(ids);
+    }, []);
+
+    const totals = useMemo(() => {
+      // 合計行は表示中の商品区分タブの明細だけを集計する
+      // （「全て」は全区分。rowData のタブ絞り込みと同じ条件）。
+      // 列フィルタ中は、フィルタを通過した行だけを集計する（行IDは getRowId と同じ組み立て）。
+      const targetRows = allData.filter(
+        (row) =>
+          isRowInActiveTab(row) &&
+          !row._isHeader &&
+          (!filteredRowIds ||
+            filteredRowIds.has(
+              row.id ?? `${row.section}-${row.metaBrand}-${row.summaryProduct}`
+            ))
+      );
+
+      // ギフトは上旬/中旬/下旬の3行1セット。販売期間・計画(函数)以外はセル結合されて
+      // 3行が1セル＝1つの値の表示になるため、セット代表行だけを集計して三重計上を防ぐ。
+      const countedGiftSets = new Set<string>();
+      const mergedRows = targetRows.filter((row) => {
+        if (!row.giftSetId) return true;
+        if (countedGiftSets.has(row.giftSetId)) return false;
+        countedGiftSets.add(row.giftSetId);
+        return true;
+      });
+
+      const sumOf = (
+        rows: ProductData[],
+        pick: (row: ProductData) => unknown
+      ): number => rows.reduce((sum, row) => sum + parseNumber(pick(row)), 0);
+      // 函数は整数のみのため、合計も四捨五入して整数にする。
+      const countText = (value: number): string =>
+        value.toLocaleString('ja-JP', { maximumFractionDigits: 0 });
+
+      // 率は分子・分母を合算してから除算する（課題1758・utils/planDetailTotalRates）。
+      // 金額列（社外売上高・値入額）と同じくギフトはセット代表行だけを対象にする。
+      const rates = planDetailTotalRatesOf(
+        mergedRows,
+        'netFixed',
+        costUnitPriceOf
+      );
+      // 分母が0のときは空値（率の列の valueFormatter が「-」を表示する）。
+      const rateText = (value: number): string =>
+        Number.isFinite(value) ? String(value) : '';
+
+      return {
+        section: '合計',
+        metaBrand: '合計',
+        summaryProduct: '',
+        wholesaleMesh: '',
+        productCategory: '',
+        endSale: '',
+        promotion: '',
+        // 入数・売価は行ごとの単位・単価のため合計しない（空欄表示）。
+        quantity: '',
+        // 計画(函数)はギフトも行ごとに値が異なる（セル結合対象外）ため全行を集計する。
+        plan: countText(sumOf(targetRows, (row) => row.plan)),
+        estimate: countText(
+          mergedRows.reduce(
+            (sum, row) =>
+              sum +
+              currentMonthEstimate(
+                parseNumber(row.actual),
+                row.summaryProduct || row.wholesaleMesh
+              ),
+            0
+          )
+        ),
+        actual: countText(sumOf(mergedRows, (row) => row.actual)),
+        prevYear: countText(sumOf(mergedRows, (row) => row.prevYear)),
+        // 金額列は列の valueFormatter（planAmountFormatter）が桁を整えるため、
+        // ここでは素の数値文字列で渡す。
+        // NET・納価(計画/EDI反映/前年実績) は単価のため合計しない（空欄表示）。
+        net: '',
+        planPrice: '',
+        ediPrice: '',
+        prevYearPrice: '',
+        price: '',
+        // 値入額は金額のため明細を合計する（課題1757）。
+        markupAmount: String(sumOf(mergedRows, (row) => row.markupAmount)),
+        externalSales: String(sumOf(mergedRows, (row) => row.externalSales)),
+        delivery: String(sumOf(mergedRows, (row) => row.delivery)),
+        // ％表示の列は合計せず、分子・分母の合算から率を求めて表示する（課題1758）。
+        ratio: rateText(rates.ratio),
+        margin: rateText(rates.margin),
+        unitRate: '',
+        discount: rateText(rates.discount),
+        volumeAddRate: rateText(rates.volumeAddRate),
+        profit: rateText(rates.profit),
+        exp1PlannedAmount: '',
+        exp1PostingMonth: '',
+        exp1Delivery: '',
+        exp1ManagementClass: '',
+        exp1ManagementCode: '',
+        exp1Description: '',
+        exp2PlannedAmount: '',
+        exp2PostingMonth: '',
+        exp2Delivery: '',
+        exp2ManagementClass: '',
+        exp2ManagementCode: '',
+        exp2Description: '',
+        expTarget: false,
+        _isHeader: false,
+      };
+      // isRowInActiveTab は activeTab・heldRowKeys から決まるため、それらを依存に置く。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allData, activeTab, heldRowKeys, filteredRowIds]);
+
+    // Column Definitions
+
+    // コード値・区分値の列（名称列から値を引く・既定は非表示）
+    const codeColumns = useMemo(
+      () =>
+        planDetailCodeColumns(whiteCellStyle, {
+          // 定番商品は一般卸メッシュ粒度のためサマリ商品名は「-」（コードも出さない）
+          isWithoutSummaryProduct: (d) => d.productCategory === '定番商品',
+        }),
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 列定義と同じく初回の参照に固定する
+      []
+    );
+
+    const columnDefs: ColDef[] = useMemo(
+      () => [
+        {
+          headerName: 'メタブランド',
+          field: 'metaBrand',
+          width: 140,
+          lockPinned: true,
+          cellClass: 'ag-cell-left-pinned',
+          cellStyle: (params: any) => ({
+            ...(whiteCellStyle(params) || {}),
+            ...copySourceLeftBorder(params.data?._copySource),
+          }),
+          filter: true,
+          // 合計行は先頭の列（メタブランド・容器容量G・サマリ商品名・一般卸メッシュ）を結合して「合計」表示
+          colSpan: (params: any) => (params.node?.rowPinned ? 4 : 1),
+          headerTooltip:
+            'メタブランド[自動表示]サマリ商品/一般卸メッシュに紐づくメタブランドを取得表示',
+        },
+        {
+          headerName: '容器容量G',
+          field: 'containerCapacityG',
+          width: 140,
+          lockPinned: true,
+          cellClass: 'ag-cell-left-pinned',
+          cellStyle: whiteCellStyle,
+          filter: true,
+          headerTooltip:
+            '容器容量G[自動表示]サマリ商品/一般卸メッシュに紐づく容器容量Gを取得表示',
+        },
+        {
+          // 定番商品=グレー（一般卸メッシュを使用）、新商品/特殊/ギフト=黄（セレクトボックス）
+          headerName: 'サマリ商品',
+          field: 'summaryProduct',
+          width: 330,
+          lockPinned: true,
+          cellClass: 'ag-cell-left-pinned',
+          // サマリ商品名：商品区分が定番商品を除き全行を活性（編集可・黄）。定番商品のみ非活性（グレー）。
+          cellStyle: makeCellStyle({ 定番商品: 'gray' }, 'yellow'),
+          editable: (params) =>
+            !params.data?._isHeader &&
+            !params.node?.rowPinned &&
+            params.data?.productCategory !== '定番商品',
+          cellEditor: SingleComboboxCellEditor,
+          cellEditorParams: {
+            // 明細追加フォームと同一の共通マスタ（サマリ商品名）から選択肢を生成
+            comboOptions: summaryProductComboOptions(SUMMARY_PRODUCT_VALUES),
+            placeholder: 'サマリ商品名を選択',
+          },
+          cellEditorPopup: true,
+          filter: true,
+          headerTooltip:
+            'サマリ商品[自動表示]前年同月実績のサマリ商品を取得表示',
+          // 定番商品は一般卸メッシュを使用するためサマリ商品名は「-」で表示
+          valueFormatter: (params: any) =>
+            params.data?.productCategory === '定番商品'
+              ? '-'
+              : (params.value ?? ''),
+          onCellValueChanged: (params) => {
+            // サマリ商品名選択時、共通マスタから
+            // メタブランド／容器容量G／一般卸メッシュ／入数／当月実績／前年実績を
+            // 自動補完する（明細追加と同一挙動。実績系はサマリ商品に紐づく前年同月実績値）。
+            // 当月着地見込は算出値のため補完対象外（従来どおり計算式で算出）。
+            // サマリ商品名は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
+            const master = SUMMARY_PRODUCT_BY_VALUE.get(params.newValue);
+            const updatedData = recalcGiftLikeRates({
+              ...params.data,
+              summaryProduct: params.newValue,
+              ...(master
+                ? {
+                    metaBrand: master.metaBrand,
+                    containerCapacityG: master.containerCapacityG,
+                    wholesaleMesh: master.wholesaleMesh,
+                    quantity: master.quantity,
+                    actual: master.currentActual,
+                    prevYear: master.prevYearActual,
+                  }
+                : {}),
+            });
+            // 連動項目（メタブランド・容器容量G・入数・当月実績・前年実績等）を
+            // グリッド表示へ反映する。rowData は値編集で再生成しない設計のため、
+            // 当該ノードの data を直接更新し行内の全セルを再描画する（state 同期は下記）。
+            Object.assign(params.data, updatedData);
+            params.api.refreshCells({ rowNodes: [params.node], force: true });
+            if (params.data.section === '新商品') {
+              params.context.updateNewProduct(updatedData);
+            } else if (params.data.section === '特殊商品') {
+              params.context.updatePromotionProduct(updatedData);
+            } else if (params.data.section === 'ギフト') {
+              params.context.updateGiftProduct(updatedData);
+            }
+          },
+        },
+        {
+          // 定番商品=黄（セレクトボックス）、新商品=白、特殊商品=グレー（不使用）、ギフト=白（自動表示）
+          headerName: '一般卸メッシュ',
+          field: 'wholesaleMesh',
+          width: 110,
+          lockPinned: true,
+          cellClass: 'ag-cell-left-pinned',
+          // 一般卸メッシュは全区分で非活性（自動表示）。定番商品も編集不可（グレー）。
+          cellStyle: makeCellStyle({
+            定番商品: 'gray',
+            新商品: 'white',
+            特殊商品: 'gray',
+            ギフト: 'white',
+          }),
+          editable: false,
+          cellEditor: SingleComboboxCellEditor,
+          cellEditorParams: {
+            // 共通マスタ（一般卸メッシュ）から選択肢を生成
+            comboOptions: toComboOptions(WHOLESALE_MESH_VALUES),
+            placeholder: '一般卸メッシュを選択',
+          },
+          cellEditorPopup: true,
+          filter: true,
+          headerTooltip:
+            '一般卸メッシュ[自動表示]前年同月実績の一般卸メッシュを取得表示',
+          onCellValueChanged: (params) => {
+            // 定番商品で一般卸メッシュ選択時、共通マスタから
+            // メタブランド／容器容量G／入数／当月実績／前年実績を、
+            // 対応するサマリ商品名を自動補完する（実績系はメッシュに紐づく前年同月実績値）。
+            // 当月着地見込は算出値のため補完対象外（従来どおり計算式で算出）。
+            // 一般卸メッシュは社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
+            const mesh = WHOLESALE_MESH_BY_VALUE.get(params.newValue);
+            const summary = SUMMARY_PRODUCT_BY_WHOLESALE_MESH.get(
+              params.newValue
+            );
+            const updatedData = recalcGiftLikeRates({
+              ...params.data,
+              wholesaleMesh: params.newValue,
+              ...(mesh
+                ? {
+                    metaBrand: mesh.metaBrand,
+                    containerCapacityG: mesh.containerCapacityG,
+                    quantity: mesh.quantity,
+                    actual: mesh.currentActual,
+                    prevYear: mesh.prevYearActual,
+                  }
+                : {}),
+              ...(summary ? { summaryProduct: summary.value } : {}),
+            });
+            // 連動項目をグリッド表示へ反映（上記サマリ商品名編集と同様）。
+            Object.assign(params.data, updatedData);
+            params.api.refreshCells({ rowNodes: [params.node], force: true });
+            if (params.data.section === '定番商品') {
+              params.context.updateRegularProduct(updatedData);
+            }
+          },
+        },
+        // コード値・区分値の列（PJルール：名称と別列で保持。既定は非表示で列メニューから表示できる）
+        codeColumns.metaBrandCode,
+        codeColumns.containerCapacityCode,
+        codeColumns.summaryProductCode,
+        codeColumns.wholesaleMeshCode,
+        {
+          // 終売区分：商品区分によらず全行を非活性（グレー）。
+          // 中身はランダムなYYYY/MM（一部はデータなし＝ー表示）。
+          headerName: '終売区分',
+          field: 'endSale',
+          ...GRID_MONTH_TEXT_FILTER,
+          width: 110,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          valueGetter: (params: any) =>
+            params.node?.rowPinned
+              ? ''
+              : params.data?.productCategory === '定番商品'
+                ? ''
+                : endSaleDummy(params),
+          // 合計行はスクロール列（終売区分～販売期間）を結合（表示は空欄）
+          colSpan: (params: any) => (params.node?.rowPinned ? 4 : 1),
+          valueFormatter: (params: any) =>
+            params.node?.rowPinned ? '' : formatEmptyAsDash(params),
+          // 終売区分はカレンダー（年月）入力。グリッドは MonthYearCellEditor を popup 表示する
+          cellEditor: MonthYearCellEditor,
+          cellEditorPopup: true,
+          headerTooltip:
+            '終売区分[自動表示]サマリ商品/一般卸メッシュに紐づく終売予定年月（YYYY/MM）を取得表示',
+          onCellValueChanged: (params) => {
+            const updatedData = {
+              ...params.data,
+              endSale: params.newValue,
+            };
+            if (params.data.section === 'ギフト') {
+              params.context.updateGiftProduct(updatedData);
+            }
+          },
+        },
+        codeColumns.productCategoryCode,
+        {
+          headerName: '商品区分',
+          field: 'productCategory',
+          width: 110,
+          cellClass: 'ag-cell-left',
+          // 商品区分：新商品/特殊商品/ギフトを活性（編集可＝黄）。
+          // ギフトは3行1セットの先頭セルで結合表示する。
+          // 定番商品は一般卸メッシュ単位で新規追加が発生しないため（補足5-2）、
+          // 選択肢から外し、既存の定番商品行はグレーアウトして非活性にする。
+          // （計画函数・納価・売価は補足5-1のとおり定番商品でも入力できる）
+          cellStyle: (params: any) =>
+            isRegularProductRow(params)
+              ? whiteCellStyle(params)
+              : yellowCellStyle(params),
+          editable: (params: any) =>
+            !params.data?._isHeader &&
+            !params.node?.rowPinned &&
+            !isRegularProductRow(params),
+          cellEditor: SingleComboboxCellEditor,
+          cellEditorParams: {
+            // ギフトを含む選択可能な区分から選ぶ（ギフト⇄他区分の変更も可）。
+            comboOptions: CATEGORY_LABELS_NET_ADDABLE.map((value) => ({
+              value,
+              label: value,
+            })),
+            placeholder: '商品区分を選択',
+          },
+          cellEditorPopup: true,
+          filter: true,
+          headerTooltip:
+            '商品区分[自動表示]前年同月実績の商品区分(定番商品/新商品/特殊商品/ギフト)を取得表示',
+          onCellValueChanged: (params: any) => {
+            // 商品区分の変更に応じてタブ振り分け（section）・販促区分を連動させ、
+            // ギフト⇄他区分では販売期間の 1行⇔3行 を組み替える。
+            if (params.newValue === params.oldValue) return;
+            params.context.changeProductCategory(params.data, params.newValue);
+          },
+        },
+        codeColumns.promotionCode,
+        {
+          // 販促区分：特殊商品・ギフトは区分名で固定のため非活性（グレー・編集不可）、他区分は活性（黄）。
+          headerName: '販促区分',
+          field: 'promotion',
+          width: 180,
+          cellClass: 'ag-cell-left',
+          cellStyle: makeCellStyle(
+            { 特殊商品: 'gray', ギフト: 'gray' },
+            'yellow'
+          ),
+          editable: (params: any) =>
+            !params.data?._isHeader &&
+            !params.node?.rowPinned &&
+            params.data?.productCategory !== '特殊商品' &&
+            params.data?.productCategory !== 'ギフト',
+          cellEditor: SingleComboboxCellEditor,
+          cellEditorParams: (params: any) => {
+            const cat = params.data?.productCategory ?? '';
+            return {
+              comboOptions: promotionComboOptions(
+                cat === '特殊商品' ? ['特殊商品'] : getPromotionLabels(cat)
+              ),
+              placeholder: '販促区分を選択',
+            };
+          },
+          // 特殊商品は選択肢データが無いため「特殊商品」を表示（それ以外は入力値）
+          valueFormatter: (params: any) =>
+            params.data?.productCategory === '特殊商品'
+              ? '特殊商品'
+              : (params.value ?? ''),
+          cellEditorPopup: true,
+          headerTooltip:
+            '販促区分[自動表示]サマリ商品/一般卸メッシュに紐づく販促区分を取得表示',
+        },
+        {
+          // ギフトは上旬/中旬/下旬の3行1セット。販売期間は全区分で非活性（グレー・自動表示）。
+          // セル結合対象外（行ごとに表示）。
+          headerName: '販売期間',
+          field: 'period',
+          width: 90,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          rowSpan: () => 1,
+          headerTooltip:
+            '販売期間[自動表示]ギフトは上旬/中旬/下旬の3行1セットで表示',
+        },
+        {
+          headerName: '入数',
+          headerTooltip:
+            '入数[自動表示]サマリ商品/一般卸メッシュに紐づく入数を取得表示',
+          field: 'quantity',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 85,
+          cellClass: 'ag-cell-right',
+          cellStyle: whiteCellStyle,
+          // 入数＝整数（3桁区切り）。合計行は空欄。
+          valueFormatter: countFormatterExceptTotal,
+        },
+        {
+          headerName: '函数',
+          children: [
+            {
+              // 全区分=黄（手入力）。ギフトも行ごとに計画(箱数)を入力するためセル結合対象外。
+              headerName: '計画',
+              headerTooltip:
+                '函数-計画[入力値/自動表示]前年同月実績値を取得表示',
+              field: 'plan',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 100,
+              cellClass: 'ag-cell-right',
+              cellStyle: yellowCellStyle,
+              rowSpan: () => 1,
+              editable: (params) =>
+                !params.data._isHeader && !params.node.rowPinned,
+              // 函数-計画＝整数（3桁区切り）。函数反映・計画コピーは素の数値を書き込むため
+              // 表示側で桁区切りを付ける。
+              valueFormatter: planCountFormatter,
+              // 整数のみ入力可（小数は入力させない）。
+              // cellDataType の自動推論は valueParser を数値型のものへ上書きし、
+              // 保持値が number になって集計の文字列処理が壊れるため false で無効化する。
+              cellEditor: 'agNumberCellEditor',
+              cellEditorParams: { precision: 0 },
+              cellDataType: false,
+              valueParser: planNumberParser(0),
+              onCellValueChanged: (params) => {
+                // 函数(計画) は社外売上高・売上原価の算出元でもあるため
+                // recalcGiftLikeRates で追従させる。
+                const updatedData = recalcGiftLikeRates({
+                  ...params.data,
+                  plan: params.newValue,
+                });
+                if (params.data.section === '定番商品') {
+                  params.context.updateRegularProduct(updatedData);
+                } else if (params.data.section === '新商品') {
+                  params.context.updateNewProduct(updatedData);
+                } else if (params.data.section === '特殊商品') {
+                  params.context.updatePromotionProduct(updatedData);
+                } else if (params.data.section === 'ギフト') {
+                  params.context.updateGiftProduct(updatedData);
+                }
+              },
+            },
+            {
+              // 新商品=グレー（非活性）、その他=白（自動表示）
+              headerName: '当月着地見込',
+              headerTooltip:
+                '函数-当月着地見込[算出]当月実績÷当月実績反映日数×当月日数',
+              field: 'estimate',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 155,
+              cellClass: 'ag-cell-right',
+              cellStyle: makeCellStyle({ 新商品: 'gray' }, 'white'),
+              // 当月着地見込＝当月実績÷当月実績反映日数×当月日数（算出値）。
+              // 合計行（ピン留め）は集計済みの値をそのまま表示する。
+              valueGetter: (params) => {
+                if (params.node?.rowPinned) return params.data?.estimate ?? '';
+                if (params.data?._isHeader) return '';
+                const v = currentMonthEstimate(
+                  parseFormulaNumber(params.data?.actual) || 0,
+                  params.data?.summaryProduct || params.data?.wholesaleMesh
+                );
+                return v ? String(v) : '';
+              },
+              // 算出値のため素の数値が入る。表示側で3桁区切りを付ける。
+              valueFormatter: planCountFormatter,
+            },
+            {
+              headerName: '当月実績',
+              headerTooltip: '函数-当月実績[自動表示]同年同月実績値を取得表示',
+              field: 'actual',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 115,
+              cellClass: 'ag-cell-right',
+              cellStyle: whiteCellStyle,
+              // 函数-当月実績＝整数（3桁区切り）
+              valueFormatter: planCountFormatter,
+            },
+            {
+              // 新商品=グレー（非活性）、その他=白（自動表示）
+              headerName: '前年実績',
+              headerTooltip: '函数-前年実績[自動表示]前年同月実績値を取得表示',
+              field: 'prevYear',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 115,
+              cellClass: 'ag-cell-right',
+              cellStyle: makeCellStyle({ 新商品: 'gray' }, 'white'),
+              // 函数-前年実績＝整数（3桁区切り）
+              valueFormatter: planCountFormatter,
+            },
+            {
+              // 新商品/ギフト=グレー（非活性）、その他=白（計算項目）
+              headerName: '計画/前年実績比',
+              headerTooltip: '函数-計画/前年実績比[算出]計画/前年実績*100%',
+              field: 'ratio',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 175,
+              cellClass: 'ag-cell-right',
+              // 計画/前年実績比＝小数第1位（％）
+              valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.ratio),
+              cellStyle: makeCellStyle(
+                { 新商品: 'gray', ギフト: 'gray' },
+                'white'
+              ),
+            },
+          ],
+        },
+        {
+          // ギフト/特殊商品=黄（手入力）、その他=グレー（非活性）
+          headerName: 'NET',
+          headerTooltip:
+            'NET[条件分岐]定番商品・新商品：[自動表示]固定NET設定値を取得表示、特殊商品・ギフト：[入力値]前年同月実績値を取得表示',
+          field: 'net',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 105,
+          cellClass: 'ag-cell-right',
+          cellStyle: makeCellStyle(
+            { ギフト: 'yellow', 特殊商品: 'yellow' },
+            'gray'
+          ),
+          editable: makeEditable(['ギフト', '特殊商品']),
+          cellEditor: 'agTextCellEditor',
+          // NET＝小数第2位（入力値も同じ桁へ丸めて保持する）。合計行は空欄。
+          valueFormatter: priceFormatterExceptTotal,
+          valueParser: planNumberParser(PLAN_DETAIL_DIGITS.price),
+          onCellValueChanged: (params) => {
+            // NET は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
+            const updatedData = recalcGiftLikeRates({
+              ...params.data,
+              net: params.newValue,
+            });
+            if (params.data.section === '定番商品') {
+              params.context.updateRegularProduct(updatedData);
+            } else if (params.data.section === '新商品') {
+              params.context.updateNewProduct(updatedData);
+            } else if (params.data.section === '特殊商品') {
+              params.context.updatePromotionProduct(updatedData);
+            } else if (params.data.section === 'ギフト') {
+              params.context.updateGiftProduct(updatedData);
+            }
+          },
+        },
+        {
+          headerName: '納価',
+          children: [
+            {
+              // 商品区分によらず全区分で手入力可（黄）
+              headerName: '計画',
+              headerTooltip:
+                '納価-計画[入力値]商品区分・取引制度によらず手入力可',
+              field: 'planPrice',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 100,
+              cellClass: 'ag-cell-right',
+              // EDI反映との差異が±1.00以上なら赤字・太字で強調
+              cellStyle: withEdiDiffHighlight(yellowCellStyle),
+              editable: (params) =>
+                !params.data._isHeader && !params.node.rowPinned,
+              cellEditor: 'agTextCellEditor',
+              // 納価-計画＝小数第2位（入力値も同じ桁へ丸めて保持する）。合計行は空欄。
+              valueFormatter: priceFormatterExceptTotal,
+              valueParser: planNumberParser(PLAN_DETAIL_DIGITS.price),
+              onCellValueChanged: (params) => {
+                // 納価(計画) は社外売上高・売上原価の算出元でもあるため
+                // recalcGiftLikeRates で追従させる。
+                const updatedData = recalcGiftLikeRates({
+                  ...params.data,
+                  planPrice: params.newValue,
+                });
+                if (params.data.section === '定番商品') {
+                  params.context.updateRegularProduct(updatedData);
+                } else if (params.data.section === '新商品') {
+                  params.context.updateNewProduct(updatedData);
+                } else if (params.data.section === '特殊商品') {
+                  params.context.updatePromotionProduct(updatedData);
+                } else if (params.data.section === 'ギフト') {
+                  params.context.updateGiftProduct(updatedData);
+                }
+              },
+            },
+            {
+              headerName: 'EDI反映',
+              headerTooltip: '納価-EDI反映[自動表示]EDIの納価を取得表示',
+              field: 'ediPrice',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 100,
+              cellClass: 'ag-cell-right',
+              cellStyle: whiteCellStyle,
+              // 空欄行が多いため、擬似ランダムなEDI納価で補完しー表示を減らす
+              // （合計行は単価のため集計せず空欄。ediDummy 側で '' を返す）。
+              valueGetter: (params: any) => ediDummy(params),
+              // 納価-EDI反映＝小数第2位。合計行は空欄。
+              valueFormatter: priceFormatterExceptTotal,
+            },
+            {
+              // 新商品/特殊商品/定番商品=グレー（非活性）、その他=白（自動表示）
+              headerName: '前年実績',
+              headerTooltip: '納価-前年実績[自動表示]前年同月実績値を取得表示',
+              field: 'prevYearPrice',
+              ...GRID_NUMBER_TEXT_FILTER,
+              width: 110,
+              cellClass: 'ag-cell-right',
+              // 納価-前年実績＝小数第2位。合計行は空欄。
+              valueFormatter: priceFormatterExceptTotal,
+              cellStyle: makeCellStyle(
+                {
+                  新商品: 'gray',
+                  特殊商品: 'gray',
+                  定番商品: 'gray',
+                },
+                'white'
+              ),
+            },
+          ],
+        },
+        {
+          // 全区分=黄（手入力）
+          headerName: '売価',
+          headerTooltip:
+            '売価[入力値/自動表示]前年同月実績値を取得表示（手入力可）',
+          field: 'price',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 100,
+          cellClass: 'ag-cell-right',
+          cellStyle: yellowCellStyle,
+          editable: (params) =>
+            !params.data._isHeader && !params.node.rowPinned,
+          // 売価＝整数（入力時点で小数を入力させず、保持値も整数へ丸める）。
+          // cellDataType の自動推論は valueParser を上書きするため false で無効化する。
+          cellEditor: 'agNumberCellEditor',
+          cellEditorParams: { precision: 0 },
+          cellDataType: false,
+          valueFormatter: amountFormatterExceptTotal,
+          valueParser: planNumberParser(PLAN_DETAIL_DIGITS.amount),
+          onCellValueChanged: (params) => {
+            // 売価は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
+            const updatedData = recalcGiftLikeRates({
+              ...params.data,
+              price: params.newValue,
+            });
+            if (params.data.section === '定番商品') {
+              params.context.updateRegularProduct(updatedData);
+            } else if (params.data.section === '新商品') {
+              params.context.updateNewProduct(updatedData);
+            } else if (params.data.section === '特殊商品') {
+              params.context.updatePromotionProduct(updatedData);
+            } else if (params.data.section === 'ギフト') {
+              params.context.updateGiftProduct(updatedData);
+            }
+          },
+        },
+        {
+          // 商品区分によらず全区分で手入力可（黄）。ギフト/特殊商品は算出値を初期表示する。
+          // 入力しても他項目は再計算しない（納価・NET・売価を編集した時点で、
+          // ギフト/特殊商品のみ recalcGiftLikeRates により算出値へ戻る）。
+          headerName: 'マージン率',
+          headerTooltip:
+            'マージン率[算出/入力値]手入力しない場合は(納価-NET)/納価*100%を算出表示、商品区分によらず手入力での上書きも可',
+          field: 'margin',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 110,
+          cellClass: 'ag-cell-right',
+          // マージン率＝小数第2位（％）
+          valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.marginRate),
+          valueParser: planNumberParser(PLAN_DETAIL_DIGITS.marginRate),
+          // 手入力で上書きしたセル（変更済み＝黄＋橙枠）は算出値ではないため、
+          // 計算式ツールチップではなく手入力値である旨を表示する。
+          // 未変更のセルは従来どおり計算式ツールチップ（共通の tooltipValueGetter）。
+          // 合計行は納価が未入力の行を含めずに算出するため、その旨を表示する（課題1758・1815）。
+          tooltipValueGetter: (params: any) =>
+            params.node?.rowPinned
+              ? NO_DELIVERY_PRICE_NOTE
+              : isCellChanged(params)
+                ? `手入力値（(納価 − NET) ÷ 納価 × 100% の算出値を上書き）\n= ${planRateFormatter(
+                    PLAN_DETAIL_DIGITS.marginRate
+                  )(params)}`
+                : formulaHL.tooltipValueGetter(params),
+          cellStyle: yellowCellStyle,
+          editable: (params) =>
+            !params.data._isHeader && !params.node.rowPinned,
+          cellEditor: 'agTextCellEditor',
+          onCellValueChanged: (params) => {
+            // 連動再計算はせず、入力値をそのまま行データへ保持する。
+            const updatedData = { ...params.data, margin: params.newValue };
+            if (params.data.section === '定番商品') {
+              params.context.updateRegularProduct(updatedData);
+            } else if (params.data.section === '新商品') {
+              params.context.updateNewProduct(updatedData);
+            } else if (params.data.section === '特殊商品') {
+              params.context.updatePromotionProduct(updatedData);
+            } else if (params.data.section === 'ギフト') {
+              params.context.updateGiftProduct(updatedData);
+            }
+          },
+        },
+        {
+          // 値入額=(売価-納価)×入数×函数(計画)（算出・全区分。課題1757）。合計行は明細の合計。
+          headerName: '値入額',
+          headerTooltip: '値入額[算出](売価-納価)*入数*函数(計画)',
+          field: 'markupAmount',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 110,
+          cellClass: 'ag-cell-right',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          // 値入額＝整数
+          valueFormatter: planAmountFormatter(PLAN_DETAIL_DIGITS.amount),
+        },
+        {
+          // ギフト/特殊商品=白（算出値）、その他=グレー（入力不可）
+          headerName: '値入率',
+          headerTooltip: '値入率[算出](売価-納価)/売価*100%',
+          field: 'discount',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 100,
+          cellClass: 'ag-cell-right',
+          // 値入率＝小数第1位（％）
+          valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
+          cellStyle: makeCellStyle(
+            { ギフト: 'white', 特殊商品: 'white' },
+            'gray'
+          ),
+        },
+        {
+          headerName: '量経追加口率',
+          headerTooltip: '量経追加口率[算出]量経追加口/社外売上高*100%',
+          field: 'volumeAddRate',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 130,
+          cellClass: 'ag-cell-right',
+          // 量経追加口率＝小数第1位（％）
+          valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
+          cellStyle: whiteCellStyle,
+          editable: false,
+        },
+        {
+          headerName: '社外売上高',
+          headerTooltip: '社外売上高[算出]社外売単価×入数×函数(計画)',
+          field: 'externalSales',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 110,
+          cellClass: 'ag-cell-right',
+          // 社外売上高＝整数
+          valueFormatter: planAmountFormatter(PLAN_DETAIL_DIGITS.amount),
+          cellStyle: whiteCellStyle,
+          editable: false,
+        },
+        {
+          headerName: '売上原価',
+          headerTooltip: '売上原価[算出]売上原価単価×入数×函数(計画)',
+          field: 'delivery',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 110,
+          cellClass: 'ag-cell-right',
+          // 売上原価＝整数
+          valueFormatter: planAmountFormatter(PLAN_DETAIL_DIGITS.amount),
+          cellStyle: whiteCellStyle,
+          editable: false,
+        },
+        {
+          headerName: '売買差益率',
+          headerTooltip: '売買差益率[算出]売買差益/売上高*100%',
+          field: 'profit',
+          ...GRID_NUMBER_TEXT_FILTER,
+          width: 130,
+          cellClass: 'ag-cell-right',
+          // 売買差益率＝小数第1位（％）
+          valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
+          cellStyle: whiteCellStyle,
+        },
+        // 一次店/三次店 列（常時表示。右端＝Actions列の直前）。
+        // コード列は名称列の直前に置く（支払先コード＋支払先などの既存列と同じ並び）。
+        {
+          headerName: '一次店コード',
+          field: 'tier1Code',
+          width: 130,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          valueGetter: storeCodeValueGetter('tier1'),
+        },
+        {
+          headerName: '一次店',
+          field: 'tier1',
+          width: 200,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          valueGetter: storeValueGetter('tier1'),
+        },
+        {
+          headerName: '三次店コード',
+          field: 'tier3Code',
+          width: 130,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          valueGetter: storeCodeValueGetter('tier3'),
+        },
+        {
+          headerName: '三次店',
+          field: 'tier3',
+          width: 200,
+          cellClass: 'ag-cell-left',
+          cellStyle: whiteCellStyle,
+          editable: false,
+          valueGetter: storeValueGetter('tier3'),
+        },
+        {
+          headerName: '',
+          field: 'actions',
+          width: 100,
+          pinned: 'right',
+          lockPinned: true,
+          cellClass: 'ag-cell-center',
+          sortable: false,
+          filter: false,
+          resizable: false,
+          // 右固定列は rowSpan が効かないため結合はしない（rowSpan:1）。
+          // 代わりにセット中央行(_giftMiddle)にのみアイコンを描画し、内部罫線を消して
+          // 1セットに結合されたように見せる（下記 cellClassRules / CSS）。
+          rowSpan: () => 1,
+          cellClassRules: {
+            // ギフトのセット内部の横罫線を消す
+            'gift-actions': (p: any) => p.data?.section === 'ギフト',
+            // セット最終行(下旬)のみ下罫線を出してセット境界を示す
+            'gift-actions-bottom': (p: any) =>
+              p.data?.section === 'ギフト' && !!p.data?._giftLast,
+          },
+          cellRenderer: (params: ICellRendererParams) => {
+            if (params.data._isHeader) return null;
+            if (params.node.rowPinned) return null;
+
+            // ギフトは3行1セット。編集・コピー・削除はセット単位で行う。
+            // アイコンはセット先頭行(上旬)にのみ描画し、中旬/下旬は描画しない（結合風表示）。
+            const isGift = params.data.section === 'ギフト';
+            if (isGift && !params.data._giftFirst) return null;
+
+            const handleDelete = () => {
+              params.context.onDeleteRow(params.data);
+            };
+
+            const handleCopyForPane = () => {
+              // ギフトも他区分と同様にコピーする（セット単位で3行まとめて複製する）
+              params.context.onCopyForPane(params.data);
+            };
+
+            // 定番商品かどうかを判定
+            const isRegularProduct =
+              params.data.section === '定番商品' ||
+              params.data.productCategory === '定番商品';
+
+            // 前年実績（函数・納価のいずれか）に値がある行は削除させない。
+            const priorYearExists = hasPriorYearActual(
+              params.data.prevYear,
+              params.data.prevYearPrice
+            );
+            const deleteDisabled = isRegularProduct || priorYearExists;
+            const deleteTitle = isRegularProduct
+              ? '定番商品は削除できません'
+              : priorYearExists
+                ? '前年実績がある行は削除できません'
+                : '削除';
+
+            return (
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  onClick={isRegularProduct ? undefined : handleCopyForPane}
+                  disabled={isRegularProduct}
+                  className={`p-1 rounded transition-colors ${
+                    isRegularProduct
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-green-600 hover:text-green-800 hover:bg-green-50 focus:ring-2 focus:ring-green-500 focus:outline-none'
+                  }`}
+                  aria-label={`${params.data.summaryProduct}をコピー`}
+                  title={
+                    isRegularProduct ? '定番商品はコピーできません' : 'コピー'
+                  }
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={deleteDisabled ? undefined : handleDelete}
+                  disabled={deleteDisabled}
+                  className={`p-1 rounded transition-colors ${
+                    deleteDisabled
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-800 hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:outline-none'
+                  }`}
+                  aria-label={`${params.data.summaryProduct}を削除`}
+                  title={deleteTitle}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          },
+        },
+      ],
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）
+      []
+    );
+
+    const defaultColDef: ColDef = useMemo(
+      () => ({
+        ...GRID_DEFAULT_COL_DEF,
+        resizable: true,
+        sortable: true,
+        filter: true,
+        // 空白セルは「-」を表示（画面設計標準）
+        valueFormatter: formatEmptyAsDash,
+        // ギフトの3行1セットをセル結合（販売期間・計画列は個別に rowSpan:1 で上書き）
+        rowSpan: giftRowSpan,
+      }),
+      []
+    );
+
+    // グリッドへ渡す defaultColDef（menuTabs・ハイライト/ギフト結合の cellClassRules を合成）。
+    // 参照を安定させ、セル値編集による再レンダーで列定義が作り直されないようにする。
+    // （defaultColDef の参照が変わると AG Grid が列を再読込し Undo/Redo 履歴をクリアするため）
+    const gridDefaultColDef = useMemo<ColDef>(
+      () => ({
+        ...defaultColDef,
+        menuTabs: ['generalMenuTab', 'columnsMenuTab'],
+        // 計算式セルは計算式テキスト、それ以外は従来どおりセル値を表示する
+        tooltipValueGetter: formulaHL.tooltipValueGetter,
+        // 算出元セルの枠線ハイライト（計算式セルのクリック中のみ付与）
+        cellClassRules: {
+          // 共通の既定列設定のルール（値が無いセルの「-」をグレー等）を引き継ぐ
+          ...defaultColDef.cellClassRules,
+          ...formulaHL.cellClassRules,
+          // ギフト結合セル（先頭行＝spanされる列）にセット下端の罫線を付与。
+          // 販売期間・計画・操作列は結合対象外（行ごと）のため除外。
+          'gift-merged-bottom': (p: any) =>
+            !!p.data?._giftFirst &&
+            p.colDef.field !== 'period' &&
+            p.colDef.field !== 'plan' &&
+            p.colDef.field !== 'actions',
+        },
+      }),
+      [defaultColDef, formulaHL.cellClassRules, formulaHL.tooltipValueGetter]
+    );
+
+    // ヘッダー tooltip 付与済みの列定義。参照を安定させ Undo 履歴クリアを防ぐ（同上）。
+    const gridColumnDefs = useMemo(
+      () => withHeaderTooltips(columnDefs),
+      [columnDefs]
+    );
+
+    // 各行の一意ID生成。参照安定化のため useCallback 化（同上）。
+    const getRowIdCallback = useCallback(
+      (params: any) =>
+        params.data?.id ??
+        `${params.data.section}-${params.data.metaBrand}-${params.data.summaryProduct}`,
+      []
+    );
+
+    // 行の構造シグネチャ（行ID＋ギフトセット＋挿入順）。セル値の編集では変化せず、
+    // 行の追加/削除/コピー/並べ替えでのみ変化する。これを rowData 再生成のトリガに
+    // することで「値編集では rowData 参照を変えない」＝AG Grid の Undo/Redo 履歴を維持する。
+    // （rowData 参照が変わると公式仕様で履歴がクリアされる。セル値は AG Grid がノードの
+    //   data を直接更新し、値の永続化は onCellValueChanged→state 同期で担保される）
+    const rowStructureSignature = useMemo(
+      () =>
+        allData
+          .map(
+            (r) =>
+              `${r.id ?? `${r.section}-${r.metaBrand}-${r.summaryProduct}`}#${r.giftSetId ?? ''}#${r._addedSeq ?? ''}`
+          )
+          .join('|'),
+      [allData]
+    );
+
+    // タブフィルターを適用したデータを生成
+    // （商品区分を変更して保留中の行は、別タブへ切り替えるまで表示中のタブに残す）
+    const rowData = useMemo(() => {
+      const byTab = allData.filter(isRowInActiveTab);
+      // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず
+      // 合計行直下（先頭）へ新しい順で並べる。既存行は元の順序を維持（安定ソート）。
+      const sorted = [...byTab].sort(
+        (a, b) => (b._addedSeq ?? 0) - (a._addedSeq ?? 0)
+      );
+      // ギフトの3行1セットをセル結合するため、セット単位で
+      // 先頭行(_giftFirst＋行数_giftSpan)・中央行(_giftMiddle：操作アイコン表示)・
+      // 最終行(_giftLast：操作列の下罫線)を付与する。
+      const annotated = sorted.map((row) => ({
+        ...row,
+        _giftFirst: false,
+        _giftSpan: 1,
+        _giftMiddle: false,
+        _giftLast: false,
+      }));
+      let i = 0;
+      while (i < annotated.length) {
+        const row = annotated[i];
+        if (row.section !== 'ギフト' || !row.giftSetId) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (
+          j < annotated.length &&
+          annotated[j].giftSetId === row.giftSetId
+        ) {
+          j++;
+        }
+        const size = j - i;
+        annotated[i]._giftFirst = true;
+        annotated[i]._giftSpan = size;
+        annotated[j - 1]._giftLast = true;
+        annotated[i + Math.floor(size / 2)]._giftMiddle = true;
+        i = j;
+      }
+      return annotated;
+      // allData は本文で参照するが依存には含めない（値編集で rowData 参照を変えず
+      // Undo 履歴を維持するため、再生成は構造シグネチャ／再構築トークンの変化時のみに限定）。
+      // 構造変化・非セル編集の値更新時は allData が最新のため rebuild に必要な値も最新。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rowStructureSignature, activeTab, heldRowKeys, gridRebuildToken]);
+
+    const getRowStyle = useCallback((params: RowClassParams) => {
+      // ピン留めされた行（合計行）
+      if (params.node.rowPinned) {
+        return {
+          backgroundColor: GRID_COLORS.total, // amber-100 - 商品に紐づかない拡売費と同じ色
+          fontWeight: 'bold',
+        };
+      }
+
+      // 通常の行は背景色を設定せず、CSSのホバー効果を優先
+      return {};
+    }, []);
+
+    return (
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+          {/* Table title header */}
+          <div className="bg-white text-gray-900 text-left card-header-accent px-3 pt-2 pb-4">
+            {/* 1段目: タイトル、コピーボタン、函数計画の初期表示 */}
+            <div className="flex items-center gap-2 flex-nowrap">
+              <span className={`${CARD_TITLE_CLASS} whitespace-nowrap`}>
+                販売計画(詳細)
+              </span>
+
+              {/* Copy Execute Button（右ペインで実行。コピー元は前月計画で固定） */}
+              <button
+                onClick={onOpenCopyPane}
+                className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm ml-[1.875rem]"
+                aria-label="前月計画コピー"
+              >
+                前月計画コピー
+              </button>
+
+              {/* Case Plan Initial Display */}
+              <label
+                htmlFor="case-plan-percentage"
+                className={`${FORM_LABEL_CLASS} whitespace-nowrap ml-[1.875rem] mr-0 my-0`}
+              >
+                函数計画の初期表示：前年実績比
+              </label>
+              <div className="flex items-center gap-1">
+                <Input
+                  id="case-plan-percentage"
+                  type="text"
+                  value={casePlanPercentage}
+                  onChange={(e) => {
+                    // 整数3桁・小数第1位まで入力可能（数字と小数点のみ許可）
+                    const value = e.target.value
+                      .replace(/[^0-9.]/g, '') // 数字と小数点以外を除去
+                      .replace(/(\..*)\./g, '$1') // 2つ目以降の小数点を除去
+                      .replace(/^(\d{0,3})(\.\d?)?.*$/, '$1$2'); // 整数3桁・小数1桁に制限
+                    setCasePlanPercentage(value);
+                  }}
+                  className={`${TEXT_INPUT_CLASS} w-[3.75rem] border rounded px-2 py-1 focus:border-blue-500 text-right`}
+                  maxLength={5}
+                />
+                <span className="text-gray-900 text-sm">%</span>
+                {/* 函数反映ボタン：表示中タブの計画函数へ率を適用 */}
+                <button
+                  onClick={() => setShowApplyConfirm(true)}
+                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm ml-2"
+                  aria-label="函数反映"
+                >
+                  函数反映
+                </button>
+              </div>
+
+              {/* Total Store Count */}
+              <label
+                className={`${FORM_LABEL_CLASS} whitespace-nowrap ml-[1.875rem] mr-0 my-0`}
+              >
+                総間口数
+              </label>
+              <Input
+                type="text"
+                value={totalStoreCount}
+                onChange={(e) => {
+                  const value = e.target.value
+                    .replace(/[^0-9]/g, '')
+                    .slice(0, 3);
+                  setTotalStoreCount(value);
+                }}
+                className={`${TEXT_INPUT_CLASS} w-[3.75rem] border rounded px-2 py-1 focus:border-blue-500 text-right`}
+                maxLength={3}
+                aria-describedby="total-store-count-note"
+              />
+              {/* 課題No.0363：保存時のアラートではなく、入力欄の横に文言を表示する */}
+              <span
+                id="total-store-count-note"
+                className="ml-2 text-xs text-gray-500 whitespace-nowrap"
+              >
+                ※入力値は次月以降の販売計画にも反映されます
+              </span>
+
+              {/* コピー由来カラーバーの凡例（この画面は参照ペイン無し＝販売計画コピー元は出ない） */}
+              <CopySourceLegend
+                showReference={false}
+                className="ml-[1.875rem]"
+              />
+            </div>
+
+            {/* 2段目: セグメントタブ */}
+            <div className="flex items-center gap-2 mt-2">
+              {/* セグメントタブ */}
+              <div className="flex items-center">
+                <button
+                  onClick={() => switchTab('all')}
+                  className={`px-4 py-2 rounded-l-lg border-2 transition-colors whitespace-nowrap text-xs ${
+                    activeTab === 'all'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  全て
+                </button>
+                <button
+                  onClick={() => switchTab('定番商品')}
+                  className={`px-4 py-2 border-2 border-l-0 transition-colors whitespace-nowrap text-xs ${
+                    activeTab === '定番商品'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  定番商品
+                </button>
+                <button
+                  onClick={() => switchTab('新商品')}
+                  className={`px-4 py-2 border-2 border-l-0 transition-colors whitespace-nowrap text-xs ${
+                    activeTab === '新商品'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  新商品
+                </button>
+                <button
+                  onClick={() => switchTab('特殊商品')}
+                  className={`px-4 py-2 border-2 border-l-0 transition-colors whitespace-nowrap text-xs ${
+                    activeTab === '特殊商品'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  特殊商品
+                </button>
+                <button
+                  onClick={() => switchTab('ギフト')}
+                  className={`px-4 py-2 rounded-r-lg border-2 border-l-0 transition-colors whitespace-nowrap text-xs ${
+                    activeTab === 'ギフト'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  ギフト
+                </button>
+              </div>
+
+              {/* 年契基本分・センターフィ等の右ペインを開くリンク（拡売費計画タブと共通部品） */}
+              <PlanRateLinks
+                className="ml-[1.875rem]"
+                items={[
+                  {
+                    label: '年契基本分',
+                    value: annualContractAvg,
+                    onClick: onOpenAnnualContract,
+                  },
+                  {
+                    label: 'センターフィ',
+                    value: centerFeeAvg,
+                    onClick: onOpenCenterFee,
+                  },
+                  {
+                    label: '取組強化マージン',
+                    value: wholesaleIncentiveAvg,
+                    onClick: onOpenWholesaleIncentive,
+                  },
+                ]}
+              />
+
+              {/* 右端配置ボタン */}
+              <div className="flex items-center gap-2 ml-auto">
+                {/* 年間計画ボタン（未保存時はアラート後に画面遷移） */}
+                <button
+                  onClick={() =>
+                    handleNavigateWithGuard('annual-plan-creation')
+                  }
+                  className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  aria-label="年間計画"
+                >
+                  年間計画
+                </button>
+
+                {/* シミュレーションボタン */}
+                <button
+                  onClick={() =>
+                    handleNavigateWithGuard('sales-plan-simulation-net-fixed')
+                  }
+                  className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  aria-label="シミュレーション"
+                >
+                  シミュレーション
+                </button>
+
+                {/* 明細追加ボタン */}
+                <button
+                  onClick={() =>
+                    handleAddRow(activeTab === 'all' ? '' : activeTab)
+                  }
+                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  aria-label="＋明細追加"
+                >
+                  ＋明細追加
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* AG Grid Table（1920x1080 のPCで画面いっぱいに表示）
+            減算値 10.5rem = ヘッダ・フッタ・カード下余白の固定高。最下部までスクロールした
+            状態でグリッド本体が画面高にちょうど収まる値（カード見出し・タブ・ツールバーは
+            スクロールアウトしてよい方針）。 */}
+          <div
+            className="sales-detail-grid"
+            style={{ height: 'calc(100vh - 10.5rem)', minHeight: '25rem' }}
+          >
+            <style>{`
+                    .sales-detail-grid .ag-cell-right {
+                      text-align: right;
+                    }
+                    .sales-detail-grid .ag-cell-left {
+                      text-align: left;
+                    }
+                    .sales-detail-grid .ag-cell-center {
+                      text-align: center;
+                    }
+
+                    .sales-detail-grid .ag-pinned-left-header {
+                      background-color: var(--grid-header-bg) !important;
+                    }
+                    .sales-detail-grid .ag-header-cell {
+                      background-color: var(--grid-header-bg);
+                      border-right: 1px solid var(--grid-strong-divider);
+                    }
+                    .sales-detail-grid .ag-cell {
+                      border-right: 1px solid var(--grid-grid-line);
+                      transition: background-color 0.2s ease;
+                    }
+                    /* ギフト3行1セットの結合セルは、セット下端の横罫線が消えるため補う */
+                    .sales-detail-grid .ag-cell.gift-merged-bottom {
+                      border-bottom: 1px solid var(--grid-grid-line) !important;
+                    }
+                    /* 操作列：ギフトはセット内部の横罫線を消し、最終行のみ下罫線を出して
+                       1セットに結合されたように見せる（アイコンは中央行にのみ描画） */
+                    .sales-detail-grid .ag-cell.gift-actions {
+                      border-bottom: none !important;
+                    }
+                    .sales-detail-grid .ag-cell.gift-actions-bottom {
+                      border-bottom: 1px solid var(--grid-grid-line) !important;
+                    }
+                    /* ホバー：行全体を薄いブルー（GRID_COLORS.rowHover）でハイライト。
+                       白・グレー系セルも含め、行内の全セルをブルーにする。 */
+                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell,
+                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell[style*="background-color"] {
+                      background-color: var(--grid-row-hover) !important;
+                    }
+                    .sales-detail-grid .ag-row-pinned-top {
+                      border-top: 2px solid var(--grid-pinned-row-border);
+                    }
+                    .sales-detail-grid .ag-row-pinned-top .ag-cell:hover {
+                      background-color: var(--grid-total) !important; /* 合計行はホバーエフェクトを維持 */
+                    }
+                    /* 編集中のセルはクリーム色を強調 */
+                    .sales-detail-grid .ag-cell-inline-editing[style*="background-color: rgb(254, 249, 195)"] {
+                      background-color: var(--grid-editing-bg) !important;
+                      box-shadow: 0 0 0 2px var(--grid-editing-border) inset;
+                    }
+                  `}</style>
+            <AgGridReact
+              rowData={rowData}
+              columnDefs={gridColumnDefs}
+              // ギフトの3行1セルをセル結合（rowSpan）するために必須
+              suppressRowTransform={true}
+              defaultColDef={gridDefaultColDef}
+              getContextMenuItems={gridFilterContextMenuItems}
+              statusBar={GRID_STATUS_BAR}
+              pinnedTopRowData={[totals]}
+              onFilterChanged={handleFilterChanged}
+              getRowStyle={getRowStyle}
+              onCellMouseOver={formulaHL.onCellMouseOver}
+              onCellMouseOut={formulaHL.onCellMouseOut}
+              // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
+              tooltipShowMode="standard"
+              tooltipShowDelay={300}
+              tooltipHideDelay={5000}
+              onCellValueChanged={(params: any) => {
+                // いずれかのセルが編集されたら未保存状態にする
+                hasUnsavedRef.current = true;
+                // 編集済みセルを記録（元値に戻したら解除）し、当該セルを再描画して
+                // 黄色＋オレンジ枠（changedCellStyle）を反映する
+                const key = cellChangeKey(params);
+                if (!originalCellValuesRef.current.has(key)) {
+                  originalCellValuesRef.current.set(
+                    key,
+                    String(params.oldValue ?? '')
+                  );
+                }
+                const orig = originalCellValuesRef.current.get(key) ?? '';
+                if (String(params.newValue ?? '') === orig) {
+                  changedCellsRef.current.delete(key);
+                } else {
+                  changedCellsRef.current.add(key);
+                }
+                params.api.refreshCells({
+                  rowNodes: [params.node],
+                  columns: [params.column.getColId()],
+                  force: true,
+                });
+              }}
+              getRowId={getRowIdCallback}
+              {...GRID_BASE_PROPS}
+              {...gridColumnStateProps}
+              context={{
+                onAddRow: handleAddRow,
+                onDeleteRow: handleDeleteClick,
+                onCopyRow: handleCopyRow,
+                onCopyForPane: handleCopyClick,
+                updateRegularProduct: handleUpdateRegularProduct,
+                updateNewProduct: handleUpdateNewProduct,
+                updatePromotionProduct: handleUpdatePromotionProduct,
+                updateGiftProduct: handleUpdateGiftProduct,
+                changeProductCategory: handleChangeProductCategory,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* 前月計画コピー 右ペイン
+          販売店（チェーン）選択なし。商品区分→コピー元％→コピー実行の確認。
+          ＝計画詳細(マージン率固定・NET入力)の「前月計画コピー」と同じ内容。 */}
+        <PlanCopyPane
+          open={copyPaneOpen}
+          onClose={onCloseCopyPane ?? (() => {})}
+          title="前月計画コピー"
+          showStoreSelection={false}
+          categories={CATEGORY_LABELS_NET}
+          onExecute={handlePlanCopyExecute}
+        />
+
+        {/* 函数反映の確認: 表内に入力中のデータがある場合にリセットされる旨を確認 */}
+        <ConfirmDialog
+          open={showApplyConfirm}
+          title="函数反映の確認"
+          confirmLabel="反映"
+          description="入力中のデータがリセットされます。本当によろしいですか？"
+          onConfirm={() => {
+            setShowApplyConfirm(false);
+            handleApplyCasePlan();
+          }}
+          onCancel={() => setShowApplyConfirm(false)}
+        />
+
+        {/* 年間計画／シミュレーション遷移の確認 */}
+        <ConfirmDialog
+          open={pendingNavMenuId !== null}
+          title="画面移動の確認"
+          confirmLabel="移動"
+          description="入力中のデータが破棄されます。本当によろしいですか？"
+          onConfirm={() => {
+            const id = pendingNavMenuId;
+            setPendingNavMenuId(null);
+            if (id) onNavigate?.(id);
+          }}
+          onCancel={() => setPendingNavMenuId(null)}
+        />
+      </>
+    );
+  }
+);

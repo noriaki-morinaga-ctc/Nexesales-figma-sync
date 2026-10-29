@@ -1,0 +1,534 @@
+import { useEffect, useMemo, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import {
+  GRID_DEFAULT_COL_DEF,
+  GRID_STATUS_BAR,
+  GRID_BASE_PROPS,
+  gridFilterContextMenuItems,
+  withHeaderTooltips,
+  useGridColumnState,
+  GRID_MONTH_TEXT_FILTER,
+} from '../../../grid';
+import { ColDef, GetRowIdParams, ICellRendererParams } from 'ag-grid-community';
+import { Copy } from 'lucide-react';
+import { MonthYearPicker } from '../../../ui/month-year-picker';
+import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import { addMonths } from '../../../../utils/yearMonth';
+import type { NonProductExpenseData } from './NonProductExpensePane';
+import {
+  managementClassFromCode,
+  campaignClassFromCode,
+  EXPENSE_MANAGEMENT_CODE_OPTIONS,
+  EXPENSE_CAMPAIGN_CODE_OPTIONS,
+} from '../../../../constants/expenseRelations';
+import {
+  managementClassCodeOf,
+  managementCodeNameOf,
+  campaignClassCodeOf,
+  campaignCodeNameOf,
+} from '../../../../constants/comboFieldOptions';
+
+// 参照ダミー行へ採番する管理コード／施策コード（expenseRelations と整合）
+const MGMT_CODES = EXPENSE_MANAGEMENT_CODE_OPTIONS.map((o) => o.value);
+const CAMP_CODES = EXPENSE_CAMPAIGN_CODE_OPTIONS.map((o) => o.value);
+
+// 拡売費計画の「参照用」下ペインに表示する自計画の参照グリッド。
+// 自計画の過去12か月分（ダミー）を表示し、各行のコピーボタンで拡売費計画グリッドへ取り込む。
+// 列構成は拡売費計画表と同一にする（アクション列は左端）。
+
+interface ReferenceTableProps {
+  /** コピーボタン押下時に対象行を親へ渡す（拡売費計画へ追加） */
+  onCopyRow: (row: NonProductExpenseData) => void;
+  /** 基本情報の対象年月（YYYY/MM）。対象年月ピッカーの初期値 */
+  targetMonth?: string;
+}
+
+// 参照表の行を拡売費計画へコピーするボタン（左端アクション列）
+const ReferenceActionCellRenderer = (props: ICellRendererParams) => {
+  const { onCopyRow } = props.context;
+  return (
+    <div className="flex items-center justify-center h-full">
+      <button
+        className="text-green-600 hover:text-green-800 p-1"
+        onClick={() => onCopyRow(props.data)}
+        title="拡売費計画へコピー"
+        aria-label="拡売費計画へコピー"
+      >
+        <Copy className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+// 自計画ダミーの素データ（拡売費）。
+const BASE_REFERENCE = [
+  {
+    metaBrand: '三ツ矢',
+    summaryProduct: '十六茶PET630（ラベルレス）',
+    amount: 150000,
+    prior: 148000,
+    month: '2025/10',
+    mClass: '拡売費A',
+    mCode: 'A001',
+    account: '販促費',
+    cClass: '新規導入',
+    cCode: 'SK001',
+    desc: '店頭POP費用',
+  },
+  {
+    metaBrand: 'カルピス',
+    summaryProduct: '三ツ矢特濃ピーチスカッシュP500',
+    amount: 300000,
+    prior: 290000,
+    month: '2025/10',
+    mClass: '拡売費B',
+    mCode: 'B002',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK002',
+    desc: 'TV-CM放映費',
+  },
+  {
+    metaBrand: '十六茶',
+    summaryProduct: '「カルピス」（プラボトル）470ml',
+    amount: 80000,
+    prior: 82000,
+    month: '2025/10',
+    mClass: '拡売費A',
+    mCode: 'A003',
+    account: '販促費',
+    cClass: 'スポット',
+    cCode: 'SK003',
+    desc: 'サンプリング費用',
+  },
+  {
+    metaBrand: 'ワンダ',
+    summaryProduct: 'ワンダ金の微糖１８５ｇ３０本',
+    amount: 130000,
+    prior: 125000,
+    month: '2025/10',
+    mClass: '拡売費B',
+    mCode: 'B006',
+    account: 'イベント費',
+    cClass: 'リピート',
+    cCode: 'SK014',
+    desc: '試飲キャンペーン費',
+  },
+  {
+    metaBrand: 'ウィルキンソン',
+    summaryProduct: 'ウィルキンソンタンサン１Ｌ１２本',
+    amount: 450000,
+    prior: 440000,
+    month: '2025/09',
+    mClass: '拡売費C',
+    mCode: 'C001',
+    account: '販促費',
+    cClass: '',
+    cCode: '',
+    desc: '展示会出展費',
+  },
+  {
+    metaBrand: 'おいしい水',
+    summaryProduct: '「アサヒおいしい水」六甲PET2L（ラベルレス）',
+    amount: 120000,
+    prior: 110000,
+    month: '2025/09',
+    mClass: '拡売費B',
+    mCode: 'B003',
+    account: 'イベント費',
+    cClass: 'スポット',
+    cCode: 'SK009',
+    desc: '試飲イベント費',
+  },
+  {
+    metaBrand: '三ツ矢',
+    summaryProduct: '三ツ矢特濃ピーチスカッシュP500',
+    amount: 220000,
+    prior: 215000,
+    month: '2025/09',
+    mClass: '拡売費A',
+    mCode: 'A007',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK015',
+    desc: 'Web動画広告費',
+  },
+  {
+    metaBrand: 'モンスター',
+    summaryProduct: 'モンスターエナジー355ml',
+    amount: 260000,
+    prior: 250000,
+    month: '2025/08',
+    mClass: '拡売費C',
+    mCode: 'C002',
+    account: '広告費',
+    cClass: 'リピート',
+    cCode: 'SK010',
+    desc: 'デジタル広告費',
+  },
+  {
+    metaBrand: 'カルピス',
+    summaryProduct: '「カルピス」（プラボトル）470ml',
+    amount: 185000,
+    prior: 0,
+    month: '2025/08',
+    mClass: '拡売費A',
+    mCode: 'A008',
+    account: '販促費',
+    cClass: '新規導入',
+    cCode: 'SK016',
+    desc: '新商品導入販促費',
+  },
+  {
+    metaBrand: '十六茶',
+    summaryProduct: '十六茶PET630（ラベルレス）',
+    amount: 270000,
+    prior: 260000,
+    month: '2025/07',
+    mClass: '拡売費B',
+    mCode: 'B007',
+    account: 'イベント費',
+    cClass: 'スポット',
+    cCode: 'SK017',
+    desc: '夏季イベント協賛費',
+  },
+  {
+    metaBrand: 'ワンダ',
+    summaryProduct: 'ワンダ金の微糖１８５ｇ３０本',
+    amount: 95000,
+    prior: 90000,
+    month: '2025/07',
+    mClass: '拡売費A',
+    mCode: 'A004',
+    account: '販促費',
+    cClass: '新規導入',
+    cCode: '',
+    desc: '店頭什器費用',
+  },
+  {
+    metaBrand: '三ツ矢',
+    summaryProduct: '十六茶PET630（ラベルレス）',
+    amount: 180000,
+    prior: 175000,
+    month: '2025/06',
+    mClass: '拡売費B',
+    mCode: 'B004',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK006',
+    desc: '新聞折込チラシ費',
+  },
+  {
+    metaBrand: 'モンスター',
+    summaryProduct: 'モンスターエナジー355ml',
+    amount: 145000,
+    prior: 140000,
+    month: '2025/06',
+    mClass: '拡売費C',
+    mCode: 'C003',
+    account: '販促費',
+    cClass: 'スポット',
+    cCode: 'SK018',
+    desc: '量販店エンド費',
+  },
+  {
+    metaBrand: 'カルピス',
+    summaryProduct: '「カルピス」（プラボトル）470ml',
+    amount: 210000,
+    prior: 205000,
+    month: '2025/05',
+    mClass: '拡売費A',
+    mCode: 'A005',
+    account: '販促費',
+    cClass: 'リピート',
+    cCode: 'SK007',
+    desc: '増量パック販促費',
+  },
+  {
+    metaBrand: 'おいしい水',
+    summaryProduct: '「アサヒおいしい水」六甲PET2L（ラベルレス）',
+    amount: 160000,
+    prior: 158000,
+    month: '2025/04',
+    mClass: '拡売費B',
+    mCode: 'B008',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK019',
+    desc: '交通広告費（春季）',
+  },
+  {
+    metaBrand: 'ウィルキンソン',
+    summaryProduct: 'ウィルキンソンタンサン１Ｌ１２本',
+    amount: 140000,
+    prior: 138000,
+    month: '2025/03',
+    mClass: '拡売費C',
+    mCode: 'C002',
+    account: 'イベント費',
+    cClass: 'スポット',
+    cCode: 'SK011',
+    desc: 'サンプリングイベント費',
+  },
+  {
+    metaBrand: '十六茶',
+    summaryProduct: '三ツ矢特濃ピーチスカッシュP500',
+    amount: 330000,
+    prior: 320000,
+    month: '2025/01',
+    mClass: '拡売費B',
+    mCode: 'B005',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK012',
+    desc: '交通広告費',
+  },
+  {
+    metaBrand: 'ワンダ',
+    summaryProduct: 'ワンダ金の微糖１８５ｇ３０本',
+    amount: 200000,
+    prior: 190000,
+    month: '2025/01',
+    mClass: '拡売費A',
+    mCode: 'A009',
+    account: '販促費',
+    cClass: 'リピート',
+    cCode: 'SK020',
+    desc: '初売り販促費',
+  },
+  {
+    metaBrand: 'モンスター',
+    summaryProduct: 'モンスターエナジー355ml',
+    amount: 175000,
+    prior: 170000,
+    month: '2024/12',
+    mClass: '拡売費A',
+    mCode: 'A002',
+    account: '販促費',
+    cClass: '',
+    cCode: 'SK013',
+    desc: '店頭値引き販促費',
+  },
+  {
+    metaBrand: 'カルピス',
+    summaryProduct: '三ツ矢特濃ピーチスカッシュP500',
+    amount: 240000,
+    prior: 235000,
+    month: '2024/11',
+    mClass: '拡売費B',
+    mCode: 'B009',
+    account: '広告費',
+    cClass: '販売促進',
+    cCode: 'SK021',
+    desc: '年末特売広告費',
+  },
+];
+
+// 参照表（過去計画）の作成者ダミー。
+const REFERENCE_CREATORS = [
+  'アサヒ　太郎',
+  '山田 太郎',
+  '佐藤 花子',
+  '鈴木 一郎',
+];
+
+// 参照表の行ID（→ 画面設計標準 4.7）。no はダミーデータ生成時の連番で一意・編集しない
+const getRowId = (params: GetRowIdParams<NonProductExpenseData>) =>
+  `ref-${params.data.no}`;
+
+// 過去12か月分の自計画ダミーデータ（拡売費）。
+const REFERENCE_ROWS: NonProductExpenseData[] = BASE_REFERENCE.map((b, i) => ({
+  no: i + 1,
+  metaBrand: b.metaBrand,
+  summaryProduct: b.summaryProduct,
+  // 拡売費
+  exp1PlannedAmount: b.amount,
+  exp1PriorYearActual: b.prior,
+  exp1PostingMonth: b.month,
+  exp1ManagementCode: MGMT_CODES[i % MGMT_CODES.length],
+  exp1ManagementClass: managementClassFromCode(
+    MGMT_CODES[i % MGMT_CODES.length]
+  ),
+  exp1AccountItem: b.account,
+  exp1CampaignCode: CAMP_CODES[i % CAMP_CODES.length],
+  exp1CampaignClass: campaignClassFromCode(CAMP_CODES[i % CAMP_CODES.length]),
+  exp1Description: b.desc,
+  // 参照表は過去計画のため作成者はダミー。取り込み時にログインユーザーで上書きする。
+  exp1Creator: REFERENCE_CREATORS[i % REFERENCE_CREATORS.length],
+}));
+
+export function ReferenceTable({
+  onCopyRow,
+  targetMonth = '',
+}: ReferenceTableProps) {
+  // 対象年月（既定＝基本情報の対象年月）。カレンダーで変更でき、
+  // 選択年月の12か月前〜選択年月までを表示対象とする。
+  const [targetPeriod, setTargetPeriod] = useState(targetMonth);
+  // 基本情報の対象年月が変わったら対象年月を追従させる
+  useEffect(() => {
+    setTargetPeriod(targetMonth);
+  }, [targetMonth]);
+
+  // 拡売費の列（読取専用・計画金額～作成者）。2段ヘッダーは使わずフラットに表示する。
+  // 区分値・名称は行の保持値（管理区分=名称／管理コード=コード）から導出して表示する。
+  // 前年実績は列に持たない（コピー先では常に「-」で追加される）。
+  const makeRefExpenseColumns = (
+    prefix: 'exp1'
+  ): ColDef<NonProductExpenseData>[] => [
+    {
+      headerName: '計画金額',
+      field: `${prefix}PlannedAmount`,
+      width: 120,
+      // 金額は整数表示だが、小数を持つ値が来ても3桁以上出さないよう小数点以下2桁で丸める。
+      valueFormatter: (params) =>
+        params.value?.toLocaleString('ja-JP', { maximumFractionDigits: 2 }) ||
+        '',
+      cellClass: 'cell-right',
+    },
+    {
+      headerName: '計上年月',
+      field: `${prefix}PostingMonth`,
+      ...GRID_MONTH_TEXT_FILTER,
+      width: 110,
+      // カレンダー（日付）は左寄せ
+      cellClass: 'cell-left',
+    },
+    {
+      headerName: '管理区分',
+      colId: `${prefix}ManagementClassCode`,
+      width: 110,
+      valueGetter: (params) =>
+        managementClassCodeOf(params.data?.[`${prefix}ManagementClass`] ?? ''),
+    },
+    {
+      headerName: '管理区分名称',
+      field: `${prefix}ManagementClass`,
+      width: 170,
+    },
+    {
+      headerName: '管理コード',
+      field: `${prefix}ManagementCode`,
+      width: 130,
+    },
+    {
+      headerName: '管理コード名称',
+      colId: `${prefix}ManagementCodeName`,
+      width: 170,
+      valueGetter: (params) =>
+        managementCodeNameOf(params.data?.[`${prefix}ManagementCode`] ?? ''),
+    },
+    {
+      headerName: '施策区分',
+      colId: `${prefix}CampaignClassCode`,
+      width: 110,
+      valueGetter: (params) =>
+        campaignClassCodeOf(params.data?.[`${prefix}CampaignClass`] ?? ''),
+    },
+    { headerName: '施策区分名称', field: `${prefix}CampaignClass`, width: 150 },
+    { headerName: '施策コード', field: `${prefix}CampaignCode`, width: 130 },
+    {
+      headerName: '施策コード名称',
+      colId: `${prefix}CampaignCodeName`,
+      width: 190,
+      valueGetter: (params) =>
+        campaignCodeNameOf(params.data?.[`${prefix}CampaignCode`] ?? ''),
+    },
+    // 摘要1(社内用)は残り幅いっぱいに伸ばし、表の右端まできれいに収める
+    {
+      headerName: '摘要1(社内用)',
+      field: `${prefix}Description`,
+      flex: 1,
+      minWidth: 200,
+    },
+    { headerName: '作成者', field: `${prefix}Creator`, width: 140 },
+  ];
+
+  // 列順は拡売費計画表に合わせる（アクション列のみ左端）
+  const columnDefs: ColDef<NonProductExpenseData>[] = useMemo(
+    () => [
+      {
+        headerName: '',
+        colId: 'actions',
+        width: 90,
+        sortable: false,
+        filter: false,
+        suppressHeaderMenuButton: true,
+        // アイコンは中央寄せ
+        cellClass: 'cell-center',
+        cellRenderer: ReferenceActionCellRenderer,
+      },
+      {
+        headerName: 'メタブランド',
+        field: 'metaBrand',
+        width: 150,
+        cellClass: 'cell-left',
+      },
+      {
+        headerName: 'サマリ商品',
+        field: 'summaryProduct',
+        width: 240,
+      },
+      ...makeRefExpenseColumns('exp1'),
+    ],
+    []
+  );
+
+  const defaultColDef: ColDef = useMemo(
+    () => ({
+      ...GRID_DEFAULT_COL_DEF,
+      resizable: true,
+      sortable: true,
+      filter: true,
+    }),
+    []
+  );
+
+  // 列状態（幅・並び順・ソート・固定）を localStorage に永続化（明示幅のため autoSize 無効）
+  const gridColumnStateProps = useGridColumnState(
+    '拡売費計画NoLink.参照.columnState.v2',
+    { autoSize: false }
+  );
+
+  // 表示行を対象年月の12か月前〜対象年月で絞り込む（拡売費の計上年月で判定）。
+  // 列フィルタ（setFilterModel）ではなく rowData 自体を絞ることで、
+  // 計上年月列にアクティブフィルタのアイコンが表示されないようにする。
+  const rowData = useMemo(() => {
+    if (!targetPeriod) return REFERENCE_ROWS;
+    // 選択年月の12か月前〜選択年月を表示対象とする。
+    // 'YYYY/MM' はゼロ埋め前提で辞書順＝時系列順のため文字列比較で範囲判定できる
+    const from = addMonths(targetPeriod, -12);
+    return REFERENCE_ROWS.filter(
+      (row) =>
+        row.exp1PostingMonth >= from && row.exp1PostingMonth <= targetPeriod
+    );
+  }, [targetPeriod]);
+
+  return (
+    <div className="reference-grid flex-1 w-full flex flex-col">
+      {/* 対象年月（単一カレンダー。選択年月の12か月前〜選択年月を表示対象とする） */}
+      <div className="flex items-center gap-2 mb-2">
+        <label className={`${FORM_LABEL_CLASS} whitespace-nowrap px-2 py-1`}>
+          対象年月
+        </label>
+        <MonthYearPicker value={targetPeriod} onChange={setTargetPeriod} />
+      </div>
+
+      <div className="flex-1 w-full" style={{ minHeight: 300 }}>
+        <AgGridReact
+          rowData={rowData}
+          columnDefs={withHeaderTooltips(columnDefs)}
+          defaultColDef={defaultColDef}
+          getRowId={getRowId}
+          getContextMenuItems={gridFilterContextMenuItems}
+          statusBar={GRID_STATUS_BAR}
+          context={{ onCopyRow }}
+          // 行のダブルクリックでも拡売費計画へコピーする（コピーボタンと同じ動作）
+          onRowDoubleClicked={(params) => params.data && onCopyRow(params.data)}
+          ensureDomOrder={true}
+          {...GRID_BASE_PROPS}
+          {...gridColumnStateProps}
+        />
+      </div>
+    </div>
+  );
+}
