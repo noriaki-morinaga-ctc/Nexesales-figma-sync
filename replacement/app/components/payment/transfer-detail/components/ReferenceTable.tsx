@@ -9,6 +9,8 @@ import {
   ICellRendererParams,
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
+import { Search } from 'lucide-react';
+
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -20,7 +22,6 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
 } from '../../../grid';
-import { Search } from 'lucide-react';
 import { campaignClassCode } from '../../../../constants/paymentComboFieldOptions';
 import { campaignClassFromCode } from '../../../../constants/expenseRelations';
 import { OFFICE_OPTIONS } from '../../../../constants/paymentListSearchOptions';
@@ -39,8 +40,11 @@ import {
   type StoreOrgSelection,
 } from '../../../../constants/paymentOrgCascade';
 // 年月の表記変換（'YYYY年M月' ⇔ 'YYYY/MM'）は共通ヘルパーを使う。
-import { toYearMonth, toMonthLabel } from '../../../../utils/yearMonth';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import { toYearMonth, toMonthLabel } from '../../../../utils/common/yearMonth';
+import {
+  FORM_LABEL_CLASS,
+  CARD_CLASS,
+} from '../../../../../styles/commonStyles';
 import { BASIC_INFO, type TransferDetailBasicInfoValues } from './TransferInfo';
 import { CopyableArea } from '../../../ui/copyable-area';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
@@ -1003,8 +1007,8 @@ export function ReferenceTable({
           // 先頭列は No. の値に代えて「振替処理」ボタンを表示する操作列。
           headerName: '',
           colId: 'transferProcess',
-          width: 120,
-          minWidth: 120,
+          width: 96,
+          minWidth: 96,
           sortable: false,
           filter: false,
           resizable: false,
@@ -1015,20 +1019,20 @@ export function ReferenceTable({
         {
           headerName: '支払No',
           field: 'paymentNo',
-          width: 130,
+          width: 104,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '支払回数',
           field: 'paymentCount',
-          width: 100,
+          width: 80,
           cellClass: RIGHT_CELL_CLASS,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '明細No',
           field: 'detailNo',
-          width: 100,
+          width: 80,
           cellClass: RIGHT_CELL_CLASS,
           cellStyle: RO_STYLE,
         },
@@ -1036,19 +1040,19 @@ export function ReferenceTable({
           // メタブランド：支払詳細の拡売費一覧と同じく、サマリ商品の左に置く。
           headerName: 'メタブランド',
           field: 'metaBrand',
-          width: 140,
+          width: 112,
           cellStyle: RO_STYLE,
         },
         {
           headerName: 'サマリ商品',
           field: 'product',
-          width: 220,
+          width: 176,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '支払金額',
           field: 'payAmount',
-          width: 120,
+          width: 96,
           valueFormatter: numFmt,
           cellClass: RIGHT_CELL_CLASS,
           cellStyle: RO_STYLE,
@@ -1057,25 +1061,25 @@ export function ReferenceTable({
           // コード・名称はそれぞれ別フィールドで保持し、各列が対応フィールドを参照する。
           headerName: '管理区分',
           field: 'mgmtClass',
-          width: 130,
+          width: 104,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '管理区分名称',
           field: 'mgmtClassName',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '管理コード',
           field: 'mgmtCode',
-          width: 130,
+          width: 104,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '管理コード名称',
           field: 'mgmtCodeName',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
@@ -1083,7 +1087,7 @@ export function ReferenceTable({
           headerName: '施策区分',
           colId: 'measureClassCode',
           field: 'measureClass',
-          width: 110,
+          width: 88,
           valueFormatter: (p) =>
             campaignClassCode(String(p.value ?? '')) || GRID_EMPTY_TEXT,
           cellStyle: RO_STYLE,
@@ -1093,14 +1097,14 @@ export function ReferenceTable({
           headerName: '施策区分名称',
           colId: 'measureClassName',
           field: 'measureClass',
-          width: 150,
+          width: 120,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '施策コード',
           colId: 'measureCodeCode',
           field: 'measureCode',
-          width: 130,
+          width: 104,
           cellStyle: RO_STYLE,
         },
         {
@@ -1108,7 +1112,7 @@ export function ReferenceTable({
           headerName: '施策コード名称',
           colId: 'measureCodeName',
           field: 'measureCode',
-          width: 150,
+          width: 120,
           valueFormatter: (p) =>
             campaignClassFromCode(String(p.value ?? '')) || GRID_EMPTY_TEXT,
           cellStyle: RO_STYLE,
@@ -1116,47 +1120,46 @@ export function ReferenceTable({
         {
           headerName: '費用負担部署',
           field: 'dept',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '販売店',
           field: 'store',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '三次店',
           field: 'tertiaryStore',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '一次店',
           field: 'primaryStore',
-          width: 220,
+          width: 176,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '摘要1（社内用）',
           field: 'summary1',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
         {
           headerName: '摘要2（社外用）',
           field: 'summary2',
-          width: 200,
+          width: 160,
           cellStyle: RO_STYLE,
         },
       ]),
     []
   );
 
-  // 列状態（列幅・並び順・ソート）の永続化（→ 02 §7）。列幅は設計値を優先する。
+  // 列状態（列幅・並び順・ソート）の永続化（→ 02 §7）。
   const gridColumnStateProps = useGridColumnState(
-    'allocateDetail.reference.columnState.v2',
-    { autoSize: false }
+    'allocateDetail.reference.columnState.v2'
   );
 
   // 行ID（参照安定化のため useCallback 化：→ 02 §7.1）。
@@ -1376,8 +1379,8 @@ export function ReferenceTable({
             画面内に埋め込むため、グリッドは固定の縦幅で行を内部スクロールさせる。
             縦幅は明細 5 行が表示される高さ＝ヘッダー 1.75rem＋行 2.25rem×5（11.25rem）
             ＋ステータスバー・横スクロールバー分 約3rem ≒ 16rem。 */}
-        <div className="rounded-lg border border-gray-200 bg-white p-2 shadow-md">
-          <div className="allocate-reference-grid h-[16rem] w-full">
+        <div className={`${CARD_CLASS} p-2`}>
+          <div className="allocate-reference-grid h-64 w-full">
             <AgGridReact
               rowData={filteredRows}
               // 行のダブルクリックでも振替処理を行う（ボタン押下と同じ処理）。

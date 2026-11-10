@@ -14,8 +14,8 @@ import {
   CARD_ICON_CLASS,
   WHITE_CARD_CLASS,
 } from '../marketingFileUploadStyles';
-import { CardHeader } from './CardHeader';
-import { FormField } from './FormField';
+import { CardHeader } from '../../../shared/upload/CardHeader';
+import { FormField } from '../../../shared/upload/FormField';
 
 interface DownloadCardProps {
   // ダウンロード対象の選択肢（表示モードにより異なる）
@@ -82,6 +82,7 @@ export function DownloadCard({
               onChange={onPeriodFromChange}
               max={periodTo || undefined}
               ariaLabel="対象期間（開始）"
+              required
             />
             <span className="text-sm text-gray-700">～</span>
             <MonthYearPicker
@@ -89,6 +90,7 @@ export function DownloadCard({
               onChange={onPeriodToChange}
               min={periodFrom || undefined}
               ariaLabel="対象期間（終了）"
+              required
             />
           </div>
         </FormField>

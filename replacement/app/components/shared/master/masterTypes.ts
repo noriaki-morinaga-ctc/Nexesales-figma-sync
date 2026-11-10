@@ -5,13 +5,21 @@
 // 画面設計標準 ver0.3 3.2／3.4／3.6／3.8／3.9／4.x、第27回共通セッション（10/2）決定1〜7、
 // 10/21 内部レビュー（Q&A No.34・35）。全マスタ共通のルールは画面定義で外せないよう部品側で持つ。
 // メッセージの文言は共通メッセージ一覧（constants/masterMessages.ts、sync-messages.cjs が生成）から引く。
+// 2026-10-30：画面設計標準 ver0.3 と guidelines 01〜08（10/28〜29 更新）に合わせて共通部品を直した。
+// 検索条件は 5 列＋複数選択（未選択＝条件なし）、一覧カードは CollapsibleCard（fillParent）、右ペインの破棄確認は RightPane の dirty。
+// あわせて Q&A QM-028（商品分類導出の主キー）に要る定義（uniqueGroups・displayKeys・emptyLabel・maxDigits／min／max）を足した。
+// 2026-10-30（2回目）：Q&A QM-020・026（数値はマイナス入力不可を標準に）、QM-033（主キーと無効化フラグだけのマスタは更新ペインを設けない。
+// 変更できる項目が無い画面は部品側で判定する＝型1 ルール R-63）、QM-034（長い文字の項目は複数行の入力欄・一覧は省略表示＋ツールチップ＝R-64）、
+// QM-032（社員を事業場→部署で絞り込む 2 段の親子連動）を足した。
 
 /**
  * 項目の入力形式。combo／select はコード値を保持し、一覧ではコード列と名称列に分けて表示する。
- * month は年月（YYYY/MM）。適用期間が年月のマスタ（販売店条件口率・管理対象商品）で使う
+ * month は年月（YYYY/MM）。適用期間が年月のマスタ（販売店条件口率・管理対象商品）で使う。
+ * textarea は複数行の文字入力（通知の本文など 100 文字を超える項目。Q&A QM-034）。一覧では列幅で省略し、マウスオーバーで全文を表示する
  */
 export type MasterFieldKind =
   | 'text'
+  | 'textarea'
   | 'number'
   | 'date'
   | 'month'
@@ -34,7 +42,8 @@ export interface MasterFieldDef {
   pk?: boolean;
   /**
    * ユニーク制約（エンティティ定義の AK）。主キーとは別に、同じ値の組（世代管理は同じ適用開始年月日の中で）を
-   * 重複して登録できない項目（一般卸メッシュのメタブランド・容器容量G・希望小売価格・商品函バラ入数）
+   * 重複して登録できない項目（一般卸メッシュのメタブランド・容器容量G・希望小売価格・商品函バラ入数）。
+   * 組が複数あるマスタは MasterScreenDef.uniqueGroups で指定する
    */
   unique?: boolean;
   required?: boolean;
@@ -45,6 +54,21 @@ export interface MasterFieldDef {
   nameLabel?: string;
   /** number の表示書式 */
   format?: 'integer' | 'decimal2' | 'decimal4';
+  /** number：整数部の桁数の上限。入力欄で超える桁を受け付けない（例：適用優先順＝3 桁。Q&A QM-029） */
+  maxDigits?: number;
+  /** number：下限・上限（決定事項で決めた業務上の範囲。外れると入力エラー。7 の範囲チェックに書く） */
+  min?: number;
+  max?: number;
+  /**
+   * number：マイナスの入力を許す。既定（未指定）はマイナスを入力できない（型1 の標準。Q&A QM-020・026）。
+   * 標準のため 7 の範囲チェックには書かず、業務上の下限があるときだけ min を書く
+   */
+  allowNegative?: boolean;
+  /**
+   * text／textarea：文字数の上限（全角の文字数。エンティティ定義の桁）。入力欄で超える文字を受け付けない。
+   * 40 文字以上の項目は右ペインを広げて表示し、一覧は列幅で省略してマウスオーバーで全文を表示する（Q&A QM-034）
+   */
+  maxLength?: number;
   /** 単位（入力欄の右に表示） */
   unit?: string;
   placeholder?: string;
@@ -52,6 +76,12 @@ export interface MasterFieldDef {
   note?: string;
   /** 登録・更新とも固定の値（変更不可）。例：共通会社＝アサヒ飲料（Q&A No.35①） */
   fixedValue?: string;
+  /**
+   * combo／select：値が無い（未設定）ときに一覧の名称列・右ペインで表示する語（例：「指定なし」）。
+   * 任意の判断軸で「未設定＝どの値にも当てはまる」を表すマスタ（商品分類導出。Q&A QM-028）で使う。
+   * 右ペインではクリアで未設定に戻せる。保持する値は無し（NULL）で、専用のコードは作らない
+   */
+  emptyLabel?: string;
   /**
    * 親項目による候補の絞り込み（例：事業場 → 部署）。parentOf は子のコード → 親のコード。
    * 親を選ぶと子の候補を絞り、子を選ぶと親を自動で設定する。子が変更不可のときは親も変更不可
@@ -80,6 +110,21 @@ export interface MasterGenerationDef {
   endKey: string;
 }
 
+/**
+ * 一意制約の組（主キーとは別）。keys の値の組（世代管理は同じ適用開始年月日の中で）が同じ行を重複して登録できない。
+ * 未設定（空）の値も同じ値として比べる（NULL を同値扱いする一意インデックス。Q&A QM-028）。
+ * activeOnly は無効化済みの行を判定から外す（有効行の中で一意）
+ */
+export interface MasterUniqueGroup {
+  keys: string[];
+  activeOnly?: boolean;
+}
+
+/**
+ * 画面の定義。更新ペインの有無は定義で指定せず、部品が項目から判定する（masterUtils.hasUpdate）：
+ * 主キー・固定値・表示のみ・主キーの親（絞り込み用）以外に変更できる項目が無いマスタ（システム管理者設定など）は
+ * 更新ペインと操作列の編集アイコンを設けず、登録・無効化・削除だけにする（Q&A QM-033）
+ */
 export interface MasterScreenDef {
   /** ルート ID（＝画面ディレクトリ名）。列状態の保存キーにも使う */
   routeId: string;
@@ -106,6 +151,15 @@ export interface MasterScreenDef {
   /** 登録時に自動採番する項目（内部コードは非表示が標準だが、業務で使うコードは表示する） */
   autoNumberKey?: string;
   autoNumberPrefix?: string;
+  /** 一意制約の組（主キーとは別。fields の unique と併用できる） */
+  uniqueGroups?: MasterUniqueGroup[];
+  /**
+   * 確認ダイアログ・メッセージで行を示す項目（既定＝業務キー）。
+   * 主キーがシステム採番の内部コードで画面に出さないマスタ（商品分類導出）で、利用者に分かる項目を指定する
+   */
+  displayKeys?: string[];
+  /** 一覧の既定の並び順にする項目（昇順）。未指定は列定義の順（業務キーの昇順） */
+  defaultSortKey?: string;
 }
 
 /** システム共通項目。個別の変更履歴は設けず、作成者・最終更新者と日時を一覧・右ペインに表示する（7/30 決定7） */
@@ -131,8 +185,12 @@ export type MasterGridRow = MasterRow & {
   treePath: string[];
 };
 
-/** 検索条件の値（キー → 入力値。未入力は空文字） */
-export type MasterCriteria = Record<string, string>;
+/**
+ * 検索条件の値（キー → 入力値）。選択肢のある項目（combo／select／無効化）は複数選択のため配列（未選択＝条件なし）、
+ * 文字・数値・年月日は文字列（未入力は空文字）
+ */
+export type MasterCriteriaValue = string | string[];
+export type MasterCriteria = Record<string, MasterCriteriaValue>;
 /** 右ペインの入力値（キー → 入力値。すべて文字列で保持し、保存時に型を解決する） */
 export type MasterDraft = Record<string, string>;
 

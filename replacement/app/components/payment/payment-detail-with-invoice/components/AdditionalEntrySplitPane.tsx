@@ -46,6 +46,7 @@ import {
   CellColorLegend,
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
+  useGridColumnState,
 } from '../../../grid';
 import { Alert, AlertDescription } from '../../../ui/alert';
 import type { CellColorLegendItem } from '../../../grid';
@@ -60,7 +61,7 @@ import {
   isSelfShareAlert,
   toIntegerCount,
   type SplitAllocation,
-} from '../../../../utils/additionalEntrySplit';
+} from '../../../../utils/payment/payment-detail/additionalEntrySplit';
 
 // ペイン1行分（追加口明細1行）。分割先の入力は destId ごとのケース・バラで持つ。
 interface SplitRow {
@@ -300,14 +301,14 @@ export const AdditionalEntrySplitPane = forwardRef<
     return rows;
   }, []);
   // フィルタの変更・行の作り直し（［入力をクリア］）のときに計の行を集計し直す
-  const refreshTotalRow = useCallback(() => {
+  const handleRefreshTotalRow = useCallback(() => {
     setTotalRow(buildTotalRow(visibleRows(), destinations));
   }, [destinations, visibleRows]);
   const refreshSummary = useCallback(() => {
     const rows = rowsRef.current ?? [];
-    refreshTotalRow();
+    handleRefreshTotalRow();
     setAlertNos(alertLineNos(rows, allocationsOfRows(rows)));
-  }, [refreshTotalRow]);
+  }, [handleRefreshTotalRow]);
 
   useImperativeHandle(
     ref,
@@ -393,7 +394,7 @@ export const AdditionalEntrySplitPane = forwardRef<
         {
           headerName: 'No.',
           field: 'lineNo',
-          width: 70,
+          width: 56,
           cellClass: 'ag-cell-left-pinned',
           cellStyle: (p) =>
             p.data?.isTotal
@@ -403,7 +404,7 @@ export const AdditionalEntrySplitPane = forwardRef<
         {
           headerName: 'サマリ商品コード',
           field: 'productCode',
-          width: 120,
+          width: 96,
           cellStyle: (p) =>
             p.data?.isTotal
               ? totalStyle
@@ -412,7 +413,7 @@ export const AdditionalEntrySplitPane = forwardRef<
         {
           headerName: 'サマリ商品名',
           field: 'productName',
-          width: 220,
+          width: 176,
           cellStyle: (p) =>
             p.data?.isTotal
               ? totalStyle
@@ -422,7 +423,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           headerName: '入数',
           field: 'capacity',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 70,
+          width: 56,
           valueFormatter: fmtNum,
           cellStyle: readonlyStyle,
         },
@@ -430,7 +431,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           headerName: '支払ケース',
           colId: 'payCases',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 100,
+          width: 80,
           valueGetter: totalOr('payCases', (r) => toNum(r.payCases)),
           valueFormatter: fmtNum,
           cellStyle: readonlyStyle,
@@ -439,7 +440,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           headerName: '支払バラ',
           colId: 'payLoose',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 90,
+          width: 72,
           valueGetter: totalOr('payLoose', (r) => toNum(r.payLoose)),
           valueFormatter: fmtNum,
           cellStyle: readonlyStyle,
@@ -448,7 +449,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           headerName: '追加口バラ単価',
           field: 'addUnit',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 130,
+          width: 104,
           valueFormatter: fmtNum,
           cellStyle: readonlyStyle,
         },
@@ -456,7 +457,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           headerName: '追加口金額',
           colId: 'addAmount',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 120,
+          width: 96,
           valueGetter: totalOr('addAmount', (r) => toNum(r.addAmount)),
           valueFormatter: fmtNum,
           cellStyle: readonlyStyle,
@@ -523,7 +524,7 @@ export const AdditionalEntrySplitPane = forwardRef<
             headerName: 'ケース',
             colId: SELF_COL.cases,
             ...GRID_NUMBER_TEXT_FILTER,
-            width: 90,
+            width: 72,
             valueGetter: totalOr(
               SELF_COL.cases,
               (r) => selfShareOfRow(r).cases
@@ -535,7 +536,7 @@ export const AdditionalEntrySplitPane = forwardRef<
             headerName: 'バラ',
             colId: SELF_COL.loose,
             ...GRID_NUMBER_TEXT_FILTER,
-            width: 80,
+            width: 64,
             valueGetter: totalOr(
               SELF_COL.loose,
               (r) => selfShareOfRow(r).loose
@@ -547,7 +548,7 @@ export const AdditionalEntrySplitPane = forwardRef<
             headerName: '金額',
             colId: SELF_COL.amount,
             ...GRID_NUMBER_TEXT_FILTER,
-            width: 120,
+            width: 96,
             // 追加口金額 − 分割先の金額の合計（端数は自部署で吸収 → 第33回 決定事項8・12）
             valueGetter: totalOr(SELF_COL.amount, (r) =>
               calcSelfShareAmount(r, allocationsOfRows([r]))
@@ -566,7 +567,7 @@ export const AdditionalEntrySplitPane = forwardRef<
         headerName: kind === 'cases' ? 'ケース' : 'バラ',
         colId: destColId(d.id, kind),
         ...GRID_NUMBER_TEXT_FILTER,
-        width: kind === 'cases' ? 90 : 80,
+        width: kind === 'cases' ? 72 : 64,
         editable: (p) => !readOnly && !p.data?.isTotal,
         valueGetter: totalOr(destColId(d.id, kind), (r) => r.alloc[d.id][kind]),
         // 手入力・貼り付けとも整数へそろえる（小数は四捨五入 → 課題1507）
@@ -593,7 +594,7 @@ export const AdditionalEntrySplitPane = forwardRef<
               headerName: '金額',
               colId: destColId(d.id, 'amount'),
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 120,
+              width: 96,
               valueGetter: totalOr(destColId(d.id, 'amount'), (r) =>
                 calcSplitAmount(
                   r.alloc[d.id].cases,
@@ -635,6 +636,10 @@ export const AdditionalEntrySplitPane = forwardRef<
     refreshSummary();
   };
 
+  // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）
+  const splitGridColumnStateProps = useGridColumnState(
+    '支払詳細(追加口請求書有).追加口分割.columnState'
+  );
   return (
     <div className="flex h-full flex-col">
       <p className="px-4 pb-1 text-sm text-gray-700">
@@ -648,6 +653,7 @@ export const AdditionalEntrySplitPane = forwardRef<
       <div className="min-h-0 flex-1 px-4">
         <div className="h-full w-full">
           <AgGridReact<SplitRow>
+            {...splitGridColumnStateProps}
             ref={gridRef}
             rowData={rowData}
             pinnedTopRowData={pinnedTopRowData}
@@ -657,8 +663,8 @@ export const AdditionalEntrySplitPane = forwardRef<
             context={gridContext}
             getContextMenuItems={gridFilterContextMenuItems}
             onCellValueChanged={handleCellValueChanged}
-            onFilterChanged={refreshTotalRow}
-            onRowDataUpdated={refreshTotalRow}
+            onFilterChanged={handleRefreshTotalRow}
+            onRowDataUpdated={handleRefreshTotalRow}
             statusBar={GRID_STATUS_BAR}
             {...GRID_BASE_PROPS}
           />

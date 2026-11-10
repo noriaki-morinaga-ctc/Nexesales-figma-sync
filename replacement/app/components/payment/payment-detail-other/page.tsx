@@ -43,7 +43,7 @@ import {
 } from '../../ui/single-combobox';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import { Label } from '../../ui/label';
 import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
 import { DateMonthYearCellEditor } from '../../ui/date-month-year-cell-editor';
@@ -52,7 +52,7 @@ import { Calendar } from '../../ui/calendar';
 import { RightPane } from '../../ui/right-pane';
 import { BottomPane } from '../../ui/bottom-pane';
 import { CollapsibleCard } from '../../ui/collapsible-card';
-import { PaymentPlanSelectionPane } from '../../shared/PaymentPlanSelectionPane';
+import { PaymentPlanSelectionPane } from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   Dialog,
   DialogContent,
@@ -1400,7 +1400,7 @@ export default function PaymentDetailOther({
         `}</style>
 
         {/* 拡売費明細グリッドエリア */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md">
+        <div className={`${CARD_CLASS} overflow-hidden`}>
           {/* 合計金額サマリーバー（支払申請承認画面と同じ）＋明細操作（添付資料登録・明細追加） */}
           <div className="flex items-center gap-2 px-3 pt-3 pb-2">
             <div className="flex w-[70%] items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2">

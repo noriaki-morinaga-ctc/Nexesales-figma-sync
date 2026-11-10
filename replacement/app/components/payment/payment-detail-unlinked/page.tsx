@@ -5,13 +5,11 @@
 // 下ペインで拡売費計画明細を紐づけると支払明細へ自動転記される（RFP 197・200〜202）。
 // 計画を作成していないイレギュラーは明細追加＋計画欄手入力で対応する（RFP 203）。
 import React, { useState, useRef } from 'react';
-import { Button } from '../../ui/button';
 import {
   Ban,
   Save,
   Send,
   Check,
-  X,
   Upload,
   Undo2,
   ArrowRight,
@@ -20,6 +18,9 @@ import {
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
+import { toast } from 'sonner';
+
+import { Button } from '../../ui/button';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -28,11 +29,12 @@ import {
   withHeaderTooltips,
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
+  useGridColumnState,
 } from '../../grid';
 // 管理区分の「名称→区分値」導出（拡売費明細・支払情報サマリと共通）。
 import { managementClassCode } from '../../../constants/paymentComboFieldOptions';
 import { SearchPane, TARGET_MONTH } from './components/SearchPane';
-import { DUMMY_STORE_LABEL } from '../../../utils/paymentNoLink';
+import { DUMMY_STORE_LABEL } from '../../../utils/payment/payment-detail/paymentNoLink';
 import { PaymentDetailPane } from './components/PaymentDetailPane';
 import {
   AggregationPane,
@@ -45,18 +47,17 @@ import {
   createQuotedExpenseRows,
   type ExpenseRow,
   type PaymentNonProductExpensePaneHandle,
-  type ExpenseBasicInfo,
   type ExpenseFormValues,
-} from '../../shared/PaymentNonProductExpensePane';
+} from '../../shared/payment/payment-detail/PaymentNonProductExpensePane';
 // 支払回数の切替・追加（支払詳細の各画面で共通）。
-import { usePaymentRounds } from '../../shared/usePaymentRounds';
-import { PaymentRoundConfirmDialog } from '../../shared/PaymentRoundConfirmDialog';
+import { usePaymentRounds } from '../../shared/payment/payment-detail/usePaymentRounds';
+import { PaymentRoundConfirmDialog } from '../../shared/payment/payment-detail/PaymentRoundConfirmDialog';
 
 // 支払回数の選択肢の初期値（＋支払回数追加で最大回数＋1を末尾へ足す）。
 const INVOICE_COUNT_OPTIONS = ['1', '2', '3'];
-import { CommentHistoryPane } from '../../shared/CommentHistoryPane';
+import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
 import { BottomPane } from '../../ui/bottom-pane';
-import { PaymentPlanSelectionPane } from '../../shared/PaymentPlanSelectionPane';
+import { PaymentPlanSelectionPane } from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   QuoteSelectionPane,
   QUOTE_TARGET_MONTH_FROM,
@@ -64,13 +65,15 @@ import {
   QUOTE_PAYEE_ALL,
   QUOTE_PAYEE_OPTIONS,
   type QuoteSelectionPaneHandle,
-} from './components/QuoteSelectionPane';
+  QUOTE_SELECTION_CONFIG,
+} from './components/quoteSelectionConfig';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import {
   BUTTON_BASE,
   BUTTON_STYLES,
   FORM_LABEL_CLASS,
   TEXT_INPUT_CLASS,
+  CARD_CLASS,
 } from '../../../../styles/commonStyles';
 import {
   Dialog,
@@ -80,21 +83,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogCancel,
-} from '../../ui/alert-dialog';
-import { toast } from 'sonner';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import type { ExpenseBasicInfo } from '../../../types/paymentDetail';
 
 // 拡売費一覧の明細行（親行）の商流・組織列に表示する、画面の基本情報の値。
 // 本画面は商流販売店に紐づかない支払のため、一次店・三次店・販売店はダミーコードを表示する。
@@ -240,7 +234,7 @@ const buildSplitFromOtherColDefs = (
     {
       headerName: 'No.',
       field: 'no',
-      width: 70,
+      width: 56,
       // 先頭列は grid.css で中央寄せ強制のため、左寄せクラスを付与（→ グリッド左寄せ規約）
       cellClass: 'ag-cell-left-pinned',
       cellStyle: SPLIT_RO_STYLE,
@@ -248,19 +242,19 @@ const buildSplitFromOtherColDefs = (
     {
       headerName: 'メタブランド',
       field: 'planExpContent',
-      width: 240,
+      width: 192,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: 'サマリ商品',
       field: 'product',
-      width: 220,
+      width: 176,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: `${label}金額`,
       field: 'payAmount',
-      width: 120,
+      width: 96,
       valueFormatter: (p) => formatInt(p.value as number) || GRID_EMPTY_TEXT,
       cellStyle: SPLIT_RO_RIGHT_STYLE,
     },
@@ -269,7 +263,7 @@ const buildSplitFromOtherColDefs = (
       headerName: '管理区分',
       colId: 'mgmtClassCode',
       field: 'mgmtClassName',
-      width: 130,
+      width: 104,
       valueFormatter: (p) =>
         managementClassCode(p.value as string) || GRID_EMPTY_TEXT,
       cellStyle: SPLIT_RO_STYLE,
@@ -277,55 +271,55 @@ const buildSplitFromOtherColDefs = (
     {
       headerName: '管理区分名称',
       field: 'mgmtClassName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理コード',
       field: 'mgmtCode',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理コード名称',
       field: 'mgmtCodeName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策区分',
       field: 'measureClass',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策区分名称',
       field: 'measureClassName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策コード',
       field: 'measureCode',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策コード名称',
       field: 'measureCodeName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要1（社内用）',
       field: 'summary1',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要2（社外用）',
       field: 'summary2',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
@@ -335,31 +329,31 @@ const buildSplitFromOtherColDefs = (
         {
           headerName: '支払No',
           field: 'srcPaymentNo',
-          width: 130,
+          width: 104,
           cellStyle: SPLIT_RO_STYLE,
         },
         {
           headerName: '支払回数',
           field: 'srcPaymentCount',
-          width: 100,
+          width: 80,
           cellStyle: SPLIT_RO_RIGHT_STYLE,
         },
         {
           headerName: '明細No',
           field: 'srcDetailNo',
-          width: 100,
+          width: 80,
           cellStyle: SPLIT_RO_RIGHT_STYLE,
         },
         {
           headerName: '部署',
           field: 'srcDept',
-          width: 200,
+          width: 160,
           cellStyle: SPLIT_RO_STYLE,
         },
         {
           headerName: '営業担当者',
           field: 'srcStaff',
-          width: 160,
+          width: 128,
           cellStyle: SPLIT_RO_STYLE,
         },
       ],
@@ -455,8 +449,9 @@ export default function PaymentDetailUnlinked({
   // フッターの操作確認ダイアログ（PaymentDetailOther と同一方式）
   const [isBackDialogOpen, setIsBackDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [showCommentHistoryPane, setShowCommentHistoryPane] = useState(false);
+  const [isImportDialogShown, setIsImportDialogShown] = useState(false);
+  const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
+    useState(false);
   // 支払情報サマリ右端のトグル（詳細／分割／振替）。既定は詳細（管理項目別合計値）。
   //   詳細＝拡売費の管理区分別の集計表（→ 20260804_第26回_共通 決定事項19）。
   //   分割・振替＝他部門から分割（振替）された経費明細。
@@ -475,6 +470,14 @@ export default function PaymentDetailUnlinked({
   const isNewInvoiceRound = rounds.isNewRound;
 
   // 分割（IN）／振替（IN）選択時に支払情報サマリカード内へ表示する
+  // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）。分割・振替は別グリッドのため保存先も分ける
+  const splitFromOtherColumnStateProps = useGridColumnState(
+    '支払詳細C紐づけなし.他部門から分割.columnState'
+  );
+  const transferFromOtherColumnStateProps = useGridColumnState(
+    '支払詳細C紐づけなし.他部門から振替.columnState'
+  );
+
   // 「他部門から分割（振替）された経費明細」一覧（参照専用グリッド）。
   // 本画面は追加口を持たないため拡売費の一覧のみを表示する。
   // 分割・振替は同じ内容だが行データ・行IDを分けて別グリッドとして管理する。
@@ -489,7 +492,7 @@ export default function PaymentDetailUnlinked({
       : SPLIT_FROM_OTHER_COL_DEFS;
     const rowIdPrefix = isTransfer ? 'trn-exp' : 'spl-exp';
     return (
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md">
+      <div className={`${CARD_CLASS} overflow-hidden`}>
         <div className="px-3 pt-3">
           <h3 className="text-base font-bold text-gray-900">拡売費</h3>
         </div>
@@ -504,7 +507,7 @@ export default function PaymentDetailUnlinked({
             {SPLIT_SUMMARY_ITEMS.map((item) => (
               <div
                 key={item.label}
-                className="flex min-w-[10.5rem] flex-col items-end justify-center border-r border-gray-200 px-3 py-1 last:border-r-0"
+                className="flex min-w-42 flex-col items-end justify-center border-r border-gray-200 px-3 py-1 last:border-r-0"
               >
                 <span className="text-xs whitespace-nowrap text-gray-500">
                   {item.label}
@@ -522,6 +525,9 @@ export default function PaymentDetailUnlinked({
           style={{ height: gridHeight }}
         >
           <AgGridReact
+            {...(isTransfer
+              ? transferFromOtherColumnStateProps
+              : splitFromOtherColumnStateProps)}
             rowData={rows}
             columnDefs={colDefs}
             defaultColDef={SPLIT_FROM_OTHER_DEFAULT_COL_DEF}
@@ -565,13 +571,15 @@ export default function PaymentDetailUnlinked({
   // 支払無し（当月は支払が発生しない伝票）。支払一覧と同じく未申請との間を
   // 行き来する。理由は備考欄へ書く（→ 20260724_第23回_共通 決定事項8）。
   const [isNoPayment, setIsNoPayment] = useState(false);
-  const [showPlanSelectionPane, setShowPlanSelectionPane] = useState(false);
+  const [isPlanSelectionPaneShown, setIsPlanSelectionPaneShown] =
+    useState(false);
   // 拡売費一覧（明細の追加・計画項目の設定）操作用。
   const expenseTableRef = useRef<PaymentNonProductExpensePaneHandle>(null);
 
   // 引用明細選択（下ペイン）。「支払情報引用」ボタンから開き、選んだ伝票の明細を
   // 新しい支払回へ引用する（支払詳細(追加口請求書有)と同じ流れ）。
-  const [showQuoteSelectionPane, setShowQuoteSelectionPane] = useState(false);
+  const [isQuoteSelectionPaneShown, setIsQuoteSelectionPaneShown] =
+    useState(false);
   // 引用明細選択ペイン操作用（ペインタイトル右の「引用」から呼ぶ）。
   const quotePaneRef = useRef<QuoteSelectionPaneHandle>(null);
   // 引用明細選択の検索条件（対象年月 From-To・支払先）。
@@ -586,14 +594,14 @@ export default function PaymentDetailUnlinked({
   // 「支払情報引用」押下：引用明細選択ペイン（下ペイン）のみを開く。
   // 支払回数の追加は同ペインの「引用」で行う。
   const handleQuote = () => {
-    const isOpen = showQuoteSelectionPane;
+    const isOpen = isQuoteSelectionPaneShown;
     closeAllRightPanes();
-    setShowPlanSelectionPane(false);
+    setIsPlanSelectionPaneShown(false);
     if (isOpen) {
-      setShowQuoteSelectionPane(false);
+      setIsQuoteSelectionPaneShown(false);
       return; // 開くボタン再押下で閉じる（トグル）
     }
-    setShowQuoteSelectionPane(true);
+    setIsQuoteSelectionPaneShown(true);
   };
 
   // 「引用」：支払回数を1つ増やし（確認は挟まない）、
@@ -601,7 +609,7 @@ export default function PaymentDetailUnlinked({
   const handleQuoteApply = (rows: ExpenseRow[]) => {
     const nextCount = rounds.addRoundNow();
     setQuotedExpenseRows((prev) => ({ ...prev, [nextCount]: rows }));
-    setShowQuoteSelectionPane(false);
+    setIsQuoteSelectionPaneShown(false);
     toast.success(`支払回数「${nextCount}」へ支払明細を引用しました。`);
   };
 
@@ -609,10 +617,10 @@ export default function PaymentDetailUnlinked({
   // 「選択」で計画明細の項目を設定する対象は拡売費一覧のチェックボックス列で選ぶため、
   // 当ペインへ明細は渡さない。
   const handleOpenPlanSelection = () => {
-    const isOpen = showPlanSelectionPane;
+    const isOpen = isPlanSelectionPaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-    setShowPlanSelectionPane(true);
+    setIsPlanSelectionPaneShown(true);
   };
 
   // 明細追加：本画面は入力ペインを設けず、空の明細を一覧の最終行へ1行足す
@@ -622,7 +630,7 @@ export default function PaymentDetailUnlinked({
   };
 
   const closeAllRightPanes = () => {
-    setShowCommentHistoryPane(false);
+    setIsCommentHistoryPaneShown(false);
   };
 
   return (
@@ -631,7 +639,7 @@ export default function PaymentDetailUnlinked({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="支払詳細(商流販売店紐づけなし)" />
@@ -641,7 +649,7 @@ export default function PaymentDetailUnlinked({
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <SearchPane onImport={() => setShowImportDialog(true)} />
+                <SearchPane onImport={() => setIsImportDialogShown(true)} />
               </section>
 
               {/* 支払情報サマリ（支払詳細(追加口請求書有)の支払情報サマリと同構成）。
@@ -713,10 +721,10 @@ export default function PaymentDetailUnlinked({
                     key={invoiceCount}
                     isNewRound={isNewInvoiceRound}
                     onStatusClick={() => {
-                      const isOpen = showCommentHistoryPane;
+                      const isOpen = isCommentHistoryPaneShown;
                       closeAllRightPanes();
                       if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-                      setShowCommentHistoryPane(true);
+                      setIsCommentHistoryPaneShown(true);
                     }}
                   />
                 </section>
@@ -757,7 +765,7 @@ export default function PaymentDetailUnlinked({
         {/* フッターエリア（固定） */}
         <div
           data-screen-footer
-          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div className="flex flex-wrap gap-3">
@@ -802,7 +810,8 @@ export default function PaymentDetailUnlinked({
                 <Input
                   type="text"
                   placeholder="コメントを入力"
-                  className={`${TEXT_INPUT_CLASS} w-full min-w-[10rem] max-w-[32rem]`}
+                  aria-label="コメント"
+                  className={`${TEXT_INPUT_CLASS} w-full min-w-40 max-w-128`}
                 />
               </div>
               <button
@@ -858,36 +867,14 @@ export default function PaymentDetailUnlinked({
         </div>
 
         {/* 戻る確認ダイアログ（PaymentDetailOther と同一） */}
-        <AlertDialog open={isBackDialogOpen} onOpenChange={setIsBackDialogOpen}>
-          <AlertDialogContent>
-            {/* ×ボタン */}
-            <button
-              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-              onClick={() => setIsBackDialogOpen(false)}
-              aria-label="閉じる"
-            >
-              <X className="size-6" />
-              <span className="sr-only">Close</span>
-            </button>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-gray-900">
-                画面遷移の確認
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                支払申請一覧参照画面へ戻ります。編集中の内容は保存されません。よろしいですか？
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>キャンセル</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-                onClick={handleBackConfirm}
-              >
-                移動
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+          open={isBackDialogOpen}
+          onOpenChange={setIsBackDialogOpen}
+          title="画面遷移の確認"
+          description="支払申請一覧参照画面へ戻ります。編集中の内容は保存されません。よろしいですか？"
+          confirmLabel="移動"
+          onConfirm={handleBackConfirm}
+        />
 
         {/* 支払回数の切替・追加の確認ダイアログ（支払詳細の各画面で共通）。
             保存は支払回数1回ごとのため、切替時は入力中の内容が破棄される
@@ -899,49 +886,29 @@ export default function PaymentDetailUnlinked({
         />
 
         {/* 支払確認ダイアログ（申請／引戻し／承認／検印／差戻し共通・PaymentDetailOther と同一） */}
-        <AlertDialog
+        <ConfirmDialog
           open={confirmAction !== null}
           onOpenChange={(open) => {
             if (!open) setConfirmAction(null);
           }}
-        >
-          <AlertDialogContent>
-            {/* ×ボタン */}
-            <button
-              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-              onClick={() => setConfirmAction(null)}
-              aria-label="閉じる"
-            >
-              <X className="size-6" />
-              <span className="sr-only">Close</span>
-            </button>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-gray-900">
-                {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmAction
-                  ? CONFIRM_MESSAGE_MAP[confirmAction].description
-                  : ''}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction
-                className={`${
-                  confirmAction
-                    ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass
-                    : ''
-                } text-white rounded-lg`}
-                onClick={handleConfirmAction}
-              >
-                {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          title={confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
+          description={
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].description : ''
+          }
+          confirmLabel={
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''
+          }
+          confirmClassName={`${
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass : ''
+          } text-white rounded-lg`}
+          onConfirm={handleConfirmAction}
+        />
 
         {/* 計画書インポートダイアログ */}
-        <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <Dialog
+          open={isImportDialogShown}
+          onOpenChange={setIsImportDialogShown}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>計画書インポート</DialogTitle>
@@ -965,8 +932,8 @@ export default function PaymentDetailUnlinked({
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => setShowImportDialog(false)}>
-                <Upload className="h-[1rem] w-[1rem]" />
+              <Button onClick={() => setIsImportDialogShown(false)}>
+                <Upload className="h-4 w-4" />
                 計画書インポート
               </Button>
             </DialogFooter>
@@ -976,8 +943,8 @@ export default function PaymentDetailUnlinked({
 
       {/* 右ペイン：コメント履歴（支払詳細の各画面で共通） */}
       <CommentHistoryPane
-        open={showCommentHistoryPane}
-        onClose={() => setShowCommentHistoryPane(false)}
+        open={isCommentHistoryPaneShown}
+        onClose={() => setIsCommentHistoryPaneShown(false)}
       />
 
       {/* 下ペイン：拡売費計画引用。拡売費一覧の「拡売費計画引用」ボタンから開き、
@@ -989,8 +956,8 @@ export default function PaymentDetailUnlinked({
           キーに取得した拡売費計画を表示する（モックでは絞り込まない）。
           担当エリアの選択は置かない（支払詳細(追加口請求書有／無)のみ）。 */}
       <BottomPane
-        open={showPlanSelectionPane}
-        onClose={() => setShowPlanSelectionPane(false)}
+        open={isPlanSelectionPaneShown}
+        onClose={() => setIsPlanSelectionPaneShown(false)}
         title="拡売費計画引用"
         description="支払明細に紐づける計画明細を選択します"
         initialHeightRatio={0.5}
@@ -1022,8 +989,8 @@ export default function PaymentDetailUnlinked({
       {/* 下ペイン：引用明細選択 画面（支払回数右の「引用」ボタンから開く）。
           引用で追加した支払回へ引用する支払明細を選択する。 */}
       <BottomPane
-        open={showQuoteSelectionPane}
-        onClose={() => setShowQuoteSelectionPane(false)}
+        open={isQuoteSelectionPaneShown}
+        onClose={() => setIsQuoteSelectionPaneShown(false)}
         title="引用明細選択"
         headerActions={
           // 引用：ラジオで選んだ伝票の明細を当該支払回へ引用する
@@ -1057,12 +1024,16 @@ export default function PaymentDetailUnlinked({
                 id="quote-target-month-from"
                 value={quoteMonthFrom}
                 onChange={setQuoteMonthFrom}
+                max={quoteMonthTo || undefined}
+                clearable
               />
               <span className="text-sm text-gray-700">〜</span>
               <MonthYearPicker
                 id="quote-target-month-to"
                 value={quoteMonthTo}
                 onChange={setQuoteMonthTo}
+                min={quoteMonthFrom || undefined}
+                clearable
               />
             </div>
 
@@ -1098,6 +1069,7 @@ export default function PaymentDetailUnlinked({
         maxHeight={52}
       >
         <QuoteSelectionPane
+          config={QUOTE_SELECTION_CONFIG}
           ref={quotePaneRef}
           basicInfo={EXPENSE_BASIC_INFO}
           monthFrom={quoteMonthFrom}

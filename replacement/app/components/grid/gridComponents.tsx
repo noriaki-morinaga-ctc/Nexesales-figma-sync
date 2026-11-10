@@ -34,8 +34,13 @@ interface CopySourceLegendProps {
   className?: string;
 }
 
+interface LegendItemProps {
+  color: string;
+  label: string;
+}
+
 // 1項目（色帯＋ラベル）
-function LegendItem({ color, label }: { color: string; label: string }) {
+function LegendItem({ color, label }: LegendItemProps) {
   return (
     <span className="flex items-center gap-1 whitespace-nowrap">
       <span
@@ -83,16 +88,18 @@ export interface CellColorLegendItem {
   label: string;
 }
 
+interface CellColorLegendProps {
+  items: CellColorLegendItem[];
+  className?: string;
+}
+
 // セル背景色の凡例。明細グリッドの見出し付近に置き、色が何を表すかを示す。
 // 表示は「サンプル → 説明」の順（年間集計・年間計画作成の凡例と同じ体裁）。
 // 色だけに頼らず必ず説明文を添える（→ 06 色以外の手がかり）。
 export function CellColorLegend({
   items,
   className = '',
-}: {
-  items: CellColorLegendItem[];
-  className?: string;
-}) {
+}: CellColorLegendProps) {
   return (
     <div
       className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 ${className}`}
@@ -128,7 +135,35 @@ export function CellColorLegend({
 // 行（画面外のrow bufferを含む）を返すため、実際に見えている範囲とズレる。
 // そのため、ビューポートの可視ピクセル範囲（getVerticalPixelRange）と各行の
 // rowTop/rowHeightの重なりから「実際に見えている行」を判定する。
-export const GridDisplayedRowsStatusPanel = (props: CustomStatusPanelProps) => {
+//
+// statusPanelParams の inHorizontalScroll: true（共通の GRID_STATUS_BAR で指定）のときは、件数を
+// 横スクロールバーと同じ行の左に置き、その分スクロールバーを右側だけ短くする（UI/UX UX-030）。
+// AG Grid に公式の設定が無いため、次の3点だけを補う（見た目は grid.css の .grid-count-in-hscroll）：
+// ① 横スクロールバーを常に出す（公式 alwaysShowHorizontalScroll。出さないと件数が明細に重なる）
+// ② 件数の幅を CSS 変数 --grid-count-w に入れ、スクロールバーの表示幅をその分狭める
+// ③ スクロールバーの中身の幅（--grid-hscroll-content-w）も同じ分狭め、バーと表の動く範囲をそろえる
+//    （狭めないと、バーの右端の件数の幅の分だけ動かしても表が動かない）
+// ④ 件数の行の高さをスクロールバーの行の高さ（--grid-hscroll-h。OS・ブラウザで変わる）に合わせる
+// 要素は自分のグリッドの直下からたどって探す（行の展開＝masterDetail の中の別グリッドの要素を拾わない）
+interface GridDisplayedRowsStatusPanelProps extends CustomStatusPanelProps {
+  inHorizontalScroll?: boolean;
+}
+
+// 件数とスクロールバーの間隔（px。件数の右に空ける）
+const COUNT_IN_HSCROLL_GAP = 8;
+// スクロールバーの高さが決まるまで測り直す回数の上限（約2秒。非表示のグリッドで回り続けないため）
+const HSCROLL_RETRY_MAX = 120;
+// 自分のグリッドの列の中身・横スクロールバー（.ag-root-wrapper から子要素だけでたどる）
+const ROOT_SELECTOR = ':scope > .ag-root-wrapper-body > .ag-root';
+const CENTER_SELECTOR = `${ROOT_SELECTOR} > .ag-body > .ag-body-viewport > .ag-center-cols-viewport > .ag-center-cols-container`;
+const HSCROLL_SELECTOR = `${ROOT_SELECTOR} > .ag-body-horizontal-scroll`;
+
+export const GridDisplayedRowsStatusPanel = (
+  props: GridDisplayedRowsStatusPanelProps
+) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  // 件数を横スクロールバーの行に置くときの測り直し（下の useEffect が入れる）
+  const syncHScrollRef = useRef<(() => void) | null>(null);
   const [range, setRange] = useState<{
     first: number;
     last: number;
@@ -208,8 +243,103 @@ export const GridDisplayedRowsStatusPanel = (props: CustomStatusPanelProps) => {
     };
   }, [props.api, updateRange, updateSelected]);
 
+  // 件数を横スクロールバーの行に置く（inHorizontalScroll のときだけ）
+  const { api, inHorizontalScroll } = props;
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!inHorizontalScroll || !el) return;
+    let wrapper: HTMLElement | null = null;
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
+    let retryFrame = 0;
+    let retries = 0;
+    let eventFrame = 0;
+    // 列の並び・幅が変わるグリッドのイベントの後にも測り直す。大きさの変化の通知（ResizeObserver）が
+    // 届かない画面があるため（件数の文字の変化は下の useEffect で測り直す）
+    const SYNC_EVENTS = [
+      'modelUpdated',
+      'viewportChanged',
+      'displayedColumnsChanged',
+      'columnResized',
+      'selectionChanged',
+    ] as const;
+    const scheduleSync = () => {
+      cancelAnimationFrame(eventFrame);
+      eventFrame = requestAnimationFrame(() => sync());
+    };
+    // 件数の幅・列の合計幅が変わるたびに、スクロールバーの表示幅と中身の幅を計算し直す
+    // （JS で計算する値のため CSS 変数を style で渡す）
+    const sync = () => {
+      if (!wrapper) return;
+      const center = wrapper.querySelector<HTMLElement>(CENTER_SELECTOR);
+      const countW =
+        Math.ceil(el.getBoundingClientRect().width) + COUNT_IN_HSCROLL_GAP;
+      const contentW = center ? center.getBoundingClientRect().width : 0;
+      // スクロールバーの行の高さ（OS・ブラウザで変わる）に件数の行の高さを合わせる
+      const hscroll = wrapper.querySelector<HTMLElement>(HSCROLL_SELECTOR);
+      const hscrollH = hscroll ? hscroll.getBoundingClientRect().height : 0;
+      wrapper.style.setProperty('--grid-hscroll-h', `${hscrollH}px`);
+      // 表示の直後はスクロールバーの高さがまだ 0 のことがあり、決まったときに大きさの変化の
+      // 通知が来ないことがあるため、高さが決まるまで次の描画で測り直す（上限 HSCROLL_RETRY_MAX 回）
+      cancelAnimationFrame(retryFrame);
+      if (hscrollH === 0 && retries < HSCROLL_RETRY_MAX) {
+        retries += 1;
+        retryFrame = requestAnimationFrame(sync);
+      }
+      wrapper.style.setProperty('--grid-count-w', `${countW}px`);
+      wrapper.style.setProperty(
+        '--grid-hscroll-content-w',
+        `${Math.max(0, contentW - countW)}px`
+      );
+    };
+    // 件数パネルは描画の直後はまだグリッドの要素に組み込まれておらず、表の本体（列の中身・
+    // 横スクロールバー）もまだ無いことがあるため、すべて揃うまで待つ（揃う前に監視を始めると、
+    // スクロールバーの高さの変化を拾えず件数の行の高さが 0 のままになる）
+    const attach = () => {
+      if (api.isDestroyed()) return;
+      wrapper = el.closest<HTMLElement>('.ag-root-wrapper');
+      const center = wrapper?.querySelector(CENTER_SELECTOR);
+      const hscroll = wrapper?.querySelector(HSCROLL_SELECTOR);
+      if (!wrapper || !center || !hscroll) {
+        frame = requestAnimationFrame(attach);
+        return;
+      }
+      api.setGridOption('alwaysShowHorizontalScroll', true);
+      wrapper.classList.add('grid-count-in-hscroll');
+      sync();
+      observer = new ResizeObserver(sync);
+      observer.observe(el);
+      observer.observe(center);
+      observer.observe(hscroll);
+      for (const ev of SYNC_EVENTS) api.addEventListener(ev, scheduleSync);
+      syncHScrollRef.current = scheduleSync;
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(retryFrame);
+      cancelAnimationFrame(eventFrame);
+      syncHScrollRef.current = null;
+      observer?.disconnect();
+      if (!api.isDestroyed())
+        for (const ev of SYNC_EVENTS) api.removeEventListener(ev, scheduleSync);
+      if (!wrapper) return;
+      wrapper.classList.remove('grid-count-in-hscroll');
+      wrapper.style.removeProperty('--grid-count-w');
+      wrapper.style.removeProperty('--grid-hscroll-content-w');
+      wrapper.style.removeProperty('--grid-hscroll-h');
+    };
+  }, [api, inHorizontalScroll]);
+  // 件数の文字（表示中の範囲・全件数・選択中）が変わったら、件数の幅を測り直す
+  useEffect(() => {
+    syncHScrollRef.current?.();
+  }, [range, selectedCount]);
+
   return (
-    <div className="flex items-center gap-4 px-2 text-sm text-gray-700">
+    <div
+      ref={rootRef}
+      className="flex items-center gap-4 px-2 text-sm text-gray-700"
+    >
       <span>
         {range.total === 0
           ? '表示中：0件'

@@ -4,7 +4,7 @@ import { Check, ChevronDown, X } from 'lucide-react';
 import {
   matchesSearchQuery,
   normalizeForSearch,
-} from '../../utils/searchNormalize';
+} from '../../utils/common/searchNormalize';
 
 // 入力可能コンボボックス（自作）。
 // SingleCombobox（検索付き単一選択）との違いは「候補から選ぶだけでなく、候補に無い値を
@@ -205,7 +205,12 @@ export function EditableCombobox({
     usePortal ? createPortal(menu, document.body) : menu;
 
   return (
-    <div ref={containerRef} className={`relative w-full ${className}`}>
+    // data-copy-text：表示中の値（CopyableArea の Ctrl+C／右クリック「コピー」で使う → 02 §15.1）
+    <div
+      ref={containerRef}
+      className={`relative w-full ${className}`}
+      data-copy-text={value || undefined}
+    >
       <div
         // 見た目は SingleCombobox のボタンとそろえる（濃いグレーの枠 border-gray-400・薄い影 shadow-sm（年月の入力と同じ）・高さ 2.375rem・右端に ∨・フォーカスで青枠。UI/UX UX-023）
         className={`flex items-center gap-2 rounded-md border px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 ${
@@ -233,7 +238,7 @@ export function EditableCombobox({
           placeholder={placeholder}
           // 長い名称は非フォーカス時に「…」で省略し、ホバーで全文をツールチップ表示
           title={value}
-          className="min-w-[5rem] flex-1 bg-transparent text-sm text-ellipsis text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
+          className="min-w-20 flex-1 bg-transparent text-sm text-ellipsis text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed"
         />
 
         {/* クリアは候補の先頭行（クリア（選択解除））で行う。アイコンは SingleCombobox と同じく常に ∨ */}

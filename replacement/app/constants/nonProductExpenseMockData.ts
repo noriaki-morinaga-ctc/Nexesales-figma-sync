@@ -4,11 +4,11 @@
 // 管理区分・施策区分はコードから自動導出（expenseRelations と整合）させ、コード↔区分の不整合を防ぐ。
 // 前年実績は削除可否の確認用に「実績あり(数値)」「実績なし(null)」の両方を混在させている。
 
-import type { NonProductExpenseData } from '../components/shared/PlanNonProductExpensePane';
 import {
   managementClassFromCode,
   campaignClassFromCode,
 } from './expenseRelations';
+import type { NonProductExpenseData } from '../types/nonProductExpense';
 
 // 管理区分・施策区分をコードから補完する
 type RawExpenseRow = Omit<

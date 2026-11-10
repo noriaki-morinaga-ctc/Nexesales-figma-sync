@@ -19,6 +19,7 @@ import {
   GRID_DATE_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
+  StatusIconCellRenderer,
 } from '../../../grid';
 import { BUTTON_STYLES } from '../../../../../styles/commonStyles';
 import type {
@@ -31,7 +32,7 @@ import {
   formatRowErrorCategories,
   formatRowOwners,
   hasNoDetail,
-} from '../../../../utils/billingEdiImport';
+} from '../../../../utils/payment/billing/billingEdiImport';
 
 // ステータスごとのアイコン・色設定
 const STATUS_CONFIG: Record<
@@ -41,23 +42,6 @@ const STATUS_CONFIG: Record<
   正常: { icon: CheckCircle, className: 'text-green-600' },
   エラー: { icon: AlertTriangle, className: 'text-red-600' },
   再取込指示済: { icon: RotateCcw, className: 'text-orange-500' },
-};
-
-// ステータスセルレンダラー（アイコン＋文言）
-const StatusRenderer = (
-  props: CustomCellRendererProps<BillingEdiImportRow>
-) => {
-  const config = STATUS_CONFIG[props.value as BillingEdiStatus];
-  if (!config) {
-    return <span className="text-gray-900">{props.value}</span>;
-  }
-  const Icon = config.icon;
-  return (
-    <div className="flex items-center gap-1 overflow-hidden">
-      <Icon className={`h-5 w-5 flex-shrink-0 ${config.className}`} />
-      <span className="text-gray-900 truncate">{props.value}</span>
-    </div>
-  );
 };
 
 // グリッドの context 型（セルレンダラーから呼ぶコールバック）
@@ -138,12 +122,10 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
   // v13：「対応状況」列を削除した（→ 請求EDI取込結果詳細 4.レイアウト AJ45 スレッド 加藤 2026-10-13）。
   // 旧キーの保存状態には新しい列が含まれず、復元すると列順・表示が崩れるため。
   //
-  // autoSize（fitCellContents）は内容幅で各列を固定するため、合計幅がグリッド幅に
-  // 満たないと右端が空く。列幅は下の列定義で明示し、余りは卸会社列（flex:1）に
-  // 吸わせて横幅をぴったり合わせる。
+  // 列幅は自動調整し、余りは請求元企業列（flex:1・自動調整から外す）に吸わせて
+  // 右端の空きをなくす。
   const gridColumnStateProps = useGridColumnState(
-    'billingEdiImport.listColumnState.v13',
-    { autoSize: false }
+    'billingEdiImport.listColumnState.v13'
   );
 
   // AG Grid列定義（1行＝請求元企業 × 受信日時＝1回の受信ファイル）
@@ -154,7 +136,7 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
       {
         headerName: '操作',
         colId: 'detail',
-        width: 90,
+        width: 72,
         cellRenderer: DetailButtonRenderer,
         sortable: false,
         filter: false,
@@ -166,7 +148,7 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
         headerName: '受信日時',
         field: 'receivedAt',
         ...GRID_DATE_TEXT_FILTER,
-        width: 150,
+        width: 120,
         cellClass: 'cell-left',
       },
       {
@@ -174,7 +156,8 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
         colId: 'payeeName',
         // 余り幅を吸収して右端の空きをなくす（卸会社名は長さがまちまちのため）
         flex: 1,
-        minWidth: 220,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 176,
         cellClass: 'cell-left',
         valueGetter: (params) =>
           params.data ? formatPayeeName(params.data) : '',
@@ -183,15 +166,16 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
       {
         headerName: 'ステータス',
         field: 'status',
-        width: 145,
-        cellRenderer: StatusRenderer,
+        width: 116,
+        cellRenderer: StatusIconCellRenderer,
+        cellRendererParams: { statusConfig: STATUS_CONFIG },
         cellClass: 'cell-left',
       },
       {
         // 誰が対応するかを判断するための種別（システム管理／マスタ修正／卸へ照会）
         headerName: 'エラー種別',
         colId: 'errorCategories',
-        width: 220,
+        width: 176,
         cellClass: 'cell-left',
         valueGetter: (params) =>
           params.data ? formatRowErrorCategories(params.data) : '',
@@ -205,7 +189,7 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
         // 「担当者」から改称した（→ 請求EDI取込結果詳細 4.レイアウト AK59 スレッド 芳賀 2026-10-11）
         headerName: '対応部署',
         colId: 'owners',
-        width: 180,
+        width: 144,
         cellClass: 'cell-left',
         valueGetter: (params) =>
           params.data ? formatRowOwners(params.data) : '',
@@ -221,7 +205,7 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
         headerName: 'エラー事業所数',
         colId: 'errorOfficeCount',
         ...GRID_NUMBER_FILTER,
-        width: 150,
+        width: 120,
         cellClass: 'cell-right',
         valueGetter: (params) =>
           params.data ? countErrorOffices(params.data) : 0,
@@ -238,7 +222,7 @@ export function ResultList({ rowData, onDetail }: ResultListProps) {
         ...GRID_DATE_TEXT_FILTER,
         headerTooltip:
           '再取込を最後に実行した日時。一度も実行していない場合は「-」。受信日時は最初に受け取った日時',
-        width: 180,
+        width: 144,
         suppressMovable: true,
         cellClass: 'cell-left',
         valueFormatter: (params) =>

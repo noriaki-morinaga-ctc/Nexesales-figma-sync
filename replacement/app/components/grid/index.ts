@@ -1,7 +1,7 @@
 // AG Grid 共通モジュールのバレル。同階層の各画面からは "./grid" の1パスで参照する。
 // 共通仕様は責務ごとに以下5ファイルへ集約している：
 //   gridCommon（設定/テーマ/フィルタ/計算式テキストの整形）・gridStyles（色/スタイル。実体は src/styles/gridStyles.ts）
-//   gridLocale（ロケール）・gridHooks（フック）・gridComponents（表示部品）
+//   gridLocale（ロケール）・gridHooks（フック）・GridComponents（表示部品）・GridCellRenderers（共通セル部品）
 // ※ 計算式ツールチップ系（formulaTooltip 等）は本バレルからは公開せず、
 //   利用側が './grid/gridCommon' を直接 import する。
 // ※ 集計ツリー系（treeData props・△項目フック・項目名セル）は利用元が
@@ -31,6 +31,7 @@ export {
   GRID_BASE_PROPS,
   GRID_EMPTY_TEXT,
   formatEmptyAsDash,
+  isEmptyCellDisplay,
   withHeaderTooltips,
   suppressEditNavKeys,
 } from './gridCommon';
@@ -63,6 +64,8 @@ export {
 export type { RowKind, CopySource } from '../../../styles/gridStyles';
 export {
   useChangedCells,
+  withComparableCellValues,
+  toComparableCellValue,
   useGridColumnState,
   readSavedColumnState,
   saveGridColumnState,
@@ -81,5 +84,11 @@ export {
   CellColorLegend,
   GridDisplayedRowsStatusPanel,
   RowActionMenu,
-} from './gridComponents';
-export type { CellColorLegendItem } from './gridComponents';
+} from './GridComponents';
+export type { CellColorLegendItem } from './GridComponents';
+export {
+  StatusIconCellRenderer,
+  CopyRowCellRenderer,
+  CopyDeleteCellRenderer,
+} from './GridCellRenderers';
+export type { StatusIconConfig } from './GridCellRenderers';

@@ -16,6 +16,7 @@ import type {
   GetRowIdParams,
 } from 'ag-grid-community';
 
+import { SearchRangeField } from '../../ui/search-range-field';
 import { CopyableArea } from '../../ui/copyable-area';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { MultiCombobox } from '../../ui/multi-combobox';
@@ -23,7 +24,7 @@ import {
   useOrgCascadeSearch,
   toOrgComboOptions,
 } from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/orgCascade';
+import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
 import type { OrgLevel } from '../../../constants/orgHierarchy';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
 import {
@@ -37,6 +38,7 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_MONTH_TEXT_FILTER,
   GRID_EMPTY_TEXT,
+  StatusIconCellRenderer,
 } from '../../grid';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import { CollapsibleCard } from '../../ui/collapsible-card';
@@ -66,7 +68,7 @@ import {
   STATUS_FILTER_EXCLUDING_NO_PAYMENT,
   formatRepresentative,
   matchesPaymentListFilter,
-} from '../../../utils/paymentApplicationList';
+} from '../../../utils/payment/payment-list/paymentApplicationList';
 import { ScreenTitle } from '../../ui/screen-title';
 
 // 検索条件の初期値（クリアボタンで戻す値）
@@ -98,7 +100,7 @@ const INITIAL_RETAILER = '';
 const INITIAL_PRIMARY_STORE = '';
 const INITIAL_TERTIARY_STORE = '';
 
-// 組織項目の連動フィルタリング（事業場→部署→末端組織→営業担当者。→ utils/orgCascade.ts）
+// 組織項目の連動フィルタリング（事業場→部署→末端組織→営業担当者。→ utils/common/orgCascade.ts）
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'terminalOrg', 'salesRep'],
   labels: {
@@ -107,7 +109,6 @@ const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     terminalOrg: '末端組織',
     salesRep: '営業担当者',
   },
-  units: { salesRep: '名' },
 };
 
 // ステータスごとのアイコン・色設定。
@@ -277,26 +278,6 @@ const DetailButtonRenderer = (
     >
       詳細
     </button>
-  );
-};
-
-// ステータスセルレンダラー（アイコン＋文言）
-const StatusRenderer = (
-  props: CustomCellRendererProps<PaymentApplicationData>
-) => {
-  const config = STATUS_CONFIG[props.value];
-  if (!config) {
-    return <span className="text-gray-900">{props.value}</span>;
-  }
-  const Icon = config.icon;
-  // 列幅を締めた際にテキストを3点リーダで省略するため、
-  // アイコンは縮小不可（flex-shrink-0）、文言は truncate（overflow-hidden + ellipsis）にする。
-  // 縦中央寄せはAG Grid標準（.ag-cell-wrapper）で自動。
-  return (
-    <div className="flex items-center gap-1 overflow-hidden">
-      <Icon className={`h-5 w-5 flex-shrink-0 ${config.className}`} />
-      <span className="text-gray-900 truncate">{props.value}</span>
-    </div>
   );
 };
 
@@ -993,13 +974,13 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
             colId: 'relationCategory',
             valueGetter: (params: { data?: SplitTransferRelation }) =>
               params.data ? relationCategory(params.data) : '',
-            width: 110,
+            width: 88,
             cellClass: 'cell-left',
           },
           {
             headerName: '伝票No',
             field: 'voucherNo',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
             valueFormatter: (params: { value: unknown }) =>
               dashIfEmpty(params.value),
@@ -1007,7 +988,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
           {
             headerName: '支払回数',
             field: 'paymentCount',
-            width: 110,
+            width: 88,
             cellClass: 'cell-left',
             valueFormatter: (params: { value: unknown }) =>
               dashIfEmpty(params.value),
@@ -1074,7 +1055,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
         resizable: false,
         cellClass: 'cell-left',
         // 詳細ボタン1つ分の幅
-        width: 80,
+        width: 64,
       },
       {
         headerName: '伝票種別',
@@ -1099,7 +1080,8 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
       {
         headerName: 'ステータス',
         field: 'status',
-        cellRenderer: StatusRenderer,
+        cellRenderer: StatusIconCellRenderer,
+        cellRendererParams: { statusConfig: STATUS_CONFIG },
         cellClass: 'cell-left',
       },
       // ── 未着請求書（ステータスの右隣。振替は「-」） ──
@@ -1212,7 +1194,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
         cellRendererParams: { innerRenderer: SplitTransferRenderer },
         cellClass: 'cell-left',
         // 展開アイコン＋「分割(OUT)・振替(IN)」が収まる幅を確保する
-        minWidth: 190,
+        minWidth: 152,
         // 列フィルタ・ソートはセルの文言で効かせる
         valueGetter: (params) => splitTransferText(params.data),
       },
@@ -1370,7 +1352,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当てる。
     // h-full でメイン領域と同じ高さに固定する（子の高さを確定させ、グリッドの 100% 指定を効かせる）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="支払一覧" />
@@ -1428,36 +1410,35 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
                     3行目＝ステータス系＋区分系（ステータス・伝票種別）／4行目＝商流系（販売店・一次店・三次店）。
                   各行の先頭の項目に col-start-1 を付けて行を折り返す。 */}
               <div className={SEARCH_GRID_CLASS}>
-                {/* 期間系: 年月 [開始]～[終了]（2列分）。ラベルは「年月」1つだけ置き、開始は1列目・
-                    終了は2列目の入力欄の左の線にそろえ、「～」は開始と終了の真ん中に置く（→ 05）。
-                    MonthYearPicker は id/aria-label 非対応のため範囲をグループ化して名前付け */}
-                <div
-                  className="col-span-2 flex items-center gap-2"
-                  role="group"
-                  aria-label="検索対象年月の範囲"
-                >
-                  <label className={SEARCH_LABEL_CLASS}>年月</label>
-                  <MonthYearPicker
-                    value={yearMonthStart}
-                    onChange={setYearMonthStart}
-                    required={false}
-                    clearable
-                  />
-                  <span className="flex-1 text-center text-sm text-gray-700">
-                    ～
-                  </span>
-                  <div className="flex shrink-0 w-[calc(50%-6.75rem)]">
+                {/* 期間系: 年月 [開始]～[終了]（2列分）。ラベルは「年月」1つだけ置き、
+                    開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05）。範囲はグループにして名前を付ける */}
+                <SearchRangeField
+                  label="年月"
+                  groupLabel="検索対象年月の範囲"
+                  start={
                     <MonthYearPicker
+                      className="w-full"
+                      value={yearMonthStart}
+                      onChange={setYearMonthStart}
+                      required={false}
+                      max={yearMonthEnd || undefined}
+                      clearable
+                    />
+                  }
+                  end={
+                    <MonthYearPicker
+                      className="w-full"
                       value={yearMonthEnd}
                       onChange={setYearMonthEnd}
                       required={false}
+                      min={yearMonthStart || undefined}
                       clearable
                     />
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* 組織系（列1〜4）: 事業場／部署／末端組織／営業担当者（組織階層順）。
-                    複数選択で、上位・下位の選択肢を連動させる（→ utils/orgCascade.ts） */}
+                    複数選択で、上位・下位の選択肢を連動させる（→ utils/common/orgCascade.ts） */}
                 <div className="flex items-center gap-2 col-start-1">
                   <label htmlFor="search-office" className={SEARCH_LABEL_CLASS}>
                     事業場
@@ -1639,7 +1620,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
         <CollapsibleCard
           title="支払一覧"
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           headerActions={
             <>
               {/* ＋振替追加（振替詳細画面へ遷移） */}

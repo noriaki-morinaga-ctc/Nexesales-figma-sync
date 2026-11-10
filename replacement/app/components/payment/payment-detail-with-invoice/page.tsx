@@ -7,7 +7,6 @@ import React, {
   useCallback,
 } from 'react';
 import { toast } from 'sonner';
-import { Button } from '../../ui/button';
 import {
   Save,
   Send,
@@ -22,6 +21,8 @@ import {
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
+
+import { Button } from '../../ui/button';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -32,14 +33,17 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
 } from '../../grid';
-import { SearchPane, BASIC_INFO } from './components/SearchPane';
+import {
+  AdditionalPaymentBasicInfoPane,
+  BASIC_INFO,
+} from '../../shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
 import {
   PREV_MONTH_SPLIT,
   SPLIT_DESTINATION_CANDIDATES,
   SPLIT_IN_ENTRY_ROWS,
   type AdditionalEntrySplitState,
 } from '../../../constants/additionalEntrySplitMockData';
-import { SPLIT_IN_ENTRY_COL_DEFS } from '../../shared/splitInEntryColDefs';
+import { SPLIT_IN_ENTRY_COL_DEFS } from '../../shared/payment/payment-detail/splitInEntryColDefs';
 import { SplitDestinationSelectPane } from './components/SplitDestinationSelectPane';
 import {
   AdditionalEntrySplitPane,
@@ -49,7 +53,7 @@ import {
   hasAnySplit,
   isSplitEditable,
   type SplitAllocation,
-} from '../../../utils/additionalEntrySplit';
+} from '../../../utils/payment/payment-detail/additionalEntrySplit';
 import {
   PaymentDetailPane,
   PAYMENT_DETAIL_STATUS,
@@ -63,20 +67,20 @@ import { AggregationPane } from './components/AggregationPane';
 import {
   aggregateSummaryDetails,
   totalSplitOut,
-} from '../../../utils/paymentSummaryAggregate';
+} from '../../../utils/payment/payment-detail/paymentSummaryAggregate';
 import { DetailTable } from './components/DetailTable';
 import {
   createEmptyAmountBreakdown,
   type AmountBreakdown,
-} from '../../../utils/paymentAmountBreakdown';
+} from '../../../utils/payment/payment-detail/paymentAmountBreakdown';
 import {
   buildWithInvoicePaymentItems,
   computeBilledCenterFeeBreakdown,
   type BilledCenterFeeRow,
-} from '../../../utils/paymentBreakdownItems';
-import { computeEntryCenterFeeTotal } from '../../../utils/additionalEntryRules';
-import { paymentFooterActionStateOf } from '../../../utils/paymentFooterActions';
-import type { NetUnapprovedLink } from '../../../utils/netUnapprovedLink';
+} from '../../../utils/payment/payment-detail/paymentBreakdownItems';
+import { computeEntryCenterFeeTotal } from '../../../utils/payment/payment-detail/additionalEntryRules';
+import { paymentFooterActionStateOf } from '../../../utils/payment/payment-detail/paymentFooterActions';
+import type { NetUnapprovedLink } from '../../../utils/payment/payment-detail/netUnapprovedLink';
 import {
   WITH_INVOICE_DEFAULT_ROUND,
   WITH_INVOICE_PAYMENT_ROUNDS,
@@ -91,11 +95,10 @@ import {
   createQuotedExpenseRows,
   type PaymentNonProductExpensePaneHandle,
   type ExpenseRow,
-  type ExpenseBasicInfo,
-} from '../../shared/PaymentNonProductExpensePane';
+} from '../../shared/payment/payment-detail/PaymentNonProductExpensePane';
 // 支払回数の切替・追加（支払詳細の各画面で共通）。
-import { usePaymentRounds } from '../../shared/usePaymentRounds';
-import { PaymentRoundConfirmDialog } from '../../shared/PaymentRoundConfirmDialog';
+import { usePaymentRounds } from '../../shared/payment/payment-detail/usePaymentRounds';
+import { PaymentRoundConfirmDialog } from '../../shared/payment/payment-detail/PaymentRoundConfirmDialog';
 import type {
   DetailTableHandle,
   AdditionalEntryData,
@@ -105,7 +108,7 @@ import {
   ALL_PLAN_AREA_CODES,
   PaymentPlanSelectionPane,
   PlanAreaField,
-} from '../../shared/PaymentPlanSelectionPane';
+} from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   QuoteSelectionPane,
   QUOTE_TARGET_MONTH_FROM,
@@ -113,22 +116,24 @@ import {
   QUOTE_PAYEE_ALL,
   QUOTE_PAYEE_OPTIONS,
   type QuoteSelectionPaneHandle,
-} from './components/QuoteSelectionPane';
+  QUOTE_SELECTION_CONFIG,
+} from './components/quoteSelectionConfig';
 // 下ペイン共通フッタのボタンで使用する共通スタイル。
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   FORM_LABEL_CLASS,
   FORM_VALUE_CLASS,
+  CARD_CLASS,
 } from '../../../../styles/commonStyles';
 
 import {
   AllocationPane,
   type AllocationPaneHandle,
   type AllocationPaneSource,
-} from '../../shared/AllocationPane';
+} from '../../shared/payment/payment-detail/AllocationPane';
 import { RightPane } from '../../ui/right-pane';
-import { CommentHistoryPane } from '../../shared/CommentHistoryPane';
+import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
 import {
   AddEntryPane,
   type AddEntryPaneHandle,
@@ -141,15 +146,6 @@ import { BottomPane } from '../../ui/bottom-pane';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../ui/alert-dialog';
 
 import {
   campaignClassCode,
@@ -157,8 +153,10 @@ import {
   managementCodeName,
 } from '../../../constants/paymentComboFieldOptions';
 import { campaignClassFromCode } from '../../../constants/expenseRelations';
-import { swapNameCode } from '../../../utils/nameCode';
+import { swapNameCode } from '../../../utils/common/nameCode';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import type { ExpenseBasicInfo } from '../../../types/paymentDetail';
 
 // ── モックデータ ────────────────────────────────────────────
 
@@ -374,7 +372,7 @@ const buildSplitFromOtherExpenseColDefs = (
     {
       headerName: 'No.',
       field: 'no',
-      width: 70,
+      width: 56,
       // 先頭列は grid.css で中央寄せ強制のため、左寄せクラスを付与（→ グリッド左寄せ規約）
       cellClass: 'ag-cell-left-pinned',
       cellStyle: SPLIT_RO_STYLE,
@@ -382,80 +380,80 @@ const buildSplitFromOtherExpenseColDefs = (
     {
       headerName: 'メタブランド',
       field: 'planExpContent',
-      width: 240,
+      width: 192,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: 'サマリ商品',
       field: 'product',
-      width: 220,
+      width: 176,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: `${label}金額`,
       field: 'payAmount',
-      width: 120,
+      width: 96,
       valueFormatter: (p) => formatInt(p.value as number) || GRID_EMPTY_TEXT,
       cellStyle: SPLIT_RO_RIGHT_STYLE,
     },
     {
       headerName: '管理区分',
       field: 'mgmtClass',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理区分名称',
       field: 'mgmtClassName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理コード',
       field: 'mgmtCode',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理コード名称',
       field: 'mgmtCodeName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策区分',
       field: 'measureClass',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策区分名称',
       field: 'measureClassName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策コード',
       field: 'measureCode',
-      width: 130,
+      width: 104,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '施策コード名称',
       field: 'measureCodeName',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要1（社内用）',
       field: 'summary1',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要2（社外用）',
       field: 'summary2',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
@@ -465,31 +463,31 @@ const buildSplitFromOtherExpenseColDefs = (
         {
           headerName: '支払No',
           field: 'srcPaymentNo',
-          width: 130,
+          width: 104,
           cellStyle: SPLIT_RO_STYLE,
         },
         {
           headerName: '支払回数',
           field: 'srcPaymentCount',
-          width: 100,
+          width: 80,
           cellStyle: SPLIT_RO_RIGHT_STYLE,
         },
         {
           headerName: '明細No',
           field: 'srcDetailNo',
-          width: 100,
+          width: 80,
           cellStyle: SPLIT_RO_RIGHT_STYLE,
         },
         {
           headerName: '部署',
           field: 'srcDept',
-          width: 200,
+          width: 160,
           cellStyle: SPLIT_RO_STYLE,
         },
         {
           headerName: '営業担当者',
           field: 'srcStaff',
-          width: 160,
+          width: 128,
           cellStyle: SPLIT_RO_STYLE,
         },
       ],
@@ -640,11 +638,12 @@ export default function PaymentDetailWithInvoice({
   onMenuChange,
 }: PaymentDetailWithInvoiceProps) {
   // 追加口一覧から連動する「未承認NET拡売費」データ（拡売費一覧へ渡す）
-  // 支払回数つき。拡売費カードは表示中の支払回数の値だけを当てる（→ utils/netUnapprovedLink）。
+  // 支払回数つき。拡売費カードは表示中の支払回数の値だけを当てる（→ utils/payment/payment-detail/netUnapprovedLink）。
   const [netUnapproved, setNetUnapproved] = useState<
     NetUnapprovedLink | undefined
   >(undefined);
-  const [showCommentHistoryPane, setShowCommentHistoryPane] = useState(false);
+  const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
+    useState(false);
   // フッターのコメント入力（差戻し理由など。支払詳細(その他)と同様）
   const [commentInput, setCommentInput] = useState('');
   // 支払無し（当月は支払が発生しない伝票）。支払一覧と同じく未申請との間を
@@ -652,11 +651,12 @@ export default function PaymentDetailWithInvoice({
   // 理由はフッターのコメント欄へ書く。
   const [isNoPayment, setIsNoPayment] = useState(false);
   // 拡売費計画引用（下ペイン）
-  const [showPlanSelectionPane, setShowPlanSelectionPane] = useState(false);
+  const [isPlanSelectionPaneShown, setIsPlanSelectionPaneShown] =
+    useState(false);
   // 拡売費計画引用の担当エリア（複数選択）。初期は全担当エリアを選択した状態。
   const [planAreas, setPlanAreas] = useState<string[]>(ALL_PLAN_AREA_CODES);
   // 費用振替 画面（下ペイン）。拡売費一覧の操作メニュー「振替」から開く。
-  const [showAllocatePane, setShowAllocatePane] = useState(false);
+  const [isAllocatePaneShown, setIsAllocatePaneShown] = useState(false);
   // 振替対象行から反映する振替元情報。
   const [allocateSource, setAllocateSource] = useState<
     AllocationPaneSource | undefined
@@ -789,7 +789,7 @@ export default function PaymentDetailWithInvoice({
     activeRound?.paymentInfo.status ?? ''
   );
   // 追加口分割の下ペイン（分割先商流販売店の選択 → 追加口分割）を開いているか。
-  const [showSplitPane, setShowSplitPane] = useState(false);
+  const [isSplitPaneShown, setIsSplitPaneShown] = useState(false);
   // 下ペインのステップ（1＝分割先商流販売店の選択、2＝追加口分割）。
   const [splitStep, setSplitStep] = useState<1 | 2>(1);
   // ペインで選択中の分割先（［設定］までは当該回の分割状態には反映しない）。
@@ -811,11 +811,12 @@ export default function PaymentDetailWithInvoice({
   // 分割は支払回数ごとに独立しているため、回を切り替えたらペインを閉じる
   //（別の回の内容を表示したまま入力させない）。
   useEffect(() => {
-    setShowSplitPane(false);
+    setIsSplitPaneShown(false);
   }, [invoiceCount]);
 
   // 引用明細選択 画面（下ペイン）。引用ボタンから開く。
-  const [showQuoteSelectionPane, setShowQuoteSelectionPane] = useState(false);
+  const [isQuoteSelectionPaneShown, setIsQuoteSelectionPaneShown] =
+    useState(false);
   // 親画面に未保存の入力があるか。引用ボタン押下時に保存を促すために持つ
   //（→ 20260814_第28回 決定事項6）。
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -834,7 +835,9 @@ export default function PaymentDetailWithInvoice({
   // 下ペイン（販売計画選択・引用明細選択・費用振替）を開いているか。
   // いずれも画面の縦半分を使うプッシュ式のため、開いたら親画面側は拡売費一覧を先頭に見せる。
   const isBottomPaneOpen =
-    showPlanSelectionPane || showQuoteSelectionPane || showAllocatePane;
+    isPlanSelectionPaneShown ||
+    isQuoteSelectionPaneShown ||
+    isAllocatePaneShown;
 
   // 下ペインを開いたら、関係する一覧が画面内スクロール領域の先頭
   //（ヘッダーメニュー直下）へ来るようスクロールする。下ペインが画面の下半分を使うため、
@@ -848,11 +851,11 @@ export default function PaymentDetailWithInvoice({
   }, [isBottomPaneOpen]);
 
   useEffect(() => {
-    if (!showSplitPane) return;
+    if (!isSplitPaneShown) return;
     return scrollToTopAfterPaneOpen(
       '[aria-labelledby="additional-entry-heading"]'
     );
-  }, [showSplitPane]);
+  }, [isSplitPaneShown]);
 
   // 明細系右ペインの状態管理。
   // 明細追加ペインは追加口・拡売費で項目が異なるため、どちらを開いているかを持つ。
@@ -911,7 +914,7 @@ export default function PaymentDetailWithInvoice({
   // 引用ボタン押下：引用明細選択ペイン（下ペイン）を開くだけとする。
   // 支払回数の追加は、引用する明細を確定する「引用」で行う（handleQuoteApply）。
   const handleQuote = () => {
-    const isOpen = showQuoteSelectionPane;
+    const isOpen = isQuoteSelectionPaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
     // 未保存の入力があるときは、下ペインを表示する前に保存を促す。
@@ -921,7 +924,7 @@ export default function PaymentDetailWithInvoice({
       setIsQuoteUnsavedOpen(true);
       return;
     }
-    setShowQuoteSelectionPane(true);
+    setIsQuoteSelectionPaneShown(true);
   };
 
   // 引用明細選択の「引用」押下：
@@ -935,7 +938,7 @@ export default function PaymentDetailWithInvoice({
       ...prev,
       [nextRound]: createQuoteRoundDataSet(quotedRows),
     }));
-    setShowQuoteSelectionPane(false);
+    setIsQuoteSelectionPaneShown(false);
     toast.success(`支払回数「${nextRound}」へ支払明細を引用しました。`);
   };
   // 引用明細選択ペイン操作用（ペインタイトル右の「引用」から呼ぶ）。
@@ -1034,12 +1037,12 @@ export default function PaymentDetailWithInvoice({
 
   // すべての右ペインを閉じるヘルパー関数
   const closeAllRightPanes = () => {
-    setShowCommentHistoryPane(false);
-    setShowPlanSelectionPane(false);
-    setShowAllocatePane(false);
+    setIsCommentHistoryPaneShown(false);
+    setIsPlanSelectionPaneShown(false);
+    setIsAllocatePaneShown(false);
     setAddDetailTarget(null);
-    setShowQuoteSelectionPane(false);
-    setShowSplitPane(false);
+    setIsQuoteSelectionPaneShown(false);
+    setIsSplitPaneShown(false);
   };
 
   // 追加口分割の下ペインを開く（追加口カードの［追加口分割］から呼ぶ）。
@@ -1047,7 +1050,7 @@ export default function PaymentDetailWithInvoice({
   // 分割先の初期チェックは、当該回に保存済みの分割があればその分割先、無ければ前月の分割先
   //（→ 第33回 決定事項4）。前月から引き継ぐのは分割先のチェックだけとする。
   const handleOpenSplit = () => {
-    const isOpen = showSplitPane;
+    const isOpen = isSplitPaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
     // ケース・バラの初期値は、保存済みの分割があればその値、無ければ0とする。
@@ -1060,7 +1063,7 @@ export default function PaymentDetailWithInvoice({
     setSplitDraftDestIds([...source.destIds]);
     setSplitDraftAllocations(source.allocations.map((a) => ({ ...a })));
     setSplitStep(1);
-    setShowSplitPane(true);
+    setIsSplitPaneShown(true);
   };
 
   // ［設定］：ペインの入力を当該支払回の分割に反映する。
@@ -1077,7 +1080,7 @@ export default function PaymentDetailWithInvoice({
       [invoiceCount]: { destIds: [...splitDraftDestIds], allocations },
     }));
     setHasUnsavedChanges(true);
-    setShowSplitPane(false);
+    setIsSplitPaneShown(false);
     toast.success(
       hasAnySplit(allocations)
         ? '追加口の分割を反映しました。保存または申請で確定します。'
@@ -1119,10 +1122,10 @@ export default function PaymentDetailWithInvoice({
   // 「選択」で計画明細の項目を設定する対象は拡売費一覧のチェックボックス列で選ぶため、
   // 当ペインへ明細は渡さない。
   const handleOpenPlanSelection = () => {
-    const isOpen = showPlanSelectionPane;
+    const isOpen = isPlanSelectionPaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-    setShowPlanSelectionPane(true);
+    setIsPlanSelectionPaneShown(true);
   };
 
   // 費用振替ペイン（振替画面）を開く。拡売費一覧の操作メニュー「振替」から呼ばれ、
@@ -1138,7 +1141,7 @@ export default function PaymentDetailWithInvoice({
     measureClass?: string;
     measureCode?: string;
   }) => {
-    const isOpen = showAllocatePane;
+    const isOpen = isAllocatePaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
     const toNum = (v: number | string | undefined): number | undefined => {
@@ -1172,7 +1175,7 @@ export default function PaymentDetailWithInvoice({
       measureCode: row.measureCode,
       measureCodeName: campaignClassFromCode(row.measureCode ?? ''),
     });
-    setShowAllocatePane(true);
+    setIsAllocatePaneShown(true);
   };
 
   // 列幅・並び順・ソートの永続化（グリッドごとに一意の storageKey）。
@@ -1209,7 +1212,7 @@ export default function PaymentDetailWithInvoice({
     amountOf: (row: T) => number,
     rowKeyOf: (row: T) => number | string
   ) => (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md">
+    <div className={`${CARD_CLASS} overflow-hidden`}>
       {/* 合計金額サマリーバー（当一覧のデータを集計）。
           幅は固定せず、表示内容（見出し・金額）が収まる長さにする。 */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -1342,7 +1345,7 @@ export default function PaymentDetailWithInvoice({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="支払詳細(追加口請求書有)" />
@@ -1352,7 +1355,7 @@ export default function PaymentDetailWithInvoice({
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <SearchPane onMenuChange={onMenuChange} />
+                <AdditionalPaymentBasicInfoPane onMenuChange={onMenuChange} />
               </section>
 
               {/* 支払情報サマリエリア */}
@@ -1430,10 +1433,10 @@ export default function PaymentDetailWithInvoice({
                     initialValues={activeRound?.paymentInfo}
                     breakdownItems={paymentBreakdownItems}
                     onStatusClick={() => {
-                      const isOpen = showCommentHistoryPane;
+                      const isOpen = isCommentHistoryPaneShown;
                       closeAllRightPanes();
                       if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-                      setShowCommentHistoryPane(true);
+                      setIsCommentHistoryPaneShown(true);
                     }}
                   />
                 </section>
@@ -1494,8 +1497,8 @@ export default function PaymentDetailWithInvoice({
         {/* 下ペイン：追加口分割（ステップ1 分割先商流販売店の選択 → ステップ2 追加口分割）。
             上半分に追加口カードを残したまま、明細を見ながら配分を決められる。 */}
         <BottomPane
-          open={showSplitPane}
-          onClose={() => setShowSplitPane(false)}
+          open={isSplitPaneShown}
+          onClose={() => setIsSplitPaneShown(false)}
           title={
             splitStep === 1
               ? '追加口分割 － 分割先商流販売店の選択'
@@ -1610,8 +1613,8 @@ export default function PaymentDetailWithInvoice({
         {/* 下ペイン：拡売費計画引用。
             プッシュ式：親画面に被さらず中身を押し上げるため、選択エリアと支払明細を同時に視認できる。 */}
         <BottomPane
-          open={showPlanSelectionPane}
-          onClose={() => setShowPlanSelectionPane(false)}
+          open={isPlanSelectionPaneShown}
+          onClose={() => setIsPlanSelectionPaneShown(false)}
           title="拡売費計画引用"
           description="拡売費明細へ引用する拡売費計画の明細を選択します"
           // 拡売費明細と拡売費計画引用の表示領域が半分ずつになるよう自動調整する
@@ -1659,8 +1662,8 @@ export default function PaymentDetailWithInvoice({
         {/* 下ペイン：引用明細選択 画面（支払回数右の「引用」ボタンから開く）。
             引用で追加した支払回へ引用する支払明細を選択する。 */}
         <BottomPane
-          open={showQuoteSelectionPane}
-          onClose={() => setShowQuoteSelectionPane(false)}
+          open={isQuoteSelectionPaneShown}
+          onClose={() => setIsQuoteSelectionPaneShown(false)}
           title="引用明細選択"
           headerActions={
             // 引用：ラジオで選んだ伝票の明細を当該支払回へ引用する
@@ -1694,12 +1697,16 @@ export default function PaymentDetailWithInvoice({
                   id="quote-target-month-from"
                   value={quoteMonthFrom}
                   onChange={setQuoteMonthFrom}
+                  max={quoteMonthTo || undefined}
+                  clearable
                 />
                 <span className="text-sm text-gray-700">〜</span>
                 <MonthYearPicker
                   id="quote-target-month-to"
                   value={quoteMonthTo}
                   onChange={setQuoteMonthTo}
+                  min={quoteMonthFrom || undefined}
+                  clearable
                 />
               </div>
 
@@ -1735,6 +1742,7 @@ export default function PaymentDetailWithInvoice({
           maxHeight={52}
         >
           <QuoteSelectionPane
+            config={QUOTE_SELECTION_CONFIG}
             ref={quotePaneRef}
             basicInfo={EXPENSE_BASIC_INFO}
             monthFrom={quoteMonthFrom}
@@ -1805,8 +1813,8 @@ export default function PaymentDetailWithInvoice({
 
         {/* 下ペイン：費用振替 画面（拡売費一覧の操作メニュー「振替」から開く）。 */}
         <BottomPane
-          open={showAllocatePane}
-          onClose={() => setShowAllocatePane(false)}
+          open={isAllocatePaneShown}
+          onClose={() => setIsAllocatePaneShown(false)}
           title="費用振替"
           headerActions={
             // 振替内容を反映：編集中の振替先明細を拡売費一覧へ反映する（当ペインの確定操作）。
@@ -1829,7 +1837,7 @@ export default function PaymentDetailWithInvoice({
             ref={allocatePaneRef}
             source={allocateSource}
             onConfirm={() => {
-              setShowAllocatePane(false);
+              setIsAllocatePaneShown(false);
             }}
           />
         </BottomPane>
@@ -1837,7 +1845,7 @@ export default function PaymentDetailWithInvoice({
         {/* フッターエリア（固定） */}
         <div
           data-screen-footer
-          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div className="flex flex-wrap gap-3">
@@ -1890,7 +1898,7 @@ export default function PaymentDetailWithInvoice({
                   onChange={(e) => setCommentInput(e.target.value)}
                   placeholder="コメントを入力（差戻し理由など）"
                   rows={2}
-                  className="h-10 w-full min-w-[10rem] max-w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
                 />
               </div>
               <button
@@ -1960,29 +1968,15 @@ export default function PaymentDetailWithInvoice({
       {/* 未保存のまま引用ボタンを押した場合のポップアップ。
           保存はこのポップアップからは行わず、閉じたうえで画面の保存ボタンを押してもらう
           （保存の経路を2つにしないため → 20260814_第28回 決定事項6）。 */}
-      <AlertDialog
+      <ConfirmDialog
         open={isQuoteUnsavedOpen}
         onOpenChange={setIsQuoteUnsavedOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-gray-900">
-              保存の確認
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              保存していない入力があります。引用する前に「保存」を押して保存してください。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              className="rounded-lg bg-blue-500 text-white hover:bg-blue-600"
-              onClick={() => setIsQuoteUnsavedOpen(false)}
-            >
-              閉じる
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="保存の確認"
+        description="保存していない入力があります。引用する前に「保存」を押して保存してください。"
+        confirmLabel="閉じる"
+        onConfirm={() => setIsQuoteUnsavedOpen(false)}
+        acknowledgeOnly
+      />
 
       {/* 右ペイン：明細追加（追加口）。項目・活性/非活性は追加口一覧の列にそろえる。 */}
       {/* フッタは追加口・拡売費で共通（「追加」のみ。追加後も開いたまま、×で閉じる）。 */}
@@ -2016,8 +2010,8 @@ export default function PaymentDetailWithInvoice({
 
       {/* 右ペイン：コメント履歴（支払詳細の各画面で共通） */}
       <CommentHistoryPane
-        open={showCommentHistoryPane}
-        onClose={() => setShowCommentHistoryPane(false)}
+        open={isCommentHistoryPaneShown}
+        onClose={() => setIsCommentHistoryPaneShown(false)}
       />
     </div>
   );

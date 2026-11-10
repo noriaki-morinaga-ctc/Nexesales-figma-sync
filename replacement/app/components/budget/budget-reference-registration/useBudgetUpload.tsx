@@ -23,7 +23,7 @@ import {
   UPLOAD_TARGET_OPTIONS,
 } from './budgetReferenceData';
 import { genUploadId, nowIso, validateFile } from './budgetReferenceUtils';
-import { ProgressToast } from './components/ProgressToast';
+import { ProgressToast } from '../../shared/upload/ProgressToast';
 
 // ===== 予算参照登録画面の状態管理（アップロード・ダウンロード・履歴選択） =====
 

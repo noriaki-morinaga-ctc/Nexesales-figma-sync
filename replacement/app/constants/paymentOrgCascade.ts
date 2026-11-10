@@ -24,7 +24,7 @@ import {
   applyStoreCascade,
   type StoreSelection,
 } from './storeHierarchy';
-import { toYearMonth } from '../utils/yearMonth';
+import { toYearMonth } from '../utils/common/yearMonth';
 
 // 商流・組織の現在値（分割先明細・振替先明細の1行分／検索条件の1組）。
 export interface OrgSelection {

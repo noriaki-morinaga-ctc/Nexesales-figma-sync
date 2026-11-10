@@ -7,8 +7,8 @@
 //
 // 参照先は原則として親ノードのキー（常時表示され、`.amount` の子と同値）を指す。
 // 率どうしの加算（salesDiscount.rate）のように親に相当が無いものだけ `.rate` の子を指す。
-// 集計値の算出元は販売計画(詳細)・拡売費計画のグリッド行（utils/planGridToAggregation・
-// utils/expenseGridToAggregation が集計ソースへ変換する）。
+// 集計値の算出元は販売計画(詳細)・拡売費計画のグリッド行（utils/sales-plan/plan-detail/planGridToAggregation・
+// utils/sales-plan/plan-detail/expenseGridToAggregation が集計ソースへ変換する）。
 import type { FormulaTemplate } from '../components/grid/gridCommon';
 
 export interface AggFormula extends FormulaTemplate {

@@ -1,6 +1,5 @@
 // シミュレーション(マージン率固定・NET入力) のダミーデータ集約
 
-import type { MarginRate } from '../components/shared/MarginNetRatePane';
 import {
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
   EXPENSE_MANAGEMENT_CLASS_OPTIONS,
@@ -17,6 +16,7 @@ import {
 } from './comboFieldOptions';
 
 import type { ProductData } from '../components/sales-plan/sales-plan-simulation-margin-rate-fixed/components/DetailTable';
+import type { MarginRate } from '../types/planDetail';
 
 export type DetailFormValues = {
   category: string;

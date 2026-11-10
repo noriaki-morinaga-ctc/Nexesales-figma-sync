@@ -5,8 +5,8 @@ import {
   FISCAL_YEAR_OPTIONS,
 } from '../budgetReferenceData';
 import { CARD_ICON_CLASS, WHITE_CARD_CLASS } from '../budgetReferenceStyles';
-import { CardHeader } from './CardHeader';
-import { FormField } from './FormField';
+import { CardHeader } from '../../../shared/upload/CardHeader';
+import { FormField } from '../../../shared/upload/FormField';
 
 interface DownloadCardProps {
   downloadFiscalYear: number;
@@ -40,6 +40,7 @@ export function DownloadCard({
           >
             <SingleCombobox
               id="budget-download-fiscal-year"
+              ariaRequired
               className="w-27.5"
               options={[
                 ...FISCAL_YEAR_OPTIONS.map((year) => ({
@@ -63,6 +64,7 @@ export function DownloadCard({
           >
             <SingleCombobox
               id="budget-download-target"
+              ariaRequired
               className="w-full"
               options={DOWNLOAD_TARGET_OPTIONS}
               value={downloadTarget}

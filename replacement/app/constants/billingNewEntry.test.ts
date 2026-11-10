@@ -19,8 +19,8 @@ import {
   billingFormulaTooltipOf,
   billingUnitPriceOf,
   isBillingAmountMismatch,
-} from '../utils/billingDetailFormula';
-import { formatBillingUnitPrice } from '../utils/billingNumberFormat';
+} from '../utils/payment/billing/billingDetailFormula';
+import { formatBillingUnitPrice } from '../utils/payment/billing/billingNumberFormat';
 
 const newEntry = createEmptyBilling();
 const newRows = createEmptyBillingDetailRows();

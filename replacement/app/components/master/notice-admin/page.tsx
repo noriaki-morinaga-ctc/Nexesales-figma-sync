@@ -29,6 +29,8 @@ import { Checkbox } from '../../ui/checkbox';
 import { Input } from '../../ui/input';
 import { MultiCombobox } from '../../ui/multi-combobox';
 import { RequiredBadge } from '../../ui/required-badge';
+import { Badge } from '../../ui/badge';
+import { DateTimePicker } from '../../ui/date-time-picker';
 import {
   BUTTON_STYLES,
   CARD_TITLE_CLASS,
@@ -58,22 +60,22 @@ import {
   StatusIndicator,
   TITLE_MAX,
   TYPE_CONFIG,
+  NOTICE_TYPE_BADGE_CLASS,
   TypeBadgeRenderer,
   type NoticeGridContext,
-} from './noticeUi';
+} from './NoticeUi';
 import {
   validate,
   type FieldErrors,
   type PublishAction,
 } from './noticeValidation';
-import { DateTimePopover } from './components/DateTimePopover';
 import { NoticePreview } from './components/NoticePreview';
 import { RichBodyEditor } from './components/RichBodyEditor';
 import { ScreenTitle } from '../../ui/screen-title';
 
 // ===== お知らせメンテ画面（管理者ビュー・モック / in-memory） =====
 // 一覧ビュー（検索条件＋一覧グリッド）と編集ビュー（フォーム＋プレビュー）を mode で切り替える。
-// 本文ロジック=noticeBody / UI定数・セルレンダラ=noticeUi / 入力チェック=noticeValidation /
+// 本文ロジック=noticeBody / UI定数・セルレンダラ=NoticeUi / 入力チェック=noticeValidation /
 // エディタ・プレビュー・日時ピッカー=components/ に分割。
 
 // 列状態（列幅・並び順・ソート）の保存キー。列構成を変えたらバージョンを上げる（→ 02 §9）
@@ -149,10 +151,8 @@ export default function NoticeAdminScreen() {
 
   const errorRef = useRef<HTMLDivElement>(null);
 
-  // 列状態（列幅・並び順・ソート）の保存／復元（共通フック）。タイトル列は flex のため自動サイズ調整は行わない
-  const gridColumnStateProps = useGridColumnState(COLUMN_STATE_KEY, {
-    autoSize: false,
-  });
+  // 列状態（列幅・並び順・ソート）の保存／復元（共通フック）
+  const gridColumnStateProps = useGridColumnState(COLUMN_STATE_KEY);
 
   // 複製で増えた行を見つけやすくする（行までスクロールし、数秒光らせる。共通フック）
   // 複製した行はコピー元の直下に出すため、一覧は見えていれば動かさない（'nearest'）
@@ -323,7 +323,7 @@ export default function NoticeAdminScreen() {
       {
         headerName: '状態',
         colId: 'status',
-        width: 120,
+        width: 96,
         valueGetter: (p: ValueGetterParams<NoticeItem>) =>
           p.data ? DISPLAY_STATUS_LABEL[displayStatus(p.data)] : '',
         cellRenderer: StatusCellRenderer,
@@ -336,7 +336,7 @@ export default function NoticeAdminScreen() {
         // バッジは「重要」のみ（通常のお知らせは空欄）
         headerName: '重要',
         colId: 'type',
-        width: 90,
+        width: 72,
         // フィルタ・ソート値は表示ラベルに合わせる（内部値 important/notice を出さない）
         valueGetter: (p: ValueGetterParams<NoticeItem>) =>
           p.data?.type === 'important' ? TYPE_CONFIG.important.label : '',
@@ -346,39 +346,40 @@ export default function NoticeAdminScreen() {
         headerName: 'タイトル',
         field: 'title',
         flex: 1,
-        minWidth: 220,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 176,
         cellClass: 'cell-left',
       },
       {
         headerName: '掲載開始',
         field: 'startAt',
         ...GRID_DATE_TEXT_FILTER,
-        width: 150,
+        width: 120,
       },
       {
         headerName: '掲載終了',
         field: 'endAt',
         ...GRID_DATE_TEXT_FILTER,
-        width: 150,
+        width: 120,
         valueFormatter: formatEmptyAsDash,
       },
       {
         // 更新者で絞り込めるよう、更新日時とは別の列にする
         headerName: '更新者',
         field: 'updatedBy',
-        width: 170,
+        width: 136,
         cellClass: 'cell-left',
       },
       {
         headerName: '更新日時',
         field: 'updatedAt',
         ...GRID_DATE_TEXT_FILTER,
-        width: 150,
+        width: 120,
       },
       {
         headerName: '操作',
         colId: 'actions',
-        width: 110,
+        width: 88,
         cellRenderer: ActionCellRenderer,
         sortable: false,
         filter: false,
@@ -401,7 +402,7 @@ export default function NoticeAdminScreen() {
   // ====== 一覧ビュー ======
   if (mode === 'list') {
     return (
-      <div className="min-w-[75rem] h-full flex flex-col">
+      <div className="min-w-300 h-full flex flex-col">
         <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
           {/* 画面名はヘッダー（システム名の右）に表示する */}
           <ScreenTitle title="お知らせメンテ" />
@@ -451,7 +452,7 @@ export default function NoticeAdminScreen() {
 
           {/* お知らせ一覧（ページの余り高さいっぱいまで広げ、スクロールはグリッド内に閉じる） */}
           <div
-            className={`${WHITE_CARD_CLASS} overflow-hidden flex flex-col flex-1 min-h-[23.75rem]`}
+            className={`${WHITE_CARD_CLASS} overflow-hidden flex flex-col flex-1 min-h-95`}
           >
             <div className="px-3 py-1.5 flex items-center gap-2">
               <h2 className={CARD_TITLE_CLASS}>お知らせ一覧</h2>
@@ -485,7 +486,7 @@ export default function NoticeAdminScreen() {
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-600">
             ※
             「公開中」のお知らせのみTOP画面に表示されます。削除したお知らせは一覧・画面には表示されなくなります。
           </p>
@@ -509,7 +510,7 @@ export default function NoticeAdminScreen() {
   const canDelete = !!current && ds !== 'open';
 
   return (
-    <div className="min-w-[75rem]">
+    <div className="min-w-300">
       <div className="px-6 pt-3 pb-3">
         {/* 画面名はヘッダー（システム名の右）に表示し、本文には現在の状態だけを置く */}
         <ScreenTitle
@@ -569,11 +570,11 @@ export default function NoticeAdminScreen() {
                   >
                     重要として掲載する
                   </label>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${TYPE_CONFIG.important.badge}`}
+                  <Badge
+                    className={`${NOTICE_TYPE_BADGE_CLASS} ${TYPE_CONFIG.important.badge}`}
                   >
                     {TYPE_CONFIG.important.label}
-                  </span>
+                  </Badge>
                 </div>
                 <p className={HINT_CLASS}>
                   バッジが付くのは「重要」のみ。通常のお知らせはバッジなしで表示されます。
@@ -604,6 +605,7 @@ export default function NoticeAdminScreen() {
 
               {/* 掲載期間 */}
               <div>
+                {/* 規約例外（フォーム以外の並び）：1つの項目（掲載期間）の開始と終了を左右に並べる（→ 05） */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label
@@ -613,7 +615,7 @@ export default function NoticeAdminScreen() {
                       掲載開始日時
                       <RequiredBadge />
                     </label>
-                    <DateTimePopover
+                    <DateTimePicker
                       id="notice-start-at"
                       value={draft.startAt}
                       // 公開・再公開するお知らせ（新規・下書き・取下げ）は、当日より前の日付を選べない
@@ -650,7 +652,7 @@ export default function NoticeAdminScreen() {
                     >
                       掲載終了日時（任意）
                     </label>
-                    <DateTimePopover
+                    <DateTimePicker
                       id="notice-end-at"
                       value={draft.endAt}
                       invalid={!!fieldErrors.endAt}
@@ -682,6 +684,7 @@ export default function NoticeAdminScreen() {
                   </span>
                 </label>
                 <Input
+                  aria-required="true"
                   id="notice-title"
                   value={draft.title}
                   onChange={(e) => updateDraft({ title: e.target.value })}

@@ -38,15 +38,23 @@ export const FORM_LABEL_CLASS = 'text-sm font-bold text-blue-900';
 // 一覧画面の検索条件の並び（全画面で同じ5列にし、画面が違っても同じ画面幅なら項目の幅・縦の線をそろえる）。
 // 各項目は「ラベル＋入力欄（flex-1 min-w-0）」の flex 行にし、範囲指定は2列分を使う（→ 05）。
 export const SEARCH_GRID_CLASS = 'grid grid-cols-5 gap-x-5 gap-y-2.5';
+// 検索条件のラベルの幅（範囲指定の「～」の置き場所も同じ幅にする → ui/search-range-field.tsx）。
+export const SEARCH_LABEL_WIDTH_CLASS = 'w-[5.625rem]';
 // 検索条件のラベル（幅 5.625rem・右寄せ。shrink-0 で画面幅が狭くても入力欄の左の線をずらさない）。
 // 右寄せは text-right ではなく flex の justify-end にする（幅を超える長いラベルは入力欄側でなく左へはみ出させる → 05）。
-export const SEARCH_LABEL_CLASS = `${FORM_LABEL_CLASS} flex shrink-0 justify-end whitespace-nowrap w-[5.625rem]`;
+export const SEARCH_LABEL_CLASS = `${FORM_LABEL_CLASS} flex shrink-0 justify-end whitespace-nowrap ${SEARCH_LABEL_WIDTH_CLASS}`;
 
 // 文字・数値の入力欄（shadcn の Input）。コンボボックス・年月日の入力と同じ見た目にする
 // （高さ 2.375rem・濃いグレーの枠・薄い影・text-sm・フォーカスで青枠。UI/UX UX-023）。
+// プレースホルダーは文字のコントラスト 4.5:1 を満たす text-gray-500（→ 01・06）。
 // 幅・読み取り専用の背景・エラーの枠などは、この後ろに足す（後ろの指定が優先される）。
 export const TEXT_INPUT_CLASS =
-  'h-9.5 border-gray-400 bg-white text-sm shadow-sm focus:ring-2 focus:ring-blue-500';
+  'h-9.5 border-gray-400 bg-white text-sm shadow-sm placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500';
+
+// 期限超過のラベル（ui/badge の Badge に variant="outline" と一緒に付ける。赤の塗りつぶし・白の太字）。
+// 期限を過ぎたセルは背景を薄い赤（grid.css の cell-overdue）にし、文言の右にこのラベルを出す（UI/UX UX-028 → 02 §7）。
+export const OVERDUE_BADGE_CLASS =
+  'border-transparent bg-red-600 font-bold text-white';
 
 // 値テキスト（入力値・表示値）。
 export const FORM_VALUE_CLASS = 'text-sm text-gray-900';
@@ -55,7 +63,11 @@ export const FORM_VALUE_CLASS = 'text-sm text-gray-900';
 // ペインの見出し（右ペイン等）：1.125rem(18px) 太字 黒。
 // 画面名はヘッダー（システム名の右）に出すため本文には置かない（→ ui/screen-title.tsx の ScreenTitle）。
 export const SCREEN_TITLE_CLASS = 'text-lg font-bold text-gray-900';
-// カード／セクションタイトル：1rem(16px) 太字 黒
-export const CARD_TITLE_CLASS = 'text-base font-bold text-gray-900';
+// カード（白地の箱）：白・角丸・枠 card-border・影 shadow-card（UI/UX分科会 決定事項21＝宮澤案。UX-031）。
+// 開閉するカードは CollapsibleCard（この定数を使う）。開閉しないカードを画面で組むときもこれを使う。
+export const CARD_CLASS =
+  'bg-white rounded-lg border border-card-border shadow-card';
+// カード／セクションタイトル：1rem(16px) 太字 紺（brand-navy-900。UX-031）
+export const CARD_TITLE_CLASS = 'text-base font-bold text-brand-navy-900';
 
 export type ButtonStyleKey = keyof typeof BUTTON_STYLES;

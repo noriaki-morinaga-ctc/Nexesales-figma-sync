@@ -2,15 +2,12 @@
 // PaymentDetailWithInvoice（支払詳細(マージン率固定・NET入力)）をベースに、追加口エリア（追加口一覧テーブル
 // と、そこから開く明細追加・編集・削除・コピー／年契基本分／センターフィ／取組強化マージンの
 // 各右ペイン）を除外した、拡売費のみを扱う画面。
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Button } from '../../ui/button';
+import React, { useState } from 'react';
 import {
   Save,
   Send,
   Check,
-  X,
   Upload,
-  ChevronDown,
   ReceiptJapaneseYen,
   Import,
   CornerUpLeft,
@@ -19,6 +16,9 @@ import {
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef } from 'ag-grid-community';
+import { toast } from 'sonner';
+
+import { Button } from '../../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import {
   GRID_DEFAULT_COL_DEF,
@@ -28,15 +28,15 @@ import {
   withHeaderTooltips,
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
+  useGridColumnState,
 } from '../../grid';
-import { SearchPane } from './components/SearchPane';
-import { PaymentDetailPane } from './components/PaymentDetailPane';
-import { AggregationPane } from './components/AggregationPane';
+import { QuoteBasicInfoPane } from '../../shared/payment/quote/QuoteBasicInfoPane';
+import { QuotePaymentDetailPane } from '../../shared/payment/quote/QuotePaymentDetailPane';
 import {
-  NonProductExpensePane,
+  QuoteNonProductExpensePane,
   type NonProductExpenseData,
-} from './components/NonProductExpensePane';
-import { PlanSelectionPane } from './components/PlanSelectionPane';
+} from '../../shared/payment/quote/QuoteNonProductExpensePane';
+import { QuotePlanSelectionPane } from '../../shared/payment/quote/QuotePlanSelectionPane';
 import { RightPane } from '../../ui/right-pane';
 import { BottomPane } from '../../ui/bottom-pane';
 import { NumericInput } from '../../ui/numeric-input';
@@ -48,31 +48,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogCancel,
-} from '../../ui/alert-dialog';
-import { toast } from 'sonner';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../constants/matchPaymentType';
 import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
 
-import {
-  EXPENSE_CAMPAIGN_CLASS_OPTIONS,
-  EXPENSE_CAMPAIGN_CODE_OPTIONS,
-} from '../../../constants/expenseRelations';
-import type { ExpenseRow } from './components/NonProductExpensePane';
+import type { ExpenseRow } from '../../shared/payment/quote/QuoteNonProductExpensePane';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import {
+  campaignClassComboOptions,
+  campaignCodeComboOptions,
+} from '../../../constants/comboFieldOptions';
 
 // 照合支払区分の選択肢（右ペイン用）。
 const MATCH_TYPE_PANE_OPTIONS = MATCH_PAYMENT_TYPE_OPTIONS.map((v) => ({
@@ -166,7 +156,7 @@ const SPLIT_FROM_OTHER_COL_DEFS: ColDef<SplitFromOtherRow>[] =
     {
       headerName: 'No.',
       field: 'no',
-      width: 70,
+      width: 56,
       // 先頭列は grid.css で中央寄せ強制のため、左寄せクラスを付与（→ グリッド左寄せ規約）
       cellClass: 'ag-cell-left-pinned',
       cellStyle: SPLIT_RO_STYLE,
@@ -174,63 +164,63 @@ const SPLIT_FROM_OTHER_COL_DEFS: ColDef<SplitFromOtherRow>[] =
     {
       headerName: '卸からの請求名称',
       field: 'billName',
-      width: 240,
+      width: 192,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '販売計画に記載の拡売費内容',
       field: 'planExpContent',
-      width: 240,
+      width: 192,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '商品',
       field: 'product',
-      width: 220,
+      width: 176,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '支払金額',
       field: 'payAmount',
-      width: 120,
+      width: 96,
       valueFormatter: (p) => formatInt(p.value as number) || GRID_EMPTY_TEXT,
       cellStyle: SPLIT_RO_RIGHT_STYLE,
     },
     {
       headerName: '計画金額',
       field: 'planAmount',
-      width: 120,
+      width: 96,
       valueFormatter: (p) => formatInt(p.value as number) || GRID_EMPTY_TEXT,
       cellStyle: SPLIT_RO_RIGHT_STYLE,
     },
     {
       headerName: '税区分',
       field: 'taxClass',
-      width: 90,
+      width: 72,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理区分（用途）',
       field: 'mgmtClass',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '管理コード（投資責任）',
       field: 'mgmtCode',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要1',
       field: 'summary1',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
     {
       headerName: '摘要2',
       field: 'summary2',
-      width: 200,
+      width: 160,
       cellStyle: SPLIT_RO_STYLE,
     },
   ]);
@@ -383,110 +373,16 @@ const EMPTY_EXPENSE_EDIT_FORM: ExpenseEditFormValues = {
   matchType: '',
 };
 
-function SearchableCombobox({
-  options,
-  value,
-  onChange,
-  placeholder = '選択または入力...',
-  hasError,
-}: {
-  options: { value: string; label?: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  hasError?: boolean;
-}) {
-  const [inputValue, setInputValue] = useState(value);
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const filtered = useMemo(
-    () =>
-      options.filter((opt) =>
-        (opt.label ?? opt.value)
-          .toLowerCase()
-          .includes(inputValue.toLowerCase())
-      ),
-    [options, inputValue]
-  );
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div
-        className={`flex items-center border rounded-md bg-white shadow-sm transition-colors ${
-          hasError
-            ? 'border-red-500 focus-within:ring-2 focus-within:ring-red-500'
-            : 'border-gray-400 focus-within:ring-2 focus-within:ring-blue-500'
-        }`}
-      >
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          placeholder={placeholder}
-          className="flex-1 px-3 py-2 text-sm bg-transparent outline-none min-w-0"
-        />
-        <button
-          type="button"
-          onClick={() => setIsOpen((o) => !o)}
-          className="px-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
-        >
-          <ChevronDown className="w-4 h-4" />
-        </button>
-      </div>
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 border border-gray-200 rounded-md bg-white shadow-lg max-h-48 overflow-auto">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500">候補なし</div>
-          ) : (
-            filtered.map((opt) => (
-              <div
-                key={opt.value}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setInputValue(opt.label ?? opt.value);
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
-                  value === opt.value ? 'bg-blue-100 font-medium' : ''
-                }`}
-              >
-                {opt.label ?? opt.value}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface PaymentDetailQuoteProps {
   // メニュー遷移（フッターの「一覧へ戻る」等で使用）
   onMenuChange?: (menuId: string) => void;
 }
+
+// 税区分の選択肢（値をそのまま表示名にする。SingleCombobox は表示名が必須）
+const TAX_CLASS_COMBO_OPTIONS = EXPENSE_TAX_CLASS_OPTIONS.map((o) => ({
+  value: o.value,
+  label: o.value,
+}));
 
 export default function PaymentDetailQuote({
   onMenuChange,
@@ -499,10 +395,12 @@ export default function PaymentDetailQuote({
   // フッターの操作確認ダイアログ（PaymentDetailOther と同一方式）
   const [isBackDialogOpen, setIsBackDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [showCommentHistoryPane, setShowCommentHistoryPane] = useState(false);
+  const [isImportDialogShown, setIsImportDialogShown] = useState(false);
+  const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
+    useState(false);
   // 支払明細に紐づける計画明細 選択エリア（下ペイン）
-  const [showPlanSelectionPane, setShowPlanSelectionPane] = useState(false);
+  const [isPlanSelectionPaneShown, setIsPlanSelectionPaneShown] =
+    useState(false);
   // 支払明細情報の上のタブ（支払No. / 他部門から分割された経費明細）。支払詳細(自販機)・PaymentDetailWithInvoice と同形式。
   const [activeDetailTab, setActiveDetailTab] = useState('payment-detail');
 
@@ -550,30 +448,30 @@ export default function PaymentDetailQuote({
   );
 
   // 拡売費系右ペインの状態管理（削除はグリッド側の確認ダイアログで処理）
-  const [showEditExpensePane, setShowEditExpensePane] = useState(false);
-  const [showCopyExpensePane, setShowCopyExpensePane] = useState(false);
+  const [isEditExpensePaneShown, setIsEditExpensePaneShown] = useState(false);
+  const [isCopyExpensePaneShown, setIsCopyExpensePaneShown] = useState(false);
   const [pendingCopyExpenseRow, setPendingCopyExpenseRow] =
     useState<NonProductExpenseData | null>(null);
 
   // すべての右ペインを閉じるヘルパー関数
   const closeAllRightPanes = () => {
-    setShowCommentHistoryPane(false);
-    setShowPlanSelectionPane(false);
-    setShowEditExpensePane(false);
-    setShowCopyExpensePane(false);
+    setIsCommentHistoryPaneShown(false);
+    setIsPlanSelectionPaneShown(false);
+    setIsEditExpensePaneShown(false);
+    setIsCopyExpensePaneShown(false);
   };
 
   // 販売計画選択ペイン（支払明細に紐づける計画明細 選択エリア）を開く
   const handleOpenPlanSelection = () => {
-    const isOpen = showPlanSelectionPane;
+    const isOpen = isPlanSelectionPaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-    setShowPlanSelectionPane(true);
+    setIsPlanSelectionPaneShown(true);
   };
 
   // 拡売費コピーペインを開く（拡売費グリッドの明細行の編集可能項目を編集する）
   const handleOpenCopyExpense = (row: ExpenseRow) => {
-    const isOpen = showCopyExpensePane;
+    const isOpen = isCopyExpensePaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
     const toStr = (v: string | number) =>
@@ -591,12 +489,12 @@ export default function PaymentDetailQuote({
       accountAmount: toStr(row.accountAmount),
       matchType: toStr(row.matchType),
     });
-    setShowCopyExpensePane(true);
+    setIsCopyExpensePaneShown(true);
   };
 
   // 拡売費編集ペインを開く（拡売費グリッドの明細行の編集可能項目を編集する）
   const handleOpenEditExpense = (row: ExpenseRow) => {
-    const isOpen = showEditExpensePane;
+    const isOpen = isEditExpensePaneShown;
     closeAllRightPanes();
     if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
     const toStr = (v: string | number) =>
@@ -614,7 +512,7 @@ export default function PaymentDetailQuote({
       accountAmount: toStr(row.accountAmount),
       matchType: toStr(row.matchType),
     });
-    setShowEditExpensePane(true);
+    setIsEditExpensePaneShown(true);
   };
 
   // ダミーデータ生成（実際のアプリではAPIから取得）
@@ -734,13 +632,17 @@ export default function PaymentDetailQuote({
     );
   };
 
+  // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）
+  const detailGridColumnStateProps = useGridColumnState(
+    '支払詳細(見積).明細.columnState'
+  );
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#f5f5f5]">
+    <div className="flex h-full w-full overflow-hidden bg-neutral-100">
       {/* 左ペイン：メインコンテンツ */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="支払詳細(引用)" />
@@ -750,8 +652,9 @@ export default function PaymentDetailQuote({
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <SearchPane
-                  onImport={() => setShowImportDialog(true)}
+                <QuoteBasicInfoPane
+                  storesEditable
+                  onImport={() => setIsImportDialogShown(true)}
                   onExport={() => handleExport(true, true)}
                   onQuoteExport={() => handleExport(true, true)}
                 />
@@ -823,12 +726,13 @@ export default function PaymentDetailQuote({
                     <h2 id="payment-detail-heading" className="sr-only">
                       支払明細情報
                     </h2>
-                    <PaymentDetailPane
+                    <QuotePaymentDetailPane
+                      status="承認待ち"
                       onStatusClick={() => {
-                        const isOpen = showCommentHistoryPane;
+                        const isOpen = isCommentHistoryPaneShown;
                         closeAllRightPanes();
                         if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-                        setShowCommentHistoryPane(true);
+                        setIsCommentHistoryPaneShown(true);
                       }}
                     />
                   </section>
@@ -838,7 +742,8 @@ export default function PaymentDetailQuote({
                     <h2 id="expense-heading" className="sr-only">
                       拡売費
                     </h2>
-                    <NonProductExpensePane
+                    <QuoteNonProductExpensePane
+                      columnStateKey="支払詳細(見積).商品外経費.columnState"
                       onOpenEditExpense={handleOpenEditExpense}
                       onOpenCopyExpense={handleOpenCopyExpense}
                       pendingCopyRow={pendingCopyExpenseRow}
@@ -856,7 +761,7 @@ export default function PaymentDetailQuote({
                   className="flex flex-col gap-4"
                 >
                   {/* 拡売費（参照専用一覧） */}
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md">
+                  <div className={`${CARD_CLASS} overflow-hidden`}>
                     <div className="px-3 pt-3">
                       <h3 className="text-base font-bold text-gray-900">
                         拡売費
@@ -873,7 +778,7 @@ export default function PaymentDetailQuote({
                         {SPLIT_SUMMARY_ITEMS.map((item) => (
                           <div
                             key={item.label}
-                            className="flex flex-col items-end justify-center border-r border-gray-200 px-3 py-1 last:border-r-0 min-w-[10.5rem]"
+                            className="flex flex-col items-end justify-center border-r border-gray-200 px-3 py-1 last:border-r-0 min-w-42"
                           >
                             <span className="text-xs text-gray-500 whitespace-nowrap">
                               {item.label}
@@ -891,6 +796,7 @@ export default function PaymentDetailQuote({
                       style={{ height: '22.5rem' }}
                     >
                       <AgGridReact
+                        {...detailGridColumnStateProps}
                         rowData={SPLIT_FROM_OTHER_ROWS}
                         columnDefs={SPLIT_FROM_OTHER_COL_DEFS}
                         defaultColDef={SPLIT_FROM_OTHER_DEFAULT_COL_DEF}
@@ -911,19 +817,19 @@ export default function PaymentDetailQuote({
         {/* 下ペイン：支払明細に紐づける計画明細 選択エリア。
             プッシュ式：親画面に被さらず中身を押し上げるため、選択エリアと支払明細を同時に視認できる。 */}
         <BottomPane
-          open={showPlanSelectionPane}
-          onClose={() => setShowPlanSelectionPane(false)}
+          open={isPlanSelectionPaneShown}
+          onClose={() => setIsPlanSelectionPaneShown(false)}
           title="支払明細に紐づける計画明細 選択エリア"
           description="支払明細に紐づける計画明細を選択します"
           initialHeight={28}
           minHeight={18}
           maxHeight={48}
         >
-          <PlanSelectionPane
-            onSelect={(data) => {
+          <QuotePlanSelectionPane
+            columnStateKey="支払詳細(見積).計画明細選択.columnState"
+            onSelect={() => {
               // TODO: 選択された計画明細を支払明細に紐づける（未実装）
               // 連続してチェック操作を行えるようペインは開いたままにする。
-              console.log('計画明細を選択:', data);
             }}
           />
         </BottomPane>
@@ -931,7 +837,7 @@ export default function PaymentDetailQuote({
         {/* フッターエリア（固定） */}
         <div
           data-screen-footer
-          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div>
@@ -953,7 +859,8 @@ export default function PaymentDetailQuote({
                 <Input
                   type="text"
                   placeholder="コメントを入力"
-                  className={`${TEXT_INPUT_CLASS} w-full min-w-[10rem] max-w-[32rem]`}
+                  aria-label="コメント"
+                  className={`${TEXT_INPUT_CLASS} w-full min-w-40 max-w-128`}
                 />
               </div>
               <button
@@ -1009,81 +916,39 @@ export default function PaymentDetailQuote({
         </div>
 
         {/* 戻る確認ダイアログ（PaymentDetailOther と同一） */}
-        <AlertDialog open={isBackDialogOpen} onOpenChange={setIsBackDialogOpen}>
-          <AlertDialogContent>
-            {/* ×ボタン */}
-            <button
-              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-              onClick={() => setIsBackDialogOpen(false)}
-              aria-label="閉じる"
-            >
-              <X className="size-6" />
-              <span className="sr-only">Close</span>
-            </button>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-gray-900">
-                画面遷移の確認
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                支払申請一覧参照画面へ戻ります。編集中の内容は保存されません。よろしいですか？
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>キャンセル</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-                onClick={handleBackConfirm}
-              >
-                移動
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+          open={isBackDialogOpen}
+          onOpenChange={setIsBackDialogOpen}
+          title="画面遷移の確認"
+          description="支払申請一覧参照画面へ戻ります。編集中の内容は保存されません。よろしいですか？"
+          confirmLabel="移動"
+          onConfirm={handleBackConfirm}
+        />
 
         {/* 支払確認ダイアログ（申請／引戻し／承認／検印／差戻し共通・PaymentDetailOther と同一） */}
-        <AlertDialog
+        <ConfirmDialog
           open={confirmAction !== null}
           onOpenChange={(open) => {
             if (!open) setConfirmAction(null);
           }}
-        >
-          <AlertDialogContent>
-            {/* ×ボタン */}
-            <button
-              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-              onClick={() => setConfirmAction(null)}
-              aria-label="閉じる"
-            >
-              <X className="size-6" />
-              <span className="sr-only">Close</span>
-            </button>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-gray-900">
-                {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmAction
-                  ? CONFIRM_MESSAGE_MAP[confirmAction].description
-                  : ''}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction
-                className={`${
-                  confirmAction
-                    ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass
-                    : ''
-                } text-white rounded-lg`}
-                onClick={handleConfirmAction}
-              >
-                {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          title={confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
+          description={
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].description : ''
+          }
+          confirmLabel={
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''
+          }
+          confirmClassName={`${
+            confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass : ''
+          } text-white rounded-lg`}
+          onConfirm={handleConfirmAction}
+        />
 
         {/* 計画書インポートダイアログ */}
-        <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <Dialog
+          open={isImportDialogShown}
+          onOpenChange={setIsImportDialogShown}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>計画書インポート</DialogTitle>
@@ -1107,8 +972,8 @@ export default function PaymentDetailQuote({
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => setShowImportDialog(false)}>
-                <Upload className="h-[1rem] w-[1rem]" />
+              <Button onClick={() => setIsImportDialogShown(false)}>
+                <Upload className="h-4 w-4" />
                 計画書インポート
               </Button>
             </DialogFooter>
@@ -1118,15 +983,15 @@ export default function PaymentDetailQuote({
 
       {/* 右ペイン：拡売費編集（拡売費グリッドの編集可能項目） */}
       <RightPane
-        open={showEditExpensePane}
-        onClose={() => setShowEditExpensePane(false)}
+        open={isEditExpensePaneShown}
+        onClose={() => setIsEditExpensePaneShown(false)}
         title="拡売費編集"
         description="明細を編集します"
         footer={
           <Button
             type="button"
             className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => setShowEditExpensePane(false)}
+            onClick={() => setIsEditExpensePaneShown(false)}
           >
             更新
           </Button>
@@ -1195,8 +1060,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   税区分
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_TAX_CLASS_OPTIONS}
+                <SingleCombobox
+                  options={TAX_CLASS_COMBO_OPTIONS}
                   value={f.taxClass}
                   onChange={(v) => setF((p) => ({ ...p, taxClass: v }))}
                   placeholder="税区分を選択"
@@ -1208,8 +1073,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   施策区分
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_CAMPAIGN_CLASS_OPTIONS}
+                <SingleCombobox
+                  options={campaignClassComboOptions()}
                   value={f.measureClass}
                   onChange={(v) => setF((p) => ({ ...p, measureClass: v }))}
                   placeholder="施策区分を選択"
@@ -1221,8 +1086,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   施策コード
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_CAMPAIGN_CODE_OPTIONS}
+                <SingleCombobox
+                  options={campaignCodeComboOptions()}
                   value={f.measureCode}
                   onChange={(v) => setF((p) => ({ ...p, measureCode: v }))}
                   placeholder="施策コードを選択"
@@ -1307,15 +1172,15 @@ export default function PaymentDetailQuote({
 
       {/* 右ペイン：拡売費コピー（拡売費グリッドの編集可能項目・更新ペインと同一） */}
       <RightPane
-        open={showCopyExpensePane}
-        onClose={() => setShowCopyExpensePane(false)}
+        open={isCopyExpensePaneShown}
+        onClose={() => setIsCopyExpensePaneShown(false)}
         title="拡売費コピー"
         description="拡売費をコピーします"
         footer={
           <Button
             type="button"
             className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => setShowCopyExpensePane(false)}
+            onClick={() => setIsCopyExpensePaneShown(false)}
           >
             確定
           </Button>
@@ -1384,8 +1249,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   税区分
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_TAX_CLASS_OPTIONS}
+                <SingleCombobox
+                  options={TAX_CLASS_COMBO_OPTIONS}
                   value={f.taxClass}
                   onChange={(v) => setF((p) => ({ ...p, taxClass: v }))}
                   placeholder="税区分を選択"
@@ -1397,8 +1262,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   施策区分
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_CAMPAIGN_CLASS_OPTIONS}
+                <SingleCombobox
+                  options={campaignClassComboOptions()}
                   value={f.measureClass}
                   onChange={(v) => setF((p) => ({ ...p, measureClass: v }))}
                   placeholder="施策区分を選択"
@@ -1410,8 +1275,8 @@ export default function PaymentDetailQuote({
                 <Label className="text-sm font-medium text-gray-700">
                   施策コード
                 </Label>
-                <SearchableCombobox
-                  options={EXPENSE_CAMPAIGN_CODE_OPTIONS}
+                <SingleCombobox
+                  options={campaignCodeComboOptions()}
                   value={f.measureCode}
                   onChange={(v) => setF((p) => ({ ...p, measureCode: v }))}
                   placeholder="施策コードを選択"
@@ -1496,8 +1361,8 @@ export default function PaymentDetailQuote({
 
       {/* 右ペイン：コメント履歴 */}
       <RightPane
-        open={showCommentHistoryPane}
-        onClose={() => setShowCommentHistoryPane(false)}
+        open={isCommentHistoryPaneShown}
+        onClose={() => setIsCommentHistoryPaneShown(false)}
         title="コメント履歴"
         description=""
       >

@@ -6,7 +6,7 @@ import {
   NO_PAYMENT_STATUS,
   STATUS_FILTER_ALL,
   STATUS_FILTER_EXCLUDING_NO_PAYMENT,
-} from '../utils/paymentApplicationList';
+} from '../utils/payment/payment-list/paymentApplicationList';
 
 // 事業場
 export const OFFICE_OPTIONS: SingleComboboxOption[] = [

@@ -9,7 +9,7 @@
 //   ・分割（IN）の追加口明細：他部署から当部署へ分割された明細（参照専用・固定のモック行）。
 //     本来は分割元の申請をきっかけに分割先の支払詳細へ行が追加されるが、
 //     モックでは同一画面の「分割（IN）」タブに固定行を表示する（→ 実装計画 決定事項2）。
-import type { SplitAllocation } from '../utils/additionalEntrySplit';
+import type { SplitAllocation } from '../utils/payment/payment-detail/additionalEntrySplit';
 
 // 分割先候補の商流販売店（分割先商流販売店の選択ペインの1行）。
 // 販売店・三次店・一次店・部署・担当者をコードと名称に分けて持つ（親画面の表記にそろえる）。

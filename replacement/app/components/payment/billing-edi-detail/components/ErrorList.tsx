@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, IRowNode } from 'ag-grid-community';
+import type { ColDef, GetRowIdParams, IRowNode } from 'ag-grid-community';
 
 import {
   useGridColumnState,
@@ -26,7 +26,7 @@ import {
   formatTargetOffices,
   targetCountOf,
   targetOfficesOf,
-} from '../../../../utils/billingEdiImport';
+} from '../../../../utils/payment/billing/billingEdiImport';
 
 // 変換後の値の表示文言（コードから選択肢のラベルを引く）
 const assignedLabel = (summary: BillingEdiErrorSummary): string => {
@@ -40,6 +40,10 @@ const assignedLabel = (summary: BillingEdiErrorSummary): string => {
 
 // 参照専用セルの共通スタイル（灰）。入力できるのは変換エラーの「変換後の値」だけ
 const RO_STYLE = { backgroundColor: GRID_COLORS.readonly } as const;
+
+// 行ID（AG Grid 公式 getRowId）。モジュール直下に置いて参照を固定する（→ 02 §7.1）
+const getErrorRowId = (params: GetRowIdParams<BillingEdiErrorSummary>) =>
+  params.data.id;
 
 interface ErrorListProps {
   rowData: BillingEdiErrorSummary[];
@@ -93,10 +97,8 @@ export function ErrorList({
   // v7：行ごとの再取込ボタン（操作列）を廃止し、チェックボックス選択に変更（決定18）。
   // v8：補助項目を廃止し（請求EDI明細で確認できる）、対象明細をエラー明細件数へ改称。
   // v9：種別（商品／商流）を廃止。区分とエラー項目から判別でき、データ不正では常に空欄だったため。
-  // 列幅は列定義で明示するため autoSize（内容フィット）は行わない。
   const gridColumnStateProps = useGridColumnState(
-    'billingEdiImport.errorSummaryColumnState.v9',
-    { autoSize: false }
+    'billingEdiImport.errorSummaryColumnState.v9'
   );
 
   // エラーサマリ1件ごとの対象事業所（「コード:名称」）。明細から引き当てて数える。
@@ -138,7 +140,7 @@ export function ErrorList({
         // 取込はオンラインのため、再取込を押した時点で解消／未解消が確定する
         headerName: '状態',
         field: 'resolveState',
-        width: 110,
+        width: 88,
         cellClass: 'cell-left',
         cellStyle: (params) =>
           params.value === '未解消'
@@ -148,25 +150,25 @@ export function ErrorList({
       {
         headerName: '区分',
         field: 'category',
-        width: 170,
+        width: 136,
         cellClass: 'cell-left',
       },
       {
         headerName: 'エラー項目',
         field: 'field',
-        width: 170,
+        width: 136,
         cellClass: 'cell-left',
       },
       {
         headerName: '値(コード)',
         field: 'valueCode',
-        width: 160,
+        width: 128,
         cellClass: 'cell-left',
       },
       {
         headerName: '値(名称)',
         field: 'valueName',
-        width: 190,
+        width: 152,
         cellClass: 'cell-left',
       },
       {
@@ -174,7 +176,7 @@ export function ErrorList({
         // 値が入っていればその値を適用して再変換し、無ければマスタから再変換する。
         headerName: '変換後の値',
         field: 'assignedValue',
-        width: 220,
+        width: 176,
         cellClass: 'cell-left',
         editable: (params) =>
           !!params.data &&
@@ -217,7 +219,7 @@ export function ErrorList({
         //（商品コード・形式エラー）は件数でまとめ、内訳はツールチップで確認する。
         headerName: '対象事業所',
         colId: 'targetOffices',
-        width: 200,
+        width: 160,
         cellClass: 'cell-left',
         valueGetter: (params) =>
           params.data
@@ -230,7 +232,8 @@ export function ErrorList({
         headerName: 'エラー内容',
         field: 'reason',
         flex: 1,
-        minWidth: 180,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 144,
         cellClass: 'cell-left',
       },
       {
@@ -239,7 +242,7 @@ export function ErrorList({
         headerName: 'エラー明細件数',
         colId: 'targetCount',
         ...GRID_NUMBER_FILTER,
-        width: 150,
+        width: 120,
         cellClass: 'cell-right',
         valueGetter: (params) =>
           params.data ? (targetCountById.get(params.data.id) ?? 0) : 0,
@@ -263,7 +266,7 @@ export function ErrorList({
         defaultColDef={GRID_DEFAULT_COL_DEF}
         getContextMenuItems={gridFilterContextMenuItems}
         domLayout="normal"
-        getRowId={(params) => params.data.id}
+        getRowId={getErrorRowId}
         onCellValueChanged={(event) => {
           if (event.column.getColId() !== 'assignedValue' || !event.data)
             return;
@@ -286,15 +289,11 @@ export function ErrorList({
         // 幅は AG Grid が選択セルに持たせる最小幅（60px）に合わせる。
         // 50px にするとセルが列からはみ出し、隣の「状態」列に重なって見える
         selectionColumnDef={{
-          width: 60,
+          width: 48,
           resizable: false,
           suppressMovable: true,
           suppressHeaderMenuButton: true,
-          cellStyle: {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          },
+          cellClass: 'cell-center',
         }}
         onSelectionChanged={(event) =>
           onSelectionChange(event.api.getSelectedRows())

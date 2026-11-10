@@ -1,4 +1,4 @@
-import type { NonProductExpenseData } from './nonProductExpenseTypes';
+import type { NonProductExpenseData } from '../types/nonProductExpense';
 import { CURRENT_USER_NAME } from './planBasicInfoMockData';
 
 // 拡売費（非商品費用）追加・編集・コピーフォームの共通型・初期値・変換ヘルパー。

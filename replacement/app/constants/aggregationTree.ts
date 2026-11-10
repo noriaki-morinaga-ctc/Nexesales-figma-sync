@@ -47,12 +47,13 @@ const AMOUNT_NODE_VISIBILITY: Partial<
 // 親（chevron＋件数）→子（＞なし）→孫（＞＞）の3階層まで。
 export const AGGREGATION_TREE: AggTreeNode[] = [
   { key: 'func', label: '函数', itemId: 1 },
+  // 社外売上高は売上高の上に表示する（10/30 第5回 決定事項23）
+  { key: 'externalSales', label: '社外売上高', itemId: 3 },
   {
     key: 'sales',
     label: '売上高',
     itemId: 2,
     children: [
-      { key: 'externalSales', label: '社外売上高', itemId: 3 },
       { key: 'salesUnitPrice', label: SALES_UNIT_PRICE_LABEL, itemId: 6 },
       { key: 'condition', label: '条件口', itemId: 15 },
     ],

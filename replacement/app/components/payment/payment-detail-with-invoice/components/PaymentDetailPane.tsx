@@ -5,21 +5,21 @@ import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { SingleCombobox } from '../../../ui/single-combobox';
 import { RequiredBadge } from '../../../ui/required-badge';
 import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
-import { joinCodeName } from '../../../../utils/nameCode';
+import { joinCodeName } from '../../../../utils/common/nameCode';
 import {
   calcExpensePaymentScheduleDate,
   firstDayOfMonth,
   lastDayOfMonth,
   latestOpenAccountingMonth,
   toSlashYearMonth,
-} from '../../../../utils/paymentScheduleDate';
-import { BASIC_INFO } from './SearchPane';
+} from '../../../../utils/payment/payment-detail/paymentScheduleDate';
+import { BASIC_INFO } from '../../../shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
 import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
 import { valueOrEmpty } from '../../../ui/empty-value';
 import {
   PaymentAmountBreakdownTable,
   type PaymentAmountBreakdownItem,
-} from '../../../shared/PaymentAmountBreakdownTable';
+} from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
 
 // 支払情報の入力値（支払回数ごとのデータセットとして親＝PaymentDetailWithInvoice が保持する）。
 // 支払全体の備考は持たない（支払無しなどの理由はフッターのコメント欄に書く）。

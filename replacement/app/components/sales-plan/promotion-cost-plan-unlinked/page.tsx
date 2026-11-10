@@ -5,12 +5,13 @@
 // 卸(NET固定)系モジュール（PlanDetailNetFixed* / salesPlanWholesaleMockData）には依存しない。
 // ※拡売費グリッド本体は共通の NonProductExpensePane を利用する。
 import { useState, useRef, useEffect } from 'react';
-import { Button } from '../../ui/button';
 import { toast } from 'sonner';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Save, Send, Check, Undo2, Copy, CornerUpLeft } from 'lucide-react';
+
+import { Button } from '../../ui/button';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { CURRENT_USER_NAME } from '../../../constants/planBasicInfoMockData';
-import { addMonths } from '../../../utils/yearMonth';
+import { addMonths } from '../../../utils/common/yearMonth';
 import { SearchPane } from './components/SearchPane';
 import {
   NonProductExpensePane,
@@ -20,19 +21,9 @@ import {
 import { RightPane } from '../../ui/right-pane';
 import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
 import { expenseDeleteItems } from '../../../constants/planDeleteItems';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
 import { Label } from '../../ui/label';
 import { RequiredBadge } from '../../ui/required-badge';
-import { ExpenseBlockFields } from '../../shared/ExpenseBlockFields';
-import { ApproverSelect } from '../../shared/ApproverSelect';
-import { Textarea } from '../../ui/textarea';
+import { ExpenseBlockFields } from '../../shared/sales-plan/common/ExpenseBlockFields';
 import { BottomPane } from '../../ui/bottom-pane';
 import { ReferenceTable } from './components/ReferenceTable';
 import { SingleCombobox } from '../../ui/single-combobox';
@@ -47,9 +38,9 @@ import {
   fromExpenseForm,
   toExpenseForm,
 } from '../../../constants/nonProductExpenseForm';
-import { hasSummaryProduct } from '../../../constants/nonProductExpenseTypes';
+import { hasSummaryProduct } from '../../../utils/sales-plan/plan-detail/nonProductExpenseRow';
 import { productCodeFromValue } from '../../../constants/comboFieldOptions';
-import { expenseSummaryProductOptionCode } from '../../../utils/summaryProductSearch';
+import { expenseSummaryProductOptionCode } from '../../../utils/common/summaryProductSearch';
 import {
   META_BRAND_MASTER,
   EXPENSE_SUMMARY_PRODUCT_OPTIONS,
@@ -65,28 +56,25 @@ const requiredMsg = (fields: string[]): string =>
 
 export default function PromotionCostPlanUnlinked() {
   // 画面移動（戻る）の確認ダイアログ表示状態
-  const [showBackConfirm, setShowBackConfirm] = useState(false);
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  const [isBackConfirmShown, setIsBackConfirmShown] = useState(false);
   // フッターのコメント入力（差戻し理由など）
   const [commentInput, setCommentInput] = useState('');
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [showCommentHistoryPane, setShowCommentHistoryPane] = useState(false);
+  const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
+    useState(false);
   // 拡売費グリッドへの行操作ハンドル（追加/コピー/編集/削除を反映）
   const expenseGridRef = useRef<NonProductExpenseGridHandle>(null);
 
   // 拡売費追加・編集・コピーフォーム
   const [addExpenseForm, setAddExpenseForm] =
     useState<ExpenseFormValues>(EMPTY_EXPENSE_FORM);
-  const [addExpenseSubmitted, setAddExpenseSubmitted] = useState(false);
+  const [isAddExpenseSubmitted, setIsAddExpenseSubmitted] = useState(false);
   // 拡売費 各ペインの「新商品のみ表示」絞り込み状態
-  const [addExpenseOnlyNew, setAddExpenseOnlyNew] = useState(false);
+  const [isAddExpenseOnlyNew, setIsAddExpenseOnlyNew] = useState(false);
 
   // 拡売費系右ペインの状態管理
-  const [showAddExpensePane, setShowAddExpensePane] = useState(false);
-  const [showDeleteExpensePane, setShowDeleteExpensePane] = useState(false);
+  const [isAddExpensePaneShown, setIsAddExpensePaneShown] = useState(false);
+  const [isDeleteExpensePaneShown, setIsDeleteExpensePaneShown] =
+    useState(false);
   const [expenseData, setExpenseData] = useState<NonProductExpenseData | null>(
     null
   );
@@ -97,7 +85,7 @@ export default function PromotionCostPlanUnlinked() {
   const [targetYearMonth, setTargetYearMonth] = useState('2025/10');
 
   // 拡売費「参照用」下ペインの状態管理
-  const [showReferencePane, setShowReferencePane] = useState(false);
+  const [isReferencePaneShown, setIsReferencePaneShown] = useState(false);
   // 参照表のコピーボタンで取り込む行（拡売費計画の合計行直下へ挿入）
   const [pendingReferenceCopyRows, setPendingReferenceCopyRows] = useState<
     NonProductExpenseData[] | null
@@ -107,7 +95,7 @@ export default function PromotionCostPlanUnlinked() {
   // 先頭（ヘッダーメニュー直下）へ来るようスクロールする。scrollIntoView は main/ドキュメント
   // まで動かして sticky ヘッダーの表示を乱すため使わず、最も近いスクロール可能な祖先だけを動かす。
   useEffect(() => {
-    if (!showReferencePane) return;
+    if (!isReferencePaneShown) return;
     const id = window.setTimeout(() => {
       const el = document.querySelector<HTMLElement>('.expense-plan-grid');
       if (!el) return;
@@ -128,14 +116,14 @@ export default function PromotionCostPlanUnlinked() {
       scroller.scrollBy({ top: delta, behavior: 'smooth' });
     }, 350);
     return () => window.clearTimeout(id);
-  }, [showReferencePane]);
+  }, [isReferencePaneShown]);
 
   // すべての右ペインを閉じるヘルパー関数
   const closeAllRightPanes = () => {
-    setShowCommentHistoryPane(false);
-    setShowAddExpensePane(false);
-    setShowDeleteExpensePane(false);
-    setShowReferencePane(false);
+    setIsCommentHistoryPaneShown(false);
+    setIsAddExpensePaneShown(false);
+    setIsDeleteExpensePaneShown(false);
+    setIsReferencePaneShown(false);
   };
 
   // ペイン元のボタン/リンクを押下するたびに開閉を切り替えるヘルパー
@@ -147,21 +135,21 @@ export default function PromotionCostPlanUnlinked() {
 
   // 拡売費追加ペインを開く
   const handleOpenAddExpense = () => {
-    const isOpen = showAddExpensePane;
+    const isOpen = isAddExpensePaneShown;
     closeAllRightPanes();
     if (isOpen) return;
     // メタブランドの初期値は空欄（課題0946：商流販売店に紐づかない計画は空欄）
     setAddExpenseForm({ ...EMPTY_EXPENSE_FORM });
-    setAddExpenseSubmitted(false);
-    setAddExpenseOnlyNew(false);
-    setShowAddExpensePane(true);
+    setIsAddExpenseSubmitted(false);
+    setIsAddExpenseOnlyNew(false);
+    setIsAddExpensePaneShown(true);
   };
 
   // 拡売費追加ペインの追加実行。
   // continuous=true（連続追加）はペインを開いたままフォームを初期化し、
   // false（追加）は他ペインと同様にペインを閉じる。
   const handleAddExpenseSubmit = (continuous: boolean) => {
-    setAddExpenseSubmitted(true);
+    setIsAddExpenseSubmitted(true);
     const missing = expenseMissingFields(addExpenseForm, {
       metaBrandRequired: true,
     });
@@ -172,8 +160,8 @@ export default function PromotionCostPlanUnlinked() {
     // 合計行の直下に追加
     expenseGridRef.current?.addRow(fromExpenseForm(addExpenseForm));
     setAddExpenseForm({ ...EMPTY_EXPENSE_FORM });
-    setAddExpenseSubmitted(false);
-    if (!continuous) setShowAddExpensePane(false);
+    setIsAddExpenseSubmitted(false);
+    if (!continuous) setIsAddExpensePaneShown(false);
     toast.success('拡売費を追加しました。');
   };
 
@@ -189,11 +177,11 @@ export default function PromotionCostPlanUnlinked() {
 
   // 拡売費削除ペインを開く
   const handleOpenDeleteExpense = (data: NonProductExpenseData) => {
-    const isOpen = showDeleteExpensePane && expenseData === data;
+    const isOpen = isDeleteExpensePaneShown && expenseData === data;
     closeAllRightPanes();
     if (isOpen) return;
     setExpenseData(data);
-    setShowDeleteExpensePane(true);
+    setIsDeleteExpensePaneShown(true);
   };
 
   return (
@@ -202,7 +190,7 @@ export default function PromotionCostPlanUnlinked() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="拡売費計画(商流販売店に紐づき無し)" />
@@ -216,8 +204,8 @@ export default function PromotionCostPlanUnlinked() {
                   targetYearMonth={targetYearMonth}
                   onChangeTargetYearMonth={setTargetYearMonth}
                   onStatusClick={() =>
-                    togglePane(showCommentHistoryPane, () =>
-                      setShowCommentHistoryPane(true)
+                    togglePane(isCommentHistoryPaneShown, () =>
+                      setIsCommentHistoryPaneShown(true)
                     )
                   }
                 />
@@ -236,8 +224,8 @@ export default function PromotionCostPlanUnlinked() {
                   pendingCopyRow={pendingCopyExpenseRow}
                   onCopyComplete={() => setPendingCopyExpenseRow(null)}
                   onOpenReference={() =>
-                    togglePane(showReferencePane, () =>
-                      setShowReferencePane(true)
+                    togglePane(isReferencePaneShown, () =>
+                      setIsReferencePaneShown(true)
                     )
                   }
                   pendingReferenceRows={pendingReferenceCopyRows}
@@ -252,9 +240,9 @@ export default function PromotionCostPlanUnlinked() {
             プッシュ式：親画面に被さらず中身を押し上げるため、参照表と拡売費計画を同時に視認できる。 */}
         <BottomPane
           open
-          collapsed={!showReferencePane}
-          onCollapsedChange={(next) => setShowReferencePane(!next)}
-          onClose={() => setShowReferencePane(false)}
+          collapsed={!isReferencePaneShown}
+          onCollapsedChange={(next) => setIsReferencePaneShown(!next)}
+          onClose={() => setIsReferencePaneShown(false)}
           prominentTab
           collapsedTabLabel="過去の拡売費計画からコピー"
           collapsedTabIcon={<Copy className="h-4 w-4" />}
@@ -291,7 +279,7 @@ export default function PromotionCostPlanUnlinked() {
               <Button
                 variant="outline"
                 className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
-                onClick={() => setShowBackConfirm(true)}
+                onClick={() => setIsBackConfirmShown(true)}
               >
                 <Undo2 className="h-4 w-4 mr-2" />
                 一覧へ戻る
@@ -313,39 +301,39 @@ export default function PromotionCostPlanUnlinked() {
                   onChange={(e) => setCommentInput(e.target.value)}
                   placeholder="コメントを入力(差戻し理由など)"
                   rows={2}
-                  className="h-10 w-full min-w-[10rem] max-w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
                 />
               </div>
               <Button
-                className={`${BUTTON_STYLES.delete} ${BUTTON_BASE} py-6`}
+                className={`${BUTTON_STYLES.delete} ${BUTTON_BASE} h-9`}
                 onClick={() => toast.success('差し戻しました。')}
               >
                 <CornerUpLeft className="h-4 w-4 mr-2" />
                 差戻し
               </Button>
               <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} py-6`}
+                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} h-9`}
                 onClick={() => toast.success('承認しました。')}
               >
                 <Check className="h-4 w-4 mr-2" />
                 承認
               </Button>
               <Button
-                className={`${BUTTON_STYLES.withdraw} ${BUTTON_BASE} py-6`}
+                className={`${BUTTON_STYLES.withdraw} ${BUTTON_BASE} h-9`}
                 onClick={() => toast.success('計画を引き戻しました。')}
               >
                 <CornerUpLeft className="h-4 w-4 mr-2" />
                 引戻し
               </Button>
               <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} py-6`}
+                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} h-9`}
                 onClick={() => toast.success('計画承認申請を送信しました。')}
               >
                 <Send className="h-4 w-4 mr-2" />
                 申請
               </Button>
               <Button
-                className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} py-6`}
+                className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} h-9`}
                 onClick={() => {
                   // 保存したら拡売費計画の帯（コピー・追加由来）と編集セルの強調を消す
                   expenseGridRef.current?.clearSavedMarks?.();
@@ -358,258 +346,16 @@ export default function PromotionCostPlanUnlinked() {
             </div>
           </div>
         </div>
-
-        {/* 計画保存ダイアログ */}
-        <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>計画保存</DialogTitle>
-              <DialogDescription>販売計画を保存します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              販売計画を保存しますがよろしいですか？
-            </div>
-            <DialogFooter>
-              <Button
-                className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} py-6`}
-                onClick={() => setShowRegisterDialog(false)}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                保存
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画承認申請ダイアログ */}
-        <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画承認申請</DialogTitle>
-              <DialogDescription>
-                販売計画の承認を申請します。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <ApproverSelect className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="備考を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} py-6`}
-                onClick={() => setShowApprovalDialog(false)}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                計画承認申請
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画引戻しダイアログ */}
-        <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画引戻し</DialogTitle>
-              <DialogDescription>
-                申請した販売計画を引き戻します。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  引戻し理由
-                </Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="引戻し理由を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} py-6`}
-                onClick={() => setShowWithdrawDialog(false)}
-              >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
-                計画引戻し
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画承認ダイアログ */}
-        <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画承認</DialogTitle>
-              <DialogDescription>販売計画を承認します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">承認備考</Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="承認備考を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} py-6`}
-                onClick={() => setShowApproveDialog(false)}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                承認
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画差戻しダイアログ */}
-        <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画差戻し</DialogTitle>
-              <DialogDescription>販売計画を差し戻します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  差戻し理由
-                </Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="差戻し理由を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className={`${BUTTON_STYLES.delete} ${BUTTON_BASE} py-6`}
-                onClick={() => setShowRejectDialog(false)}
-              >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
-                差戻し
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* 右ペイン：拡売費追加 */}
       <RightPane
-        open={showAddExpensePane}
-        onClose={() => setShowAddExpensePane(false)}
+        open={isAddExpensePaneShown}
+        onClose={() => setIsAddExpensePaneShown(false)}
         title="拡売費追加"
         description="拡売費を追加します"
         footer={
-          <div className="flex items-center justify-end gap-[0.75rem]">
+          <div className="flex items-center justify-end gap-3">
             <Button
               type="button"
               className="bg-blue-600 hover:bg-blue-700"
@@ -630,9 +376,9 @@ export default function PromotionCostPlanUnlinked() {
         {(() => {
           const f = addExpenseForm;
           const setF = setAddExpenseForm;
-          const sub = addExpenseSubmitted;
-          const onlyNew = addExpenseOnlyNew;
-          const setOnlyNew = setAddExpenseOnlyNew;
+          const sub = isAddExpenseSubmitted;
+          const onlyNew = isAddExpenseOnlyNew;
+          const setOnlyNew = setIsAddExpenseOnlyNew;
           const onlyNewId = 'add-expense-only-new';
           return (
             <div className="space-y-4">
@@ -701,6 +447,7 @@ export default function PromotionCostPlanUnlinked() {
                   {/* サマリ商品名の選択中はサマリ商品名から決まるメタブランドを変更させない
                       （サマリ商品名をクリアすると再び選択できる） */}
                   <SingleCombobox
+                    ariaRequired
                     options={META_BRAND_MASTER.map((b) => ({
                       value: b.value,
                       label: b.name,
@@ -746,8 +493,8 @@ export default function PromotionCostPlanUnlinked() {
           削除対象を特定できるよう、拡売費グリッドと同じ並びで
           メタブランド～摘要1(社内用)に作成者を加えて並べる。 */}
       <DeleteConfirmPane
-        open={showDeleteExpensePane}
-        onClose={() => setShowDeleteExpensePane(false)}
+        open={isDeleteExpensePaneShown}
+        onClose={() => setIsDeleteExpensePaneShown(false)}
         title="拡売費削除"
         description="拡売費を削除します"
         items={expenseDeleteItems(expenseData, { showCreator: true })}
@@ -756,15 +503,15 @@ export default function PromotionCostPlanUnlinked() {
           if (expenseData?.no != null) {
             expenseGridRef.current?.deleteRow(expenseData.no);
           }
-          setShowDeleteExpensePane(false);
+          setIsDeleteExpensePaneShown(false);
           toast.success('拡売費を削除しました。');
         }}
       />
 
       {/* 右ペイン：コメント履歴 */}
       <RightPane
-        open={showCommentHistoryPane}
-        onClose={() => setShowCommentHistoryPane(false)}
+        open={isCommentHistoryPaneShown}
+        onClose={() => setIsCommentHistoryPaneShown(false)}
         title="コメント履歴"
         description=""
       >
@@ -793,12 +540,12 @@ export default function PromotionCostPlanUnlinked() {
 
       {/* 戻る（画面移動）の確認: 入力中データの破棄を確認する */}
       <ConfirmDialog
-        open={showBackConfirm}
+        open={isBackConfirmShown}
         title="画面移動の確認"
         confirmLabel="移動"
         description="入力中のデータが破棄されます。本当によろしいですか？"
-        onConfirm={() => setShowBackConfirm(false)}
-        onCancel={() => setShowBackConfirm(false)}
+        onConfirm={() => setIsBackConfirmShown(false)}
+        onCancel={() => setIsBackConfirmShown(false)}
       />
     </div>
   );

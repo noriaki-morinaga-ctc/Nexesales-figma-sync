@@ -7,18 +7,20 @@ import type { SingleComboboxOption } from '../../ui/single-combobox';
 import { masterMessage } from '../../../constants/masterMessages';
 import type {
   MasterCriteria,
+  MasterCriteriaValue,
   MasterDraft,
   MasterFieldDef,
   MasterGridRow,
   MasterPaneMode,
   MasterRow,
   MasterScreenDef,
+  MasterUniqueGroup,
 } from './masterTypes';
 
 /** モックのログインユーザー（共通ヘッダーの表示名に合わせる） */
 export const MOCK_USER_NAME = 'アサヒ太郎';
 
-/** 無効化フラグの検索条件のキー（項目ではないため予約キーで扱う。値は active／inactive） */
+/** 無効化フラグの検索条件のキー（項目ではないため予約キーで扱う。値は active／inactive の配列） */
 export const INACTIVE_CRITERIA_KEY = '__inactive';
 
 /** 有効なデータの適用終了年月日。適用終了は必ず設定する（Q&A No.34⑧、現行と同じ） */
@@ -81,6 +83,61 @@ export const formFields = (def: MasterScreenDef): MasterFieldDef[] =>
   def.fields.filter((f) => !f.hideInForm);
 
 /**
+ * 主キーの項目へ親としてつながる項目か（事業場→部署→社員の事業場・部署など）。
+ * 主キーを絞り込むための項目で、主キーが変更不可のときは一緒に変更不可になる
+ */
+export const isAncestorOfPk = (def: MasterScreenDef, key: string): boolean =>
+  def.fields.some(
+    (c) => c.parentKey === key && (c.pk === true || isAncestorOfPk(def, c.key))
+  );
+
+/**
+ * 更新ペインで変更できる項目（主キー・固定値・表示のみ・主キーの親（絞り込み用の項目）を除く）
+ */
+export const updatableFields = (def: MasterScreenDef): MasterFieldDef[] =>
+  formFields(def).filter(
+    (f) =>
+      !f.pk &&
+      !f.readOnly &&
+      f.fixedValue === undefined &&
+      !isAncestorOfPk(def, f.key)
+  );
+
+/**
+ * 更新ペイン（操作列の編集アイコン・行のダブルクリック）を設けるか。
+ * 変更できる項目が無いマスタ（主キーと無効化フラグだけ。システム管理者設定など）は
+ * 登録・無効化・削除だけにする（Q&A QM-033。型1 ルール R-63）。画面定義では指定せず、項目から判定する
+ */
+export const hasUpdate = (def: MasterScreenDef): boolean =>
+  updatableFields(def).length > 0;
+
+/** 幅の広い入力欄にする文字数（この文字数以上の text と textarea。Q&A QM-034） */
+export const WIDE_TEXT_LENGTH = 40;
+export const isWideField = (field: MasterFieldDef): boolean =>
+  field.kind === 'textarea' ||
+  (field.kind === 'text' && (field.maxLength ?? 0) >= WIDE_TEXT_LENGTH);
+
+/** 複数行の入力欄の行数（約 50 文字で 1 行。3〜6 行） */
+export const textareaRows = (field: MasterFieldDef): number =>
+  Math.min(6, Math.max(3, Math.ceil((field.maxLength ?? 150) / 50)));
+
+/** 右ペインの幅（rem）。幅の広い入力欄を持つ画面は広げて開く（利用者はドラッグで変えられる） */
+export const PANE_WIDTH_REM = 34;
+export const PANE_WIDTH_WIDE_REM = 44;
+export const paneWidthOf = (def: MasterScreenDef): number =>
+  formFields(def).some(isWideField) ? PANE_WIDTH_WIDE_REM : PANE_WIDTH_REM;
+
+/** 検索条件の値を配列にそろえる（複数選択の項目は配列、それ以外は空文字＝未入力） */
+export const criteriaValues = (
+  value: MasterCriteriaValue | undefined
+): string[] => (Array.isArray(value) ? value : value ? [value] : []);
+
+/** 検索条件に値が入っているか */
+export const hasCriteriaValue = (
+  value: MasterCriteriaValue | undefined
+): boolean => (Array.isArray(value) ? value.length > 0 : Boolean(value));
+
+/**
  * 全マスタ共通のルールを画面定義に当てる（画面ごとの定義で外せないようにする）。
  * ・適用終了は必須（Q&A No.34⑧）
  * ・適用終了は検索条件にしない（適用開始の From〜To だけ。Q&A No.34②）
@@ -97,14 +154,18 @@ export const resolveMasterDef = (def: MasterScreenDef): MasterScreenDef => {
   };
 };
 
-/** 親項目の選択値で子の候補を絞る（親が未選択なら全件） */
+/**
+ * 親項目の選択値で子の候補を絞る（親が未選択なら全件）。
+ * 検索条件は親が複数選択のため配列を受け付ける（選んだ親のいずれかに属する候補）
+ */
 export const childOptions = (
   field: MasterFieldDef,
-  parentValue: string
+  parentValue: MasterCriteriaValue | undefined
 ): { code: string; name: string }[] => {
   const all = field.options ?? [];
-  if (!field.parentOf || parentValue === '') return all;
-  return all.filter((o) => field.parentOf?.[o.code] === parentValue);
+  const parents = criteriaValues(parentValue);
+  if (!field.parentOf || parents.length === 0) return all;
+  return all.filter((o) => parents.includes(field.parentOf?.[o.code] ?? ''));
 };
 
 /** 業務キーを構成する項目（主キーのうち世代管理の適用開始・終了を除く。自動採番のコードも業務キー） */
@@ -116,9 +177,25 @@ export const businessKeyFields = (def: MasterScreenDef): MasterFieldDef[] =>
       f.key !== def.generation?.endKey
   );
 
-/** ユニーク制約の項目（主キーとは別に重複を禁じる組） */
+/** ユニーク制約の項目（主キーとは別に重複を禁じる組）。fields の unique を 1 つの組として扱う */
 export const uniqueKeyFields = (def: MasterScreenDef): MasterFieldDef[] =>
   def.fields.filter((f) => f.unique);
+
+/** 一意制約の組の一覧（fields の unique ＋ uniqueGroups） */
+export const uniqueGroupsOf = (def: MasterScreenDef): MasterUniqueGroup[] => {
+  const groups: MasterUniqueGroup[] = [];
+  const uniq = uniqueKeyFields(def);
+  if (uniq.length > 0) groups.push({ keys: uniq.map((f) => f.key) });
+  return groups.concat(def.uniqueGroups ?? []);
+};
+
+/** 確認ダイアログ・メッセージで行を示す項目（displayKeys があればそれ、無ければ業務キー） */
+export const displayKeyFields = (def: MasterScreenDef): MasterFieldDef[] =>
+  def.displayKeys
+    ? def.displayKeys
+        .map((k) => fieldByKey(def, k))
+        .filter((f): f is MasterFieldDef => Boolean(f))
+    : businessKeyFields(def);
 
 /** 行の業務キー（表示・重複判定に使う） */
 export const businessKeyOf = (
@@ -133,10 +210,10 @@ export const businessKeyOf = (
 const labelsOf = (fields: MasterFieldDef[]): string =>
   fields.map((f) => f.label).join('・');
 
-/** combo／select のコードに対応する名称 */
+/** combo／select のコードに対応する名称。値が無いときは emptyLabel（例：「指定なし」） */
 export const optionName = (field: MasterFieldDef, code: unknown): string => {
   const c = String(code ?? '');
-  if (!c) return '';
+  if (!c) return field.emptyLabel ?? '';
   return field.options?.find((o) => o.code === c)?.name ?? c;
 };
 
@@ -169,31 +246,62 @@ export const formatNumber = (field: MasterFieldDef, value: unknown): string => {
 
 /**
  * 親子の連動を当てた値を返す（検索条件・右ペイン共通）。
- * 子を選ぶと親を自動で設定し、親を変えたら親に合わない子をクリアする。
+ * 子を選ぶと親を自動で設定し（検索条件は所属する親を追加し）、親を変えたら親に合わない子をクリアする
+ * （画面設計標準 3.2 2/2・02 §9-2 のルール①②④）。
+ * 親子は 2 段以上でもよい（事業場→部署→社員。Q&A QM-032）：子を選ぶと親の親まで設定し、親を変えると子の子まで見直す
  */
-export const withCascade = <T extends Record<string, string>>(
+export const withCascade = <T extends Record<string, MasterCriteriaValue>>(
   def: MasterScreenDef,
   values: T,
   key: string,
-  value: string
+  value: MasterCriteriaValue
 ): T => {
-  const next: Record<string, string> = { ...values, [key]: value };
-  const field = fieldByKey(def, key);
-  if (field?.parentKey && field.parentOf && value !== '') {
-    next[field.parentKey] = field.parentOf[value] ?? next[field.parentKey];
+  const next: Record<string, MasterCriteriaValue> = { ...values, [key]: value };
+  // 子を選んだら所属する親を設定する（検索条件＝配列は親に追加、右ペイン＝文字列は置き換え）。親の親へも順に
+  let child = fieldByKey(def, key);
+  let childValue: MasterCriteriaValue = value;
+  while (child?.parentKey && child.parentOf && hasCriteriaValue(childValue)) {
+    const parentOf = child.parentOf;
+    const parentKey = child.parentKey;
+    const parents = criteriaValues(childValue)
+      .map((v) => parentOf[v])
+      .filter((p): p is string => Boolean(p));
+    if (Array.isArray(childValue)) {
+      const current = criteriaValues(next[parentKey]);
+      next[parentKey] = [
+        ...current,
+        ...parents.filter((p) => !current.includes(p)),
+      ];
+    } else if (parents[0]) {
+      next[parentKey] = parents[0];
+    }
+    childValue = next[parentKey];
+    child = fieldByKey(def, parentKey);
   }
-  def.fields
-    .filter((f) => f.parentKey === key)
-    .forEach((child) => {
-      const childValue = next[child.key] ?? '';
-      if (
-        childValue !== '' &&
-        value !== '' &&
-        child.parentOf?.[childValue] !== value
-      ) {
-        next[child.key] = '';
+  // 親を変えたら、親に合わない子（子の子も）の値を外す。親が未選択なら子は絞らない
+  const ancestorValues = criteriaValues(next[key]);
+  if (ancestorValues.length === 0) return next as T;
+  const descendants = (k: string): MasterFieldDef[] =>
+    def.fields
+      .filter((f) => f.parentKey === k)
+      .flatMap((c) => [c, ...descendants(c.key)]);
+  descendants(key).forEach((d) => {
+    const dv = next[d.key];
+    if (!hasCriteriaValue(dv)) return;
+    // 子の値から親を順にたどって、変更した項目の値に当たるものを求める
+    const toAncestor = (v: string): string => {
+      let f: MasterFieldDef | undefined = d;
+      let code = v;
+      while (f && f.key !== key) {
+        code = f.parentOf?.[code] ?? '';
+        f = f.parentKey ? fieldByKey(def, f.parentKey) : undefined;
       }
-    });
+      return code;
+    };
+    const belongs = (v: string) => ancestorValues.includes(toAncestor(v));
+    if (Array.isArray(dv)) next[d.key] = dv.filter(belongs);
+    else if (!belongs(dv)) next[d.key] = '';
+  });
   return next as T;
 };
 
@@ -251,6 +359,7 @@ const latestGenerationByKey = (
 
 /**
  * 検索条件を適用する（検索ボタンは無く、条件変更のたびに呼ばれる）。
+ * 選択肢のある項目は複数選択（いずれかに一致。未選択＝条件なし）、他の条件とは AND。
  * 世代管理のマスタは各業務キーの最新世代で判定し、当てはまった業務キーは全世代を返す
  * （展開すれば過去の世代も見られる。Q&A No.34②）。
  */
@@ -259,30 +368,39 @@ export const applyCriteria = (
   rows: MasterRow[],
   criteria: MasterCriteria
 ): MasterRow[] => {
-  const active = Object.entries(criteria).filter(([, v]) => v !== '');
+  const active = Object.entries(criteria).filter(([, v]) =>
+    hasCriteriaValue(v)
+  );
   if (active.length === 0) return rows;
   const fromKey = startFromKey(def);
   const toKey = startToKey(def);
   const matches = (row: MasterRow): boolean =>
     active.every(([key, value]) => {
       if (key === INACTIVE_CRITERIA_KEY) {
-        return value === 'inactive' ? row.inactive === true : !row.inactive;
+        // 有効・無効の複数選択（両方なら条件なし）
+        const states = criteriaValues(value);
+        if (states.includes('active') && states.includes('inactive'))
+          return true;
+        return states.includes('inactive')
+          ? row.inactive === true
+          : !row.inactive;
       }
       if (def.generation && (key === fromKey || key === toKey)) {
         // 適用開始の From〜To（両端を含む）
         const start = String(row[def.generation.startKey] ?? '');
-        return key === fromKey ? start >= value : start <= value;
+        const v = String(value);
+        return key === fromKey ? start >= v : start <= v;
       }
       const field = fieldByKey(def, key);
       if (!field) return true;
       const cell = String(row[key] ?? '');
+      if (Array.isArray(value)) return value.includes(cell);
       switch (field.kind) {
-        case 'text': {
+        case 'text':
+        case 'textarea': {
           const keys = [key, ...(field.searchAlsoKeys ?? [])];
           return keys.some((k) => String(row[k] ?? '').includes(value));
         }
-        case 'number':
-          return cell === value;
         default:
           return cell === value;
       }
@@ -386,9 +504,13 @@ export const predecessorOf = (
   return prev && String(prev[gen.endKey] ?? '') >= start ? prev : undefined;
 };
 
+/** 数値入力の整数部の桁数（符号・小数は数えない） */
+export const integerDigitsOf = (value: string): number =>
+  value.replace(/^-/, '').split('.')[0].length;
+
 /**
  * 入力チェック（フロント側）。
- * 必須・形式・適用期間の前後・業務キーの重複・ユニーク制約・世代の期間重複を検査し、
+ * 必須・形式・文字数・桁と範囲・適用期間の前後・業務キーの重複・一意制約・世代の期間重複を検査し、
  * エラー文言（共通メッセージ一覧）の配列を返す（右ペイン上部にまとめて表示する）。
  */
 export const validateDraft = (
@@ -408,7 +530,27 @@ export const validateDraft = (
       return;
     }
     if (v === '') return;
-    if (f.kind === 'number' && Number.isNaN(Number(v))) {
+    if (f.kind === 'number') {
+      const n = Number(v);
+      if (Number.isNaN(n)) {
+        errors.push(masterMessage('MSG-E-004', f.label));
+      } else if (f.min !== undefined && n < f.min) {
+        // 決定事項で決めた業務上の下限（例：適用優先順は 1 以上）
+        errors.push(masterMessage('MSG-E-013', f.label, String(f.min)));
+      } else if (
+        (f.max !== undefined && n > f.max) ||
+        (f.maxDigits !== undefined && integerDigitsOf(v) > f.maxDigits)
+      ) {
+        // 上限・桁の超過（共通メッセージに上限専用の文言が無いため「値が正しくありません」）
+        errors.push(masterMessage('MSG-E-004', f.label));
+      }
+    }
+    if (
+      (f.kind === 'text' || f.kind === 'textarea') &&
+      f.maxLength !== undefined &&
+      [...v].length > f.maxLength
+    ) {
+      // 文字数の上限（入力欄でも超える文字を受け付けない。共通メッセージに文字数専用の文言が無いため「値が正しくありません」）
       errors.push(masterMessage('MSG-E-004', f.label));
     }
     if (f.kind === 'date' && !isValidDateString(v)) {
@@ -472,32 +614,37 @@ export const validateDraft = (
       );
     }
   }
-  // ユニーク制約：同じ値の組（世代管理は同じ適用開始の中で）を重複して登録できない
-  const uniq = uniqueKeyFields(def);
-  if (uniq.length > 0) {
+  // 一意制約：同じ値の組（世代管理は同じ適用開始の中で。未設定も同じ値として比べる）を重複して登録できない
+  uniqueGroupsOf(def).forEach((group) => {
+    const fields = group.keys
+      .map((k) => fieldByKey(def, k))
+      .filter((f): f is MasterFieldDef => Boolean(f));
+    if (fields.length === 0) return;
     const sameUnique = (r: MasterRow): boolean =>
-      uniq.every((f) => String(r[f.key] ?? '') === (draft[f.key] ?? '')) &&
+      (!group.activeOnly || r.inactive !== true) &&
+      fields.every((f) => String(r[f.key] ?? '') === (draft[f.key] ?? '')) &&
       (!gen || String(r[gen.startKey] ?? '') === (draft[gen.startKey] ?? ''));
     if (others.some(sameUnique)) {
       const names = gen
-        ? `${labelsOf(uniq)}・${fieldByKey(def, gen.startKey)?.label ?? ''}`
-        : labelsOf(uniq);
+        ? `${labelsOf(fields)}・${fieldByKey(def, gen.startKey)?.label ?? ''}`
+        : labelsOf(fields);
       errors.push(masterMessage('MSG-E-012', names, def.entityLabel, op));
     }
-  }
+  });
   return errors;
 };
 
-/** 業務キーの表示（「コード:名称」で並べる。適用開始・終了は含まない） */
+/** 行を示す表示（「コード:名称」で並べる。displayKeys があればその項目、無ければ業務キー。適用開始・終了は含まない） */
 export const businessKeyDisplay = (
   def: MasterScreenDef,
   row: MasterRow
 ): string =>
-  businessKeyFields(def)
+  displayKeyFields(def)
     .map((f) => {
       const code = String(row[f.key] ?? '');
       if (f.kind === 'combo' || f.kind === 'select') {
         const name = optionName(f, code);
+        if (!code) return name;
         return name && name !== code ? `${code}:${name}` : code;
       }
       if (f.kind === 'number') return formatNumber(f, code);

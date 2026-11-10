@@ -6,7 +6,7 @@ import {
   CollapsibleTrigger,
 } from '../../ui/collapsible';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import {
   SingleCombobox,
   type SingleComboboxOption,
@@ -329,7 +329,7 @@ export default function UnamortizedProjectBilling({
                 <Collapsible
                   open={isOpen}
                   onOpenChange={setIsOpen}
-                  className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4"
+                  className={`${CARD_CLASS} overflow-hidden mb-4`}
                 >
                   {/* タイトルヘッダー */}
                   <div className="bg-white px-3 pt-2 pb-4 card-header-accent flex items-center justify-between">

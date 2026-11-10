@@ -1,5 +1,13 @@
-import { FileText, CheckCircle, XIcon, Search } from 'lucide-react';
+import { FileText, CheckCircle, Search } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import type {
+  ColDef,
+  GetRowIdParams,
+  RowDoubleClickedEvent,
+} from 'ag-grid-community';
+
+import { SearchRangeField } from '../../ui/search-range-field';
 import { CopyableArea } from '../../ui/copyable-area';
 import {
   MultiCombobox,
@@ -9,19 +17,11 @@ import {
   useOrgCascadeSearch,
   toOrgComboOptions,
 } from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/orgCascade';
-import { Button } from '../../ui/button';
+import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
 import {
-  BUTTON_STYLES,
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
 } from '../../../../styles/commonStyles';
-import { AgGridReact } from 'ag-grid-react';
-import type {
-  ColDef,
-  GetRowIdParams,
-  RowDoubleClickedEvent,
-} from 'ag-grid-community';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { SearchClearButton } from '../../ui/search-clear-button';
@@ -38,26 +38,8 @@ import {
   GRID_EMPTY_TEXT,
   withHeaderTooltips,
   gridFilterContextMenuItems,
-  GRID_NO_FILTER_COLUMN_TYPES,
   GRID_MONTH_TEXT_FILTER,
 } from '../../grid';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../ui/alert-dialog';
 import { ScreenTitle } from '../../ui/screen-title';
 
 interface SalesPlanData {
@@ -83,25 +65,8 @@ interface SalesPlanData {
   tradeSystem: string;
 }
 
-interface ProductPlanData {
-  id: string;
-  productCategory: string;
-  summaryProduct: string;
-  externalSales: number;
-  caseUnitPrice: number;
-  bottleUnitPrice: number;
-  referenceProduct: string;
-  referenceCases: number;
-  targetCases: number;
-  plannedCases: number;
-  monthlyProgressRate: number;
-  monthlyActual: number;
-}
-
 // 行ID（→ 画面設計標準 4.7）。計画一覧・商品販売計画登録とも行データの id（一意・編集しない）を使う
 const getPlanRowId = (params: GetRowIdParams<SalesPlanData>) => params.data.id;
-const getProductPlanRowId = (params: GetRowIdParams<ProductPlanData>) =>
-  params.data.id;
 
 interface ManagedProductPlanListProps {
   onMenuChange?: (menuId: string) => void;
@@ -171,8 +136,11 @@ const NO_SELECTION: string[] = [];
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '作成者' },
-  units: { salesRep: '名' },
 };
+
+// 文字列のデータ列のセルの寄せ。先頭列は grid.css で中央寄せが強制されるため、
+// 列を移動してどの列が先頭になっても ag-cell-left で左寄せに戻す
+const DATA_CELL_CLASS = ['cell-left', 'ag-cell-left'];
 
 // ステータスごとのアイコン・色設定（販売計画一覧参照と同じ方式）
 const STATUS_CONFIG: Record<
@@ -196,17 +164,19 @@ export default function ManagedProductPlanList({
   //   （旧保存状態のままだと新列が末尾に回るため）。
   // ※商品販売計画No を対象年月の右へ移動したため v4 へ更新
   //   （旧保存状態のままだと移動前の並び順で復元されるため）。
+  // ※詳細ボタン列の廃止・商品販売計画Noのリンク化・列の並び順変更に伴い v5 へ更新。
   const gridColumnStateProps = useGridColumnState(
-    'productSalesPlanList.columnState.v4'
+    'productSalesPlanList.columnState.v5'
   );
 
   const [targetYearMonthStart, setTargetYearMonthStart] = useState('2026/01');
   const [targetYearMonthEnd, setTargetYearMonthEnd] = useState('2026/12');
   // ステータスは複数選択（未選択＝条件なし）
   const [status, setStatus] = useState<string[]>([]);
-  // 組織項目（事業場→部署→作成者）は連動フィルタリングする（→ utils/orgCascade.ts）
+  // 組織項目（事業場→部署→作成者）は連動フィルタリングする（→ utils/common/orgCascade.ts）
+  // 初期値はログインユーザーの所属・本人（上位の配下にない値は「コード:名称」で表示できないため階層をそろえる）
   const org = useOrgCascadeSearch(ORG_CASCADE_CONFIG, {
-    office: ['tohoku'],
+    office: ['hokkaido'],
     department: ['hokkaido-sales-1'],
     salesRep: ['yamada-taro'],
   });
@@ -216,10 +186,6 @@ export default function ManagedProductPlanList({
   const office = stableValues(org.values('office'));
   const department = stableValues(org.values('department'));
   const salesRep = stableValues(org.values('salesRep'));
-
-  const [isProductPlanModalOpen, setIsProductPlanModalOpen] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [productPlanData, setProductPlanData] = useState<ProductPlanData[]>([]);
 
   const generateSampleData = (): SalesPlanData[] => {
     const data: SalesPlanData[] = [];
@@ -322,7 +288,34 @@ export default function ManagedProductPlanList({
         tradeSystem: tradeSystems[i % tradeSystems.length],
       });
     }
-    return data;
+    // 検索条件の初期値（北海道支社・北海道営業一部・山田 太郎、対象年月2026/01〜2026/12）に
+    // 必ず一致するダミー行。初期表示で明細が0件にならないよう、対象年月を固定する
+    const initialConditionRows: SalesPlanData[] = [
+      { targetMonth: '202604', status: '登録', storeIndex: 0 },
+      { targetMonth: '202605', status: '未登録', storeIndex: 1 },
+    ].map(({ targetMonth, status: rowStatus, storeIndex }, index) => ({
+      id: `initial-${index + 1}`,
+      targetMonth,
+      monthlyPlanNo: generateRandomPlanNo(),
+      applicationStatus: applicationStatuses[0],
+      status: rowStatus,
+      channel: channels[0],
+      area: areas[0],
+      officeCode: officeCodes[0],
+      office: offices[0],
+      retailerCode: retailerCodes[storeIndex],
+      retailer: retailers[storeIndex],
+      tertiaryStoreCode: tertiaryStoreCodes[storeIndex],
+      tertiaryStore: tertiaryStores[storeIndex],
+      primaryStoreCode: primaryStoreCodes[storeIndex],
+      primaryStore: primaryStores[storeIndex],
+      departmentCode: departmentCodes[0],
+      department: departments[0],
+      salesRepCode: salesRepCodes[0],
+      salesRep: salesReps[0],
+      tradeSystem: tradeSystems[0],
+    }));
+    return [...initialConditionRows, ...data];
   };
 
   const [rowData] = useState<SalesPlanData[]>(generateSampleData());
@@ -394,7 +387,7 @@ export default function ManagedProductPlanList({
     }
   };
 
-  // 行をどこでもダブルクリックすると詳細ボタン押下と同じ処理を実行（販売計画一覧と同挙動）
+  // 行をどこでもダブルクリックすると商品販売計画Noのリンクと同じ処理を実行（販売計画一覧と同挙動）
   const handleRowDoubleClicked = (
     event: RowDoubleClickedEvent<SalesPlanData>
   ) => {
@@ -403,172 +396,16 @@ export default function ManagedProductPlanList({
     }
   };
 
-  const handleProductPlanRegister = () => {
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmRegister = () => {
-    console.log('商品販売計画登録:', productPlanData);
-    setIsConfirmDialogOpen(false);
-    setIsProductPlanModalOpen(false);
-  };
-
-  const productPlanColumnDefs: ColDef<ProductPlanData>[] = useMemo(
-    () => [
-      {
-        headerName: '商品区分',
-        field: 'productCategory',
-        width: 120,
-        cellStyle: {
-          textAlign: 'left',
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: 'サマリ商品',
-        field: 'summaryProduct',
-        width: 350,
-        cellStyle: {
-          textAlign: 'left',
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: '社外売上高(千円)',
-        field: 'externalSales',
-        width: 150,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '函単価(円)',
-        field: 'caseUnitPrice',
-        width: 130,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '1本あたり単価(円)',
-        field: 'bottleUnitPrice',
-        width: 160,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '参考商品',
-        field: 'referenceProduct',
-        width: 300,
-        cellStyle: {
-          textAlign: 'left',
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: '参考函数',
-        field: 'referenceCases',
-        width: 120,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '目標函数',
-        field: 'targetCases',
-        width: 120,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '計画函数',
-        field: 'plannedCases',
-        width: 120,
-        editable: true,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: 'white',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-        valueParser: (params) =>
-          parseInt(params.newValue.replace(/,/g, '')) || 0,
-        onCellValueChanged: (params) => {
-          const updatedData = productPlanData.map((item) =>
-            item.id === params.data.id
-              ? { ...item, plannedCases: params.newValue }
-              : item
-          );
-          setProductPlanData(updatedData);
-        },
-      },
-      {
-        headerName: '当月進捗率',
-        field: 'monthlyProgressRate',
-        width: 130,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value != null
-            ? `${params.value.toFixed(1)}%`
-            : GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '当月実績',
-        field: 'monthlyActual',
-        width: 120,
-        cellStyle: {
-          textAlign: 'right',
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-    ],
-    [productPlanData]
-  );
-
-  const productPlanDefaultColDef: ColDef = useMemo(
-    () => ({
-      // 共通の既定列設定（空欄の「-」表示等）に合わせる。フィルタは使わない
-      ...GRID_DEFAULT_COL_DEF,
-      filter: false,
-    }),
-    []
-  );
-
-  const SelectButtonRenderer = (props: any) => {
+  // 商品販売計画Noのリンク。詳細ボタンの列は設けず、このリンクで計画詳細へ遷移する（計画一覧と同じ方式）
+  const PlanNoLinkRenderer = (props: any) => {
+    if (!props.value) return null;
     return (
       <button
-        className={`h-8 flex-shrink-0 px-2 py-0.5 rounded-full font-medium transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm whitespace-nowrap ${BUTTON_STYLES.outline}`}
+        type="button"
+        className="cursor-pointer text-blue-600 hover:underline focus:ring-2 focus:ring-blue-500 focus:outline-none"
         onClick={() => handleSelect(props.data)}
       >
-        詳細
+        {props.value}
       </button>
     );
   };
@@ -590,24 +427,22 @@ export default function ManagedProductPlanList({
 
   const columnDefs: ColDef<SalesPlanData>[] = useMemo(
     () => [
-      {
-        headerName: '',
-        field: 'select',
-        cellRenderer: SelectButtonRenderer,
-        sortable: false,
-        filter: false,
-        suppressMovable: true,
-        resizable: false,
-        cellClass: 'cell-left',
-      },
       // データ列は flex で残り幅を分配し、右端に空白列が出ないようにする
+      {
+        headerName: '商品販売計画No',
+        field: 'monthlyPlanNo',
+        cellRenderer: PlanNoLinkRenderer,
+        flex: 1.2,
+        minWidth: 112,
+        cellClass: DATA_CELL_CLASS,
+      },
       {
         headerName: '対象年月',
         field: 'targetMonth',
         ...GRID_MONTH_TEXT_FILTER,
         flex: 1,
-        minWidth: 110,
-        cellClass: 'cell-left',
+        minWidth: 88,
+        cellClass: DATA_CELL_CLASS,
         // データは 'YYYYMM'（検索条件との比較・ソート用）のまま保持し、表示のみ 'YYYY/MM' にする
         valueFormatter: (params) => {
           const value = params.value as string | undefined;
@@ -617,106 +452,102 @@ export default function ManagedProductPlanList({
         },
       },
       {
-        headerName: '商品販売計画No',
-        field: 'monthlyPlanNo',
-        flex: 1.2,
-        minWidth: 140,
-        cellClass: 'cell-left',
-      },
-      {
         headerName: '販売店コード',
         field: 'retailerCode',
         flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '販売店名称',
         field: 'retailer',
         flex: 1.5,
-        minWidth: 130,
-        cellClass: 'cell-left',
+        minWidth: 104,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: 'ステータス',
         field: 'status',
         cellRenderer: StatusRenderer,
         flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
-      },
-      {
-        headerName: '事業場コード',
-        field: 'officeCode',
-        flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
-      },
-      {
-        headerName: '事業場名称',
-        field: 'office',
-        flex: 1,
-        minWidth: 110,
+        minWidth: 96,
+        // ステータスはアイコン＋文言のため左寄せ（他の一覧画面と同じ。→ 02 §7）
         cellClass: 'cell-left',
       },
       {
         headerName: '三次店コード',
         field: 'tertiaryStoreCode',
         flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '三次店名称',
         field: 'tertiaryStore',
         flex: 2,
-        minWidth: 180,
-        cellClass: 'cell-left',
+        minWidth: 144,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '一次店コード',
         field: 'primaryStoreCode',
         flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '一次店名称',
         field: 'primaryStore',
         flex: 2,
-        minWidth: 180,
-        cellClass: 'cell-left',
+        minWidth: 144,
+        cellClass: DATA_CELL_CLASS,
+      },
+      {
+        headerName: '事業場コード',
+        field: 'officeCode',
+        flex: 1,
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
+      },
+      {
+        headerName: '事業場名称',
+        field: 'office',
+        flex: 1,
+        minWidth: 88,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '部署コード',
         field: 'departmentCode',
         flex: 1,
-        minWidth: 110,
-        cellClass: 'cell-left',
+        minWidth: 88,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '部署名称',
         field: 'department',
         flex: 1.3,
-        minWidth: 130,
-        cellClass: 'cell-left',
+        minWidth: 104,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '作成者コード',
         field: 'salesRepCode',
         flex: 1,
-        minWidth: 120,
-        cellClass: 'cell-left',
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
       },
       {
         headerName: '作成者名称',
         field: 'salesRep',
         flex: 1.2,
-        minWidth: 120,
-        cellClass: 'cell-left',
+        minWidth: 96,
+        cellClass: DATA_CELL_CLASS,
       },
     ],
-    []
+    // リンクのレンダラーは onMenuChange を閉じ込めるため依存に含める（計画一覧と同じ）
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義の再生成を抑止するため）
+    [onMenuChange]
   );
 
   // ヘッダーが省略表示された場合にマウスオーバーで全文表示するため、
@@ -731,7 +562,7 @@ export default function ManagedProductPlanList({
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当て、
     // 横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="計画一覧(管理対象商品)" />
@@ -755,28 +586,31 @@ export default function ManagedProductPlanList({
             <div className="px-4 py-1.5">
               {/* 1行目: 対象年月(開始～終了)、ステータス（計画一覧と同じ5列グリッドで整列 → SEARCH_GRID_CLASS） */}
               <div className={`${SEARCH_GRID_CLASS} mb-2.5`}>
-                {/* 対象年月（開始～終了）: 2列分。開始は1列目・終了は2列目の入力欄の左の線にそろえ、
-                    「～」は開始と終了の真ん中に置く（終了側の幅＝2列分の半分－6.75rem → 05） */}
-                <div className="col-span-2 flex items-center gap-2">
-                  <label className={SEARCH_LABEL_CLASS}>対象年月</label>
-                  <MonthYearPicker
-                    value={targetYearMonthStart}
-                    onChange={setTargetYearMonthStart}
-                    required={false}
-                    clearable
-                  />
-                  <span className="flex-1 text-center text-sm text-gray-700">
-                    ～
-                  </span>
-                  <div className="flex shrink-0 w-[calc(50%-6.75rem)]">
+                {/* 対象年月（開始～終了）: 2列分。開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05） */}
+                <SearchRangeField
+                  label="対象年月"
+                  groupLabel="検索対象年月の範囲"
+                  start={
                     <MonthYearPicker
-                      value={targetYearMonthEnd}
-                      onChange={setTargetYearMonthEnd}
+                      className="w-full"
+                      value={targetYearMonthStart}
+                      onChange={setTargetYearMonthStart}
+                      max={targetYearMonthEnd}
                       required={false}
                       clearable
                     />
-                  </div>
-                </div>
+                  }
+                  end={
+                    <MonthYearPicker
+                      className="w-full"
+                      value={targetYearMonthEnd}
+                      onChange={setTargetYearMonthEnd}
+                      min={targetYearMonthStart}
+                      required={false}
+                      clearable
+                    />
+                  }
+                />
 
                 {/* ステータス */}
                 <div className="flex items-center gap-2">
@@ -868,11 +702,11 @@ export default function ManagedProductPlanList({
         <CollapsibleCard
           title="計画一覧(管理対象商品)"
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           contentClassName="p-2 flex flex-col flex-1 min-h-0"
         >
           {/* グリッドはカード内の残り高さを埋める（min-h-0 が無いと flex 子要素が縮まない） */}
-          <div className="sales-plan-list-grid flex-1 min-h-0 w-full">
+          <div className="flex-1 min-h-0 w-full">
             <AgGridReact<SalesPlanData>
               ref={gridRef}
               rowData={filteredData}
@@ -892,132 +726,6 @@ export default function ManagedProductPlanList({
           </div>
         </CollapsibleCard>
       </div>
-
-      {/* 商品販売計画登録モーダル */}
-      <Dialog
-        open={isProductPlanModalOpen}
-        onOpenChange={setIsProductPlanModalOpen}
-      >
-        <DialogContent className="w-[80vw] max-w-[80vw] sm:max-w-[80vw] md:max-w-[80vw] lg:max-w-[80vw] xl:max-w-[80vw] max-h-[90vh] overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xl font-bold">
-              商品販売計画登録
-            </DialogTitle>
-            <DialogDescription></DialogDescription>
-          </DialogHeader>
-
-          <div className="px-6 pb-6">
-            <div className="space-y-2 border-b pb-4">
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">
-                    商品販売計画No
-                  </span>
-                  <span>B26906490</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">対象年度</span>
-                  <span>2026年</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">対象月</span>
-                  <span>5月</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">ステータス</span>
-                  <span>未登録</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">事業場</span>
-                  <span>首都圏支社</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">部署</span>
-                  <span>首都圏営業一部</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">作成者</span>
-                  <span>鈴木 一郎</span>
-                </div>
-                <div></div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">販売店</span>
-                  <span>ジャパンビバレッジ東日本</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">三次店</span>
-                  <span>国分北海道株式会社経営FC</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">一次店</span>
-                  <span>国分6社通販</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border rounded mt-4">
-              <div className="h-[23rem] w-full">
-                <AgGridReact<ProductPlanData>
-                  rowData={productPlanData}
-                  columnDefs={productPlanColumnDefs}
-                  defaultColDef={productPlanDefaultColDef}
-                  getRowId={getProductPlanRowId}
-                  // defaultColDef で filter: false のため、型によるフィルタの追加を止める（→ grid/gridCommon）
-                  columnTypes={GRID_NO_FILTER_COLUMN_TYPES}
-                  domLayout="normal"
-                  animateRows={true}
-                  // 共通基本プロパティ（Enter縦移動・セル範囲選択等／grid/）
-                  {...GRID_BASE_PROPS}
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="flex justify-end mt-4">
-              <Button
-                onClick={handleProductPlanRegister}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                登録
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* 登録確認ダイアログ */}
-      <AlertDialog
-        open={isConfirmDialogOpen}
-        onOpenChange={setIsConfirmDialogOpen}
-      >
-        <AlertDialogContent>
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setIsConfirmDialogOpen(false)}
-            aria-label="閉じる"
-          >
-            <XIcon className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-
-          <AlertDialogHeader>
-            <AlertDialogTitle>登録確認</AlertDialogTitle>
-            <AlertDialogDescription>
-              商品販売計画を登録してもよろしいですか？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={handleConfirmRegister}>
-              登録
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

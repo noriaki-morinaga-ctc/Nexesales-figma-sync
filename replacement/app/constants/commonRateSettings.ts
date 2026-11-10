@@ -65,7 +65,7 @@ export const DEFAULT_COMMON_RATE_SETTINGS: CommonRateSettings = {
 };
 
 // 年契基本分・取組強化マージン率の集計表反映先（補足4-1「集計表反映先の条件指定」）。
-// 実装（utils/aggregationCalc.ts の annualContractToA/B/H・salesLinkedB 算出）に
+// 実装（utils/sales-plan/common/aggregationCalc.ts の annualContractToA/B/H・salesLinkedB 算出）に
 // ロジックとして直接埋め込まれているため定数としては参照されないが、
 // 反映先の仕様は以下のとおり（値としては使わないドキュメント目的のコメント）。
 //   ・年契基本分：A口のみ☑時＝売上連動拡売費B口／□時＝売上連動拡売費A口+B口+本社口

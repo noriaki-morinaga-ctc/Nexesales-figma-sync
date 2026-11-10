@@ -47,15 +47,15 @@ import {
 import {
   EXPENSE_TAX_CLASS_OPTIONS,
   type ExpenseFormValues,
-} from '../../../shared/PaymentNonProductExpensePane';
-import type { ExpenseBasicInfo } from '../../../shared/PaymentNonProductExpensePane';
-import { linkedTaxClassOf } from '../../../../utils/expenseTaxClass';
+} from '../../../shared/payment/payment-detail/PaymentNonProductExpensePane';
+import { linkedTaxClassOf } from '../../../../utils/payment/payment-detail/expenseTaxClass';
 import {
   FieldGroup,
   InputField,
   SelectField,
   ReadOnlyField,
-} from './AddDetailFields';
+} from '../../../shared/payment/payment-detail/AddDetailFields';
+import type { ExpenseBasicInfo } from '../../../../types/paymentDetail';
 
 // 親（画面）から「追加」ボタンで呼ぶハンドル。
 export interface AddExpensePaneHandle {

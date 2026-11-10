@@ -15,6 +15,7 @@ import type {
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
 import { Search, Clock, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { SearchRangeField } from '../../ui/search-range-field';
 import { CopyableArea } from '../../ui/copyable-area';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { SearchClearButton } from '../../ui/search-clear-button';
@@ -38,7 +39,8 @@ import {
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
-  FORM_LABEL_CLASS,
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
 } from '../../../../styles/commonStyles';
 import {
   BILLING_LIST,
@@ -286,8 +288,8 @@ export default function BillingList({
         suppressMovable: true,
         resizable: false,
         cellClass: 'cell-center',
-        width: 120,
-        minWidth: 120,
+        width: 96,
+        minWidth: 96,
       },
       {
         // データ種別（決定23）。入力単位の属性で、同じ請求元企業事業所でも
@@ -297,7 +299,7 @@ export default function BillingList({
         field: 'dataSource',
         headerTooltip: 'EDI＝請求EDI取込／AIC入力＝AICが入力',
         cellClass: 'cell-left',
-        width: 110,
+        width: 88,
       },
       {
         // 対象年月に代えて入力単位のキーにする（20260818_第30回 宿題事項15）。
@@ -308,7 +310,7 @@ export default function BillingList({
         ...GRID_DATE_TEXT_FILTER,
         headerTooltip: '請求EDI＝受信日時／AIC入力＝登録日時',
         cellClass: 'cell-left',
-        width: 160,
+        width: 128,
       },
       // 提供企業（請求EDIレコード区分1）。請求EDI取込一覧（提供企業単位）との
       // つながりが分かるよう、請求元企業の前に置く。コードは提供企業コード
@@ -318,14 +320,14 @@ export default function BillingList({
         headerName: '提供企業コード',
         field: 'providerCode',
         cellClass: 'cell-left',
-        width: 150,
+        width: 120,
         valueFormatter: (params) => params.value || GRID_EMPTY_TEXT,
       },
       {
         headerName: '提供企業名',
         field: 'providerName',
         cellClass: 'cell-left',
-        width: 200,
+        width: 160,
         valueFormatter: (params) => params.value || GRID_EMPTY_TEXT,
       },
       // 請求元企業・請求元企業事業所はコードと名称を別の列にする。
@@ -334,28 +336,28 @@ export default function BillingList({
         headerName: '請求元企業コード',
         field: 'billCompanyCode',
         cellClass: 'cell-left',
-        width: 160,
+        width: 128,
         valueFormatter: (params) => params.value || GRID_EMPTY_TEXT,
       },
       {
         headerName: '請求元企業名',
         field: 'billCompanyName',
         cellClass: 'cell-left',
-        width: 200,
+        width: 160,
         valueFormatter: (params) => params.value || GRID_EMPTY_TEXT,
       },
       {
         headerName: '請求元企業事業所コード',
         field: 'billOfficeCode',
         cellClass: 'cell-left',
-        width: 190,
+        width: 152,
         valueFormatter: (params) => params.value || GRID_EMPTY_TEXT,
       },
       {
         headerName: '請求元企業事業所名',
         field: 'billOfficeName',
         cellClass: 'cell-left',
-        width: 180,
+        width: 144,
       },
       {
         headerName: '入力状況',
@@ -404,7 +406,7 @@ export default function BillingList({
         valueFormatter: (params) =>
           formatAmount(params.value) || GRID_EMPTY_TEXT,
         cellClass: 'cell-right',
-        width: 220,
+        width: 176,
       },
     ],
     [DetailButtonRenderer]
@@ -425,10 +427,7 @@ export default function BillingList({
     options: readonly string[]
   ) => (
     <div className="flex items-center gap-2">
-      <label
-        htmlFor={id}
-        className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[6.875rem] text-right`}
-      >
+      <label htmlFor={id} className={SEARCH_LABEL_CLASS}>
         {label}
       </label>
       <SingleCombobox
@@ -457,10 +456,7 @@ export default function BillingList({
     options: { value: string; label: string; code?: string }[]
   ) => (
     <div className="flex items-center gap-2">
-      <label
-        htmlFor={id}
-        className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[6.875rem] text-right`}
-      >
+      <label htmlFor={id} className={SEARCH_LABEL_CLASS}>
         {label}
       </label>
       <div className="min-w-0 flex-1">
@@ -480,7 +476,7 @@ export default function BillingList({
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当て、
     // 横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="請求一覧" />
@@ -502,24 +498,22 @@ export default function BillingList({
             collapsedSummary={searchSummary}
           >
             <div className="px-4 py-1.5">
-              {/* 検索条件は1行。受付日時は内容幅（auto）で詰め、残りをプルダウンで等分する
-                  （並びは一覧の列順） */}
-              <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] gap-x-5 gap-y-2.5">
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="billing-received-from"
-                    className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[6.875rem] text-right`}
-                  >
-                    受付日時
-                  </label>
-                  {/* 年月日（YYYY/MM/DD）のカレンダーピッカーで範囲指定する。
-                      未設定時は 'YYYY/MM/DD' のプレースホルダを表示し、絞り込みを行わない。
-                      ピッカー自身が aria-label を持つため、開始・終了それぞれに項目名を渡す。
-                      開始＞終了の逆転を作らせないよう、開始の上限に終了・終了の下限に開始を渡す
-                      （範囲外の年・月・日はカレンダー上で選択不可になる）。
-                      片方が未設定（空文字）のときは上限・下限なしとして扱われる。 */}
-                  <div className="flex items-center gap-2">
+              {/* 一覧画面の検索条件は全画面共通の5列（→ 05 一覧画面の検索条件）。並びは一覧の列順。
+                  受付日時（範囲指定）は2列分を使う */}
+              <div className={SEARCH_GRID_CLASS}>
+                {/* 年月日（YYYY/MM/DD）のカレンダーピッカーで範囲指定する。
+                    未設定時は 'YYYY/MM/DD' のプレースホルダを表示し、絞り込みを行わない。
+                    ピッカー自身が aria-label を持つため、開始・終了それぞれに項目名を渡す。
+                    開始＞終了の逆転を作らせないよう、開始の上限に終了・終了の下限に開始を渡す
+                    （範囲外の年・月・日はカレンダー上で選択不可になる）。
+                    片方が未設定（空文字）のときは上限・下限なしとして扱われる。 */}
+                <SearchRangeField
+                  label="受付日時"
+                  htmlFor="billing-received-from"
+                  groupLabel="検索受付日時の範囲"
+                  start={
                     <DateMonthYearPicker
+                      className="w-full"
                       id="billing-received-from"
                       ariaLabel="受付日時（開始）"
                       value={criteria.receivedFrom}
@@ -532,8 +526,10 @@ export default function BillingList({
                         }))
                       }
                     />
-                    <span className="text-sm text-gray-700">～</span>
+                  }
+                  end={
                     <DateMonthYearPicker
+                      className="w-full"
                       ariaLabel="受付日時（終了）"
                       value={criteria.receivedTo}
                       min={criteria.receivedFrom}
@@ -542,8 +538,8 @@ export default function BillingList({
                         setCriteria((prev) => ({ ...prev, receivedTo: value }))
                       }
                     />
-                  </div>
-                </div>
+                  }
+                />
                 {renderSelect(
                   'billingDataSource',
                   'データ種別',
@@ -606,7 +602,7 @@ export default function BillingList({
         <CollapsibleCard
           title="請求一覧"
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           headerActions={
             /* 新規作成：明細0件の入力単位で請求詳細を開く（カード開閉はしない） */
             <button

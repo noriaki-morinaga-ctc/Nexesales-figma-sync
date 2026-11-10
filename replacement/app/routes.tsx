@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { QuoteBasicInfo } from './utils/quoteBasicInfo';
+import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
 import type { BillingRow } from './constants/billingMockData';
 import type { BillingEdiImportRow } from './constants/billingEdiMockData';
 
@@ -166,11 +166,15 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'sales-plan-simulation-margin-rate-fixed': {
     dir: 'sales-plan/sales-plan-simulation-margin-rate-fixed',
-    render: () => <SalesPlanSimulationMarginRateFixed />,
+    render: (c) => (
+      <SalesPlanSimulationMarginRateFixed onMenuChange={c.onMenuChange} />
+    ),
   },
   'sales-plan-simulation-net-fixed': {
     dir: 'sales-plan/sales-plan-simulation-net-fixed',
-    render: () => <SalesPlanSimulationNetFixed />,
+    render: (c) => (
+      <SalesPlanSimulationNetFixed onMenuChange={c.onMenuChange} />
+    ),
   },
   'managed-product-plan-detail': {
     dir: 'sales-plan/managed-product-plan-detail',

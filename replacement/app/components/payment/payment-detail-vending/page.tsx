@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Ban,
   CalendarIcon,
-  X,
   Save,
   Send,
   Trash2,
@@ -30,7 +29,6 @@ import {
   CornerUpLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
-import type { CustomCellEditorProps } from 'ag-grid-react';
 import {
   ColDef,
   ColGroupDef,
@@ -58,6 +56,7 @@ import {
   GRID_COLORS,
   suppressEditNavKeys,
   useChangedCells,
+  useLinkedCellUndo,
   useRevealNewRows,
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_NUMBER_TEXT_FILTER,
@@ -74,6 +73,8 @@ import {
   SingleCombobox,
   type SingleComboboxOption,
 } from '../../ui/single-combobox';
+import { SingleComboboxCellEditor } from '../../ui/single-combobox-cell-editor';
+import { DateMonthYearCellEditor } from '../../ui/date-month-year-cell-editor';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '../../ui/popover';
@@ -82,12 +83,12 @@ import { MonthYearPicker } from '../../ui/month-year-picker';
 import { BottomPane } from '../../ui/bottom-pane';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { useResizableHeight, ResizeHandle } from '../../ui/resizable-panel';
-import { SplitTransferMarks } from '../../shared/PaymentStatusIcons';
+import { SplitTransferMarks } from '../../shared/payment/payment-detail/PaymentStatusIcons';
 // コメント履歴（右ペイン）。支払詳細の各画面で共通の履歴・体裁を使う。
-import { CommentHistoryPane } from '../../shared/CommentHistoryPane';
+import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
 // 支払回数の切替・追加（支払詳細の各画面で共通）。
-import { usePaymentRounds } from '../../shared/usePaymentRounds';
-import { PaymentRoundConfirmDialog } from '../../shared/PaymentRoundConfirmDialog';
+import { usePaymentRounds } from '../../shared/payment/payment-detail/usePaymentRounds';
+import { PaymentRoundConfirmDialog } from '../../shared/payment/payment-detail/PaymentRoundConfirmDialog';
 import {
   Dialog,
   DialogContent,
@@ -96,16 +97,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogCancel,
-} from '../../ui/alert-dialog';
 // 支払根拠資料ペイン（根拠資料表示・登録の統合ペイン）と、その表示用モック画像。
 import {
   EvidenceUploadPane,
@@ -128,6 +119,7 @@ import {
   GENERIC_DOCUMENT,
 } from './evidenceSampleImages';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
 
 interface PaymentDetailVendingProps {
   onMenuChange?: (menuId: string) => void;
@@ -656,33 +648,12 @@ const AMORTIZATION_FIXED_MANAGEMENT_CATEGORY = '604:ロケ契約料他前払い�
 
 // ===== セルエディタ =====
 
-// "コード:名称" 項目の検索付きドロップダウン（コード/名称どちらでも絞り込み可）。
-// 選択肢は cellEditorParams.comboOptions で受け取る。
-// AG Grid 35 のリアクティブ方式：props.onValueChange で確定値をプロキシへ反映してから stopEditing。
-const ComboCellEditor = (
-  props: CustomCellEditorProps & {
-    comboOptions: SingleComboboxOption[];
-    clearable?: boolean;
-  }
-) => {
-  return (
-    <div className="p-1" style={{ width: '22rem' }}>
-      <SingleCombobox
-        options={props.comboOptions}
-        value={(props.value as string) ?? ''}
-        clearable={props.clearable}
-        onChange={(v) => {
-          props.onValueChange(v); // 確定値をプロキシへ反映（同期更新）
-          props.stopEditing(); // 選択で編集確定
-        }}
-        autoOpen
-        // ポップアップエディタ内ではポータルにすると外側クリック扱いになり
-        // 選択前に編集確定してしまうため、インライン描画にする。
-        usePortal={false}
-        placeholder="コード または 名称で検索..."
-      />
-    </div>
-  );
+// "コード:名称" 項目の検索付きドロップダウンは共通の SingleComboboxCellEditor（→ 02 §12）。
+// この画面は「コード:名称」が長いため幅を広げ、検索の案内を出す。クリアできるのは任意項目の列だけ（列ごとに clearable）
+const COMBO_CELL_EDITOR_PARAMS = {
+  width: '22rem',
+  placeholder: 'コード または 名称で検索...',
+  clearable: false,
 };
 
 // 年月日文字列（yyyy/MM/dd 等）を Date へパースする。
@@ -695,33 +666,8 @@ const parseDateString = (dateStr: string): Date | null => {
   return null;
 };
 
-// 年月日（yyyy/MM/dd）をテキスト入力またはカレンダー選択で入力するセルエディタ。
-// カレンダーは ComboCellEditor と同じ理由でインライン描画する。
-const DateCellEditor = (props: CustomCellEditorProps) => {
-  const value = (props.value as string) ?? '';
-  const selected = parseDateString(value) ?? undefined;
-  return (
-    <div className="w-64 space-y-1 rounded-md border border-gray-200 bg-white p-2 shadow-md">
-      <Input
-        value={value}
-        onChange={(e) => props.onValueChange(e.target.value)}
-        placeholder="yyyy/MM/dd"
-        className={`${TEXT_INPUT_CLASS} w-full`}
-        autoFocus
-      />
-      <Calendar
-        mode="single"
-        selected={selected}
-        onSelect={(date) => {
-          if (!date) return;
-          props.onValueChange(format(date, 'yyyy/MM/dd', { locale: ja }));
-          props.stopEditing(); // 日付選択で編集確定
-        }}
-        initialFocus
-      />
-    </div>
-  );
-};
+// 年月日の列は共通の DateMonthYearCellEditor（年→月→日で選ぶ）。空にもできる
+const DATE_CELL_EDITOR_PARAMS = { required: false, clearable: true };
 
 // 税区分の選択肢。税率はこの税区分に応じて自動表示する（読み取り専用）。
 // コードはマスタの値のため、選択肢から外したコード（3:その他(5%)）の分は
@@ -1289,7 +1235,7 @@ const SALES_STORE_OPTIONS = ['21100677:XXX九州', 'ユカ', '八洋'];
 const TERTIARY_STORE_OPTIONS = ['10863223:YYY九州', '10863224:YYY関東'];
 const PRIMARY_STORE_OPTIONS = ['10888030:ZZZ九州支店', '10888031:ZZZ関東支店'];
 
-// 店舗・部署・営業担当者の ComboCellEditor 用の選択肢へ変換する。
+// 店舗・部署・営業担当者の コンボのセル編集用の選択肢へ変換する。
 // "コード:名称" はコード/名称の2行表示、コード無し（ユカ・八洋 等）は名称1行表示にする。
 const toStoreComboOption = (opt: string): SingleComboboxOption => {
   const i = opt.indexOf(':');
@@ -1559,27 +1505,40 @@ const rowManagementCategory = (d?: ExpenseItemData): string =>
 const rowManagementCodeField = (d: ExpenseItemData): keyof ExpenseItemData =>
   d.splitRole === 'dest' ? 'splitDestMgmtCode' : 'managementCode';
 
-// 管理区分の valueSetter。管理コードは管理区分ごとに選択肢が決まっているため、
-// 管理区分の変更に合わせて管理コードも次のとおり更新する。
+// 管理区分の valueSetter。管理区分（主セル）だけを書き込む。
+// 連動する管理コード（従属セル）は useLinkedCellUndo の deriveDeps（deriveManagementCodeDeps）で
+// 更新し、Ctrl+Z 1回で管理区分と管理コードが一緒に戻るようにする（→ 02 §7.3）。
+const managementCategorySetter = dualFieldSetter(
+  'managementCategory',
+  'splitDestMgmtCategory'
+);
+
+// 管理区分の変更に連動する管理コード（従属セル）を求める。管理コードは管理区分ごとに
+// 選択肢が決まっているため、次のとおり更新する。
 //  ・選択肢が1件しかない管理区分 … 組み合わせが一意に決まるためその管理コードを自動補完する
 //  ・上記以外 … 新しい管理区分で組み合わせが成立しなくなった管理コードをクリアする
-const managementCategorySetter = (params: {
-  data: ExpenseItemData;
-  newValue: string;
-}): boolean => {
-  dualFieldSetter('managementCategory', 'splitDestMgmtCategory')(params);
-  const codeField = rowManagementCodeField(params.data);
-  const currentCode = (params.data[codeField] as string | undefined) ?? '';
-  const codeOptions = managementCodeOptions(params.newValue);
+// 分割先行は分割先固有の管理コード（splitDestMgmtCode）を対象とし、もう一方はそのまま返す。
+const deriveManagementCodeDeps = (
+  managementCategory: string,
+  row: ExpenseItemData
+): Partial<ExpenseItemData> => {
+  const codeField = rowManagementCodeField(row);
+  const currentCode = (row[codeField] as string | undefined) ?? '';
+  const codeOptions = managementCodeOptions(managementCategory);
+  let nextCode = currentCode;
   if (codeOptions.length === 1) {
-    (params.data as Record<string, unknown>)[codeField] = codeOptions[0];
+    nextCode = codeOptions[0];
   } else if (
     currentCode &&
-    !isValidManagementCode(params.newValue, currentCode)
+    !isValidManagementCode(managementCategory, currentCode)
   ) {
-    (params.data as Record<string, unknown>)[codeField] = '';
+    nextCode = '';
   }
-  return true;
+  return {
+    managementCode: row.managementCode,
+    splitDestMgmtCode: row.splitDestMgmtCode,
+    [codeField]: nextCode,
+  };
 };
 
 // 管理コードは管理区分に紐づく組み合わせから選ぶため、管理区分が未選択の行では入力不可とする。
@@ -1710,8 +1669,8 @@ const ID_COLUMN_DEF: ColDef = {
   filter: false,
   resizable: false,
   // 分割元行では開閉ボタンとIDを横に並べるため、その分の幅を確保する。
-  width: 96,
-  minWidth: 80,
+  width: 77,
+  minWidth: 64,
   suppressAutoSize: true,
   cellRenderer: IdCellRenderer,
   cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
@@ -1724,7 +1683,8 @@ const AMORTIZATION_INFO_COLUMN_DEFS: ColDef[] = [
     colId: 'amortAccrualDate',
     field: 'amortAccrualDate',
     editable: true,
-    cellEditor: DateCellEditor,
+    cellEditor: DateMonthYearCellEditor,
+    cellEditorParams: DATE_CELL_EDITOR_PARAMS,
     cellEditorPopup: true,
     cellStyle: { backgroundColor: EDITABLE_CELL_BG },
   },
@@ -1733,7 +1693,8 @@ const AMORTIZATION_INFO_COLUMN_DEFS: ColDef[] = [
     colId: 'amortStartDate',
     field: 'amortStartDate',
     editable: true,
-    cellEditor: DateCellEditor,
+    cellEditor: DateMonthYearCellEditor,
+    cellEditorParams: DATE_CELL_EDITOR_PARAMS,
     cellEditorPopup: true,
     cellStyle: { backgroundColor: EDITABLE_CELL_BG },
   },
@@ -1742,7 +1703,8 @@ const AMORTIZATION_INFO_COLUMN_DEFS: ColDef[] = [
     colId: 'amortEndDate',
     field: 'amortEndDate',
     editable: true,
-    cellEditor: DateCellEditor,
+    cellEditor: DateMonthYearCellEditor,
+    cellEditorParams: DATE_CELL_EDITOR_PARAMS,
     cellEditorPopup: true,
     cellStyle: { backgroundColor: EDITABLE_CELL_BG },
   },
@@ -1782,8 +1744,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMgmtCode',
     valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: AMORTIZATION_MANAGEMENT_CODE_COMBO_OPTIONS,
     },
     cellEditorPopup: true,
@@ -1796,8 +1759,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMgmtCode',
     valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: AMORTIZATION_MANAGEMENT_CODE_COMBO_OPTIONS,
     },
     cellEditorPopup: true,
@@ -1810,8 +1774,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMeasureCategory',
     valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
       clearable: true,
     },
@@ -1825,8 +1790,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMeasureCategory',
     valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
       clearable: true,
     },
@@ -1840,8 +1806,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMeasureCode',
     valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: MEASURE_CODE_COMBO_OPTIONS,
       clearable: true,
     },
@@ -1855,8 +1822,9 @@ const AMORTIZATION_JOURNAL_COLUMN_DEFS: ColDef[] = [
     field: 'amortMeasureCode',
     valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
     editable: true,
-    cellEditor: ComboCellEditor,
+    cellEditor: SingleComboboxCellEditor,
     cellEditorParams: {
+      ...COMBO_CELL_EDITOR_PARAMS,
       comboOptions: MEASURE_CODE_COMBO_OPTIONS,
       clearable: true,
     },
@@ -1909,13 +1877,13 @@ export default function PaymentDetailVending({
 
   // コメント履歴（右ペイン）の開閉とコメント入力（差戻し理由など）。
   // 履歴の内容は共通の CommentHistoryPane が持つ（→ 支払詳細の各画面で共通）。
-  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
   const [commentInput, setCommentInput] = useState('');
 
   // ===== 支払根拠資料ペイン（根拠資料表示・登録の統合ペイン） =====
   // 開閉と、開いたときに表示するタブ。折り畳み中（付箋）にボタンを押した場合も
   // 展開し直す必要があるため、open が true のままでも nonce を進めてペインへ伝える。
-  const [evidencePaneOpen, setEvidencePaneOpen] = useState(false);
+  const [isEvidencePaneOpen, setIsEvidencePaneOpen] = useState(false);
   const [evidencePaneNonce, setEvidencePaneNonce] = useState(0);
   const [evidencePaneDefaultTab, setEvidencePaneDefaultTab] =
     useState<EvidenceTab>('表示');
@@ -2069,6 +2037,8 @@ export default function PaymentDetailVending({
     // 保存確定で編集セルの変更ハイライトをクリアする（両グリッド分／→ 02 §7.2）
     paymentChangedCells.resetChangedCells();
     prepaymentChangedCells.resetChangedCells();
+    // 保存確定で連動セル（管理区分→管理コード）のキャッシュも破棄する（→ 02 §7.3）
+    clearLinkedCellCache();
     gridRef.current?.api?.refreshCells({ force: true });
     toast.success('保存が完了しました。');
   };
@@ -2351,7 +2321,7 @@ export default function PaymentDetailVending({
   // 折り畳み中（付箋の状態）に押した場合も展開するよう、nonce を進めて「開き直し」を伝える。
   const handleStoreEvidence = useCallback(() => {
     setEvidencePaneDefaultTab('表示');
-    setEvidencePaneOpen(true);
+    setIsEvidencePaneOpen(true);
     setEvidencePaneNonce((n) => n + 1);
   }, []);
 
@@ -2663,6 +2633,33 @@ export default function PaymentDetailVending({
     nodes.push(...reordered);
   }, []);
 
+  // 管理区分 → 管理コード（連動セル）。管理コードは node.data 直接更新で反映し、
+  // Undo/Redo は主セル（管理区分）1回で管理コードごと戻る（→ 02 §7.3）。
+  // 管理区分を編集できるのは支払明細グリッドだけのため、state の同期先は expenseData とする。
+  const {
+    makeHandler: makeLinkedCellHandler,
+    clearCache: clearLinkedCellCache,
+  } = useLinkedCellUndo<ExpenseItemData>();
+  const handleManagementCategoryChanged = useMemo(
+    () =>
+      makeLinkedCellHandler('managementCategory', {
+        depFields: ['managementCode', 'splitDestMgmtCode'],
+        deriveDeps: deriveManagementCodeDeps,
+        syncState: (row) =>
+          setExpenseData((prev) =>
+            prev.map((item) =>
+              item.id === row.id ? { ...item, ...row } : item
+            )
+          ),
+      }),
+    [makeLinkedCellHandler]
+  );
+  // 行の作り直し（行の追加・分割・コピー・削除・支払回の切替）で Undo 履歴が消えるため、
+  // 連動セルのキャッシュも破棄する（→ 02 §7.3）。
+  useEffect(() => {
+    clearLinkedCellCache();
+  }, [detailRowStructureSignature, clearLinkedCellCache]);
+
   // 経費明細グリッドの列定義。
   // ・"コード:名称" の1値は「コード列」「名称列」の2列に分けて表示する（同じ field を参照し
   //   valueFormatter で出し分ける）。両列とも同じ選択肢で入力でき、同一 field を更新する
@@ -2685,12 +2682,14 @@ export default function PaymentDetailVending({
           'splitDestMgmtCategory'
         ),
         valueSetter: managementCategorySetter,
+        onCellValueChanged: handleManagementCategoryChanged,
         valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
         // 横スクロールしても管理区分列は左端に固定する
         lockPinned: true,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MANAGEMENT_CATEGORY_COMBO_OPTIONS,
         },
         cellEditorPopup: true,
@@ -2706,10 +2705,12 @@ export default function PaymentDetailVending({
           'splitDestMgmtCategory'
         ),
         valueSetter: managementCategorySetter,
+        onCellValueChanged: handleManagementCategoryChanged,
         valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MANAGEMENT_CATEGORY_COMBO_OPTIONS,
         },
         cellEditorPopup: true,
@@ -2725,9 +2726,10 @@ export default function PaymentDetailVending({
         valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
         // 管理区分が未選択の行は組み合わせが定まらないため入力不可（グレー背景）にする
         editable: managementCodeEditable,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         // 管理コードの選択肢は行の管理区分で絞り込む（組み合わせマスタ準拠）
         cellEditorParams: (params: ICellEditorParams) => ({
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: managementCodeComboOptions(
             rowManagementCategory(params.data as ExpenseItemData | undefined)
           ),
@@ -2749,9 +2751,10 @@ export default function PaymentDetailVending({
         valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
         // 管理区分が未選択の行は組み合わせが定まらないため入力不可（グレー背景）にする
         editable: managementCodeEditable,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         // 管理コードの選択肢は行の管理区分で絞り込む（組み合わせマスタ準拠）
         cellEditorParams: (params: ICellEditorParams) => ({
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: managementCodeComboOptions(
             rowManagementCategory(params.data as ExpenseItemData | undefined)
           ),
@@ -2852,8 +2855,11 @@ export default function PaymentDetailVending({
         colId: 'splitDestDept',
         field: 'splitDestDept',
         editable: (params) => isSplitDestRow(params.data),
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: COST_BEARING_DEPT_COMBO_OPTIONS },
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
+          comboOptions: COST_BEARING_DEPT_COMBO_OPTIONS,
+        },
         cellEditorPopup: true,
         suppressKeyboardEvent: suppressEditNavKeys,
         valueGetter: (params) => {
@@ -2881,8 +2887,9 @@ export default function PaymentDetailVending({
         ),
         valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
           clearable: true,
         },
@@ -2904,8 +2911,9 @@ export default function PaymentDetailVending({
         ),
         valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
           clearable: true,
         },
@@ -2921,8 +2929,9 @@ export default function PaymentDetailVending({
         valueSetter: dualFieldSetter('measureCode', 'splitDestMeasureCode'),
         valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MEASURE_CODE_COMBO_OPTIONS,
           clearable: true,
         },
@@ -2938,8 +2947,9 @@ export default function PaymentDetailVending({
         valueSetter: dualFieldSetter('measureCode', 'splitDestMeasureCode'),
         valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
         editable: true,
-        cellEditor: ComboCellEditor,
+        cellEditor: SingleComboboxCellEditor,
         cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
           comboOptions: MEASURE_CODE_COMBO_OPTIONS,
           clearable: true,
         },
@@ -2981,8 +2991,11 @@ export default function PaymentDetailVending({
         headerName: '販売店',
         colId: 'splitDestStore',
         editable: (params) => isSplitDestRow(params.data),
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: SALES_STORE_COMBO_OPTIONS },
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
+          comboOptions: SALES_STORE_COMBO_OPTIONS,
+        },
         cellEditorPopup: true,
         suppressKeyboardEvent: suppressEditNavKeys,
         // 値の読み書きは splitDestName に対して行うため field は持たない。
@@ -3007,8 +3020,11 @@ export default function PaymentDetailVending({
         valueFormatter: (params) =>
           nameWithoutCode(params.value) || GRID_EMPTY_TEXT,
         editable: (params) => isSplitDestRow(params.data),
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: TERTIARY_STORE_COMBO_OPTIONS },
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
+          comboOptions: TERTIARY_STORE_COMBO_OPTIONS,
+        },
         cellEditorPopup: true,
         suppressKeyboardEvent: suppressEditNavKeys,
         cellStyle: destEditableCellStyle,
@@ -3021,8 +3037,11 @@ export default function PaymentDetailVending({
         valueFormatter: (params) =>
           nameWithoutCode(params.value) || GRID_EMPTY_TEXT,
         editable: (params) => isSplitDestRow(params.data),
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: PRIMARY_STORE_COMBO_OPTIONS },
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
+          comboOptions: PRIMARY_STORE_COMBO_OPTIONS,
+        },
         cellEditorPopup: true,
         suppressKeyboardEvent: suppressEditNavKeys,
         cellStyle: destEditableCellStyle,
@@ -3035,8 +3054,11 @@ export default function PaymentDetailVending({
         valueFormatter: (params) =>
           nameWithoutCode(params.value) || GRID_EMPTY_TEXT,
         editable: (params) => isSplitDestRow(params.data),
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: SALES_REP_COMBO_OPTIONS },
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorParams: {
+          ...COMBO_CELL_EDITOR_PARAMS,
+          comboOptions: SALES_REP_COMBO_OPTIONS,
+        },
         cellEditorPopup: true,
         suppressKeyboardEvent: suppressEditNavKeys,
         cellStyle: destEditableCellStyle,
@@ -3052,7 +3074,7 @@ export default function PaymentDetailVending({
       },
       {
         headerName: '',
-        field: 'actions',
+        colId: 'actions',
         pinned: 'right',
         lockPinned: true,
         sortable: false,
@@ -3060,15 +3082,16 @@ export default function PaymentDetailVending({
         resizable: false,
         editable: false,
         // アイコンを横並びで表示する列のため幅を固定（自動列幅調整の対象外にする）
-        width: 96,
-        minWidth: 96,
-        maxWidth: 96,
+        width: 77,
+        minWidth: 77,
+        maxWidth: 77,
         suppressAutoSize: true,
         cellRenderer: RowMenuCellRenderer,
         // 中央寄せはレンダラー側で行い、cellStyle に display:flex を持たせない（→ 02 §7）
       },
     ],
-    []
+    // 連動セルのハンドラは参照が固定（useLinkedCellUndo の makeHandler）のため列は再生成されない
+    [handleManagementCategoryChanged]
   );
 
   // 経費明細グリッドの列状態（列幅・並び順・ソート）の保存／復元（共通フック）。
@@ -3348,7 +3371,7 @@ export default function PaymentDetailVending({
           if (params.value) return params.value;
           if (isExpenseAlertRow(params.data)) {
             return (
-              <span className="text-gray-400 italic">
+              <span className="text-gray-600 italic">
                 差異理由を入力してください
               </span>
             );
@@ -3361,7 +3384,7 @@ export default function PaymentDetailVending({
         headerName: '集計対象の勘定科目',
         field: 'aggregationAccount',
         // 複数科目が紐づく管理区分（89H）は1行に収まらないため折り返し＋行高自動調整で全文表示する
-        width: 320,
+        width: 256,
         wrapText: true,
         autoHeight: true,
         cellClass: 'cell-left',
@@ -3418,7 +3441,7 @@ export default function PaymentDetailVending({
       withHeaderTooltips([
         ID_COLUMN_DEF,
         ...columnDefs
-          .filter((col) => col.field !== 'actions')
+          .filter((col) => col.colId !== 'actions')
           .map((col) => ({
             ...col,
             editable: false,
@@ -3442,7 +3465,7 @@ export default function PaymentDetailVending({
       .filter(
         (col) =>
           !prepaymentExcludedColIds.includes(col.colId ?? '') &&
-          col.field !== 'actions'
+          col.colId !== 'actions'
       )
       // 当グリッドは管理区分「XKA / 長期前払費用自販機関係費」、
       // 管理コード「99999 / 長期前払費用自販機関係費」を固定・読み取り専用にする。
@@ -3511,7 +3534,7 @@ export default function PaymentDetailVending({
         }
         return col;
       });
-    const actionsCol = columnDefs.find((col) => col.field === 'actions');
+    const actionsCol = columnDefs.find((col) => col.colId === 'actions');
     return [
       ...baseCols,
       ...AMORTIZATION_INFO_COLUMN_DEFS,
@@ -3558,7 +3581,7 @@ export default function PaymentDetailVending({
     const baseCols: ColDef[] = columnDefs
       .filter(
         (col) =>
-          !excludedFields.includes(col.field as string) &&
+          !excludedFields.includes((col.colId ?? col.field) as string) &&
           !SPLIT_SOURCE_INFO_HIDDEN_COL_IDS.includes(col.colId ?? '')
       )
       .map((col) => {
@@ -3641,7 +3664,7 @@ export default function PaymentDetailVending({
   );
 
   return (
-    <div className="min-w-[75rem]">
+    <div className="min-w-300">
       <div className="px-6 pt-3 pb-0">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="支払詳細(自販機)" />
@@ -3665,7 +3688,7 @@ export default function PaymentDetailVending({
                   type="button"
                   variant="link"
                   size="sm"
-                  className="h-auto p-0"
+                  className="h-auto p-0 text-blue-700"
                   onClick={handleSalesPlanNoClick}
                   aria-label={`販売計画書No ${SALES_PLAN_NO} の計画詳細を開く`}
                 >
@@ -3815,7 +3838,7 @@ export default function PaymentDetailVending({
                       aria-pressed={summaryAmountUnit === 'yen'}
                       className={`px-4 text-sm font-medium transition-colors ${
                         summaryAmountUnit === 'yen'
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -3827,7 +3850,7 @@ export default function PaymentDetailVending({
                       aria-pressed={summaryAmountUnit === 'thousand'}
                       className={`px-4 text-sm font-medium transition-colors ${
                         summaryAmountUnit === 'thousand'
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -3841,7 +3864,9 @@ export default function PaymentDetailVending({
                   className="expense-summary-grid w-full"
                   style={{ height: summaryResize.height }}
                 >
+                  {/* 規約例外（集計表）：表示項目（管理区分）ごとの行が決まっている集計表（支払情報サマリ）のため、件数表示（statusBar）は付けない */}
                   <AgGridReact
+                    className="grid-summary-table"
                     ref={summaryGridRef}
                     onRowDataUpdated={reveal.onRowDataUpdated}
                     rowData={summaryData}
@@ -4039,7 +4064,7 @@ export default function PaymentDetailVending({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setCommentPanelOpen(true)}
+                    onClick={() => setIsCommentPanelOpen(true)}
                     className="btn-toolbar-outline ml-8"
                     aria-label="コメント履歴"
                   >
@@ -4176,11 +4201,13 @@ export default function PaymentDetailVending({
               {/* 4行目: 備考（最終行のため下区切り罫線なし） */}
               <div className="flex items-center gap-2">
                 <label
+                  htmlFor="payment-note"
                   className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
                 >
                   備考
                 </label>
                 <Input
+                  id="payment-note"
                   className={`${TEXT_INPUT_CLASS} flex-1 text-gray-900`}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
@@ -4403,7 +4430,7 @@ export default function PaymentDetailVending({
 
             {/* 引用元の支払明細（参照専用）。列構成は経費明細グリッドと同じ。 */}
             <CollapsibleCard title="支払明細情報" className="mt-3">
-              <div className="expense-item-grid w-full px-3 py-3 h-[18.75rem]">
+              <div className="expense-item-grid w-full px-3 py-3 h-75">
                 <AgGridReact
                   rowData={quoteSource.expenseData}
                   columnDefs={quoteSourceColumnDefsWithTooltip}
@@ -4424,8 +4451,8 @@ export default function PaymentDetailVending({
 
         {/* コメント履歴ペイン（右ペイン）。操作・ステータス・体裁は他の支払詳細と共通。 */}
         <CommentHistoryPane
-          open={commentPanelOpen}
-          onClose={() => setCommentPanelOpen(false)}
+          open={isCommentPanelOpen}
+          onClose={() => setIsCommentPanelOpen(false)}
         />
 
         {/* 明細削除確認ダイアログ */}
@@ -4468,7 +4495,7 @@ export default function PaymentDetailVending({
           data-screen-footer は下ペインがこのバーの上へドックするための目印。 */}
       <div
         data-screen-footer
-        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
       >
         <div className="flex flex-wrap gap-3 justify-between">
           <div className="flex flex-wrap gap-3">
@@ -4494,7 +4521,7 @@ export default function PaymentDetailVending({
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
             {/* 支払無しとコメント欄の間は全角4文字分（4rem）あける */}
-            <div className="flex min-w-0 items-center gap-[4rem]">
+            <div className="flex min-w-0 items-center gap-16">
               {/* 支払無し：当月は支払が発生しない伝票にする。理由は備考欄へ書く
                   （→ 20260724_第23回_共通 決定事項8）。 */}
               <button
@@ -4521,7 +4548,7 @@ export default function PaymentDetailVending({
                   onChange={(e) => setCommentInput(e.target.value)}
                   placeholder="コメントを入力（差戻し理由など）"
                   rows={2}
-                  className="h-10 w-[24rem] min-w-[10rem] max-w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                  className="h-10 w-96 min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
                 />
               </div>
             </div>
@@ -4588,91 +4615,45 @@ export default function PaymentDetailVending({
 
       {/* 画面遷移の確認ダイアログ（一覧へ戻る／販売計画書No リンクで共用）。
           文言は遷移先ごとに NAVIGATION_CONFIRM_MAP から取る。 */}
-      <AlertDialog
+      <ConfirmDialog
         open={pendingNavigation !== null}
         onOpenChange={(open) => {
           if (!open) setPendingNavigation(null);
         }}
-      >
-        <AlertDialogContent>
-          {/* ×ボタン */}
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setPendingNavigation(null)}
-            aria-label="閉じる"
-          >
-            <X className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-gray-900">
-              画面遷移の確認
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingNavigation
-                ? NAVIGATION_CONFIRM_MAP[pendingNavigation].description
-                : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-              onClick={handleNavigationConfirm}
-            >
-              移動
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="画面遷移の確認"
+        description={
+          pendingNavigation
+            ? NAVIGATION_CONFIRM_MAP[pendingNavigation].description
+            : ''
+        }
+        confirmLabel="移動"
+        onConfirm={handleNavigationConfirm}
+      />
 
       {/* 支払確認ダイアログ（申請／引戻し／承認／検印／差戻し共通。文言は CONFIRM_MESSAGE_MAP） */}
-      <AlertDialog
+      <ConfirmDialog
         open={confirmAction !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmAction(null);
         }}
-      >
-        <AlertDialogContent>
-          {/* ×ボタン */}
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setConfirmAction(null)}
-            aria-label="閉じる"
-          >
-            <X className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-gray-900">
-              {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction
-                ? CONFIRM_MESSAGE_MAP[confirmAction].description
-                : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              className={`${
-                confirmAction
-                  ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass
-                  : ''
-              } text-white rounded-lg`}
-              onClick={handleConfirmAction}
-            >
-              {confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].title : ''}
+        description={
+          confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].description : ''
+        }
+        confirmLabel={
+          confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].button : ''
+        }
+        confirmClassName={`${
+          confirmAction ? CONFIRM_MESSAGE_MAP[confirmAction].buttonClass : ''
+        } text-white rounded-lg`}
+        onConfirm={handleConfirmAction}
+      />
 
       {/* 支払根拠資料（右ペイン）。根拠資料表示・登録をタブで切り替える統合ペイン。
           表示対象・登録先は現在表示中の支払回（invoiceCount）の根拠資料。 */}
       <EvidenceUploadPane
-        open={evidencePaneOpen}
-        onOpenChange={setEvidencePaneOpen}
+        open={isEvidencePaneOpen}
+        onOpenChange={setIsEvidencePaneOpen}
         openNonce={evidencePaneNonce}
         defaultTab={evidencePaneDefaultTab}
         paymentSlipNo={PAYMENT_NO}

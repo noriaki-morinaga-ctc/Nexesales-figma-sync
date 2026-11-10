@@ -5,6 +5,7 @@ import type {
   CellStyle,
   CellValueChangedEvent,
   ColDef,
+  GetRowIdParams,
   ValueFormatterParams,
   ValueParserParams,
 } from 'ag-grid-community';
@@ -14,7 +15,7 @@ import { toast } from 'sonner';
 import { Button } from '../../ui/button';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FORM_LABEL_CLASS } from '../../../../styles/commonStyles';
+import { FORM_LABEL_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import {
   PLAN_BASIC_INFO_LABEL_WIDTH,
   PlanBasicInfoField,
@@ -33,7 +34,7 @@ import {
   firstStoreCode,
   thirdStoreCode,
 } from '../../../constants/storeTierMockData';
-import { joinCodeName } from '../../../utils/nameCode';
+import { joinCodeName } from '../../../utils/common/nameCode';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -45,6 +46,8 @@ import {
   GRID_COLORS,
   GRID_NUMBER_TEXT_FILTER,
   GRID_NUMBER_FILTER,
+  useChangedCells,
+  withComparableCellValues,
 } from '../../grid';
 import { ScreenTitle } from '../../ui/screen-title';
 
@@ -64,8 +67,8 @@ interface ProductSalesPlanData {
   // サマリ商品の入数。1本あたり単価の算出元（モックはダミー値）。
   caseQuantity: number;
   prevYearCases: number; // 前年函数
-  referenceProductCode: string; // 参照商品コード
-  referenceProduct: string; // 参照商品名称
+  referenceProductCode: string; // 参考商品コード
+  referenceProduct: string; // 参考商品名称
   targetCases: number; // 目標函数
   plannedCases: number; // 計画函数
   currentMonthCases: number; // 当月函数
@@ -99,7 +102,7 @@ const BASIC_INFO_INITIAL_YEAR_MONTH = '2026/05';
 const BASIC_INFO_PRODUCT_SALES_PLAN_NO = 'A26100503';
 
 // 初期モックデータ
-// サマリ商品コード・参照商品コード・函単価・入数・前年函数・当月函数はダミー値。
+// サマリ商品コード・参考商品コード・函単価・入数・前年函数・当月函数はダミー値。
 // 1本あたり単価が割り切れるよう函単価と入数の組み合わせを選んでいる。
 const INITIAL_DATA: ProductSalesPlanData[] = [
   {
@@ -153,6 +156,10 @@ const INITIAL_DATA: ProductSalesPlanData[] = [
 
 // 1本あたり単価(円) ＝ サマリ商品の函単価 ÷ サマリ商品の入数。
 // 入数が0の行は算出できないため NaN を返す。
+// 行ID（AG Grid 公式 getRowId）。モジュール直下に置いて参照を固定する（→ 02 §7.1）
+const getRowId = (params: GetRowIdParams<ProductSalesPlanData>) =>
+  params.data.id;
+
 const unitPriceOf = (row: ProductSalesPlanData): number =>
   row.caseQuantity === 0 ? NaN : row.casePrice / row.caseQuantity;
 
@@ -243,8 +250,7 @@ export default function ManagedProductPlanDetail({
       {
         headerName: '商品区分',
         field: 'productCategory',
-        flex: 1.5,
-        minWidth: 113,
+        width: 90,
         filter: true,
         // 先頭列（aria-colindex=1）は grid.css のチェックボックス中央寄せ規則が効くため、
         // 解除用の ag-cell-left を併記して左寄せへ戻す（grid.css の同規則コメント参照）。
@@ -253,16 +259,17 @@ export default function ManagedProductPlanDetail({
       {
         headerName: 'サマリ商品コード',
         field: 'summaryProductCode',
-        flex: 1.2,
-        minWidth: 120,
+        width: 96,
         filter: true,
         cellClass: 'cell-left',
       },
       {
         headerName: 'サマリ商品名称',
         field: 'summaryProduct',
-        flex: 2,
-        minWidth: 150,
+        // 商品名は残りの幅に広げる（管理対象商品一覧のサマリ商品・参考商品と同じ。→ 02 §7「列状態の永続化」）
+        flex: 1,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 240,
         filter: true,
         cellClass: 'cell-left',
       },
@@ -270,8 +277,7 @@ export default function ManagedProductPlanDetail({
         // 社外売上高 ＝ 計画函数 × 函単価（算出項目）
         headerName: '社外売上高(円)',
         colId: 'externalSales',
-        flex: 1.2,
-        minWidth: 105,
+        width: 84,
         ...GRID_NUMBER_FILTER,
         valueGetter: (params) =>
           params.data ? externalSalesOf(params.data) : null,
@@ -279,33 +285,12 @@ export default function ManagedProductPlanDetail({
         cellClass: 'cell-right',
       },
       {
-        // 函単価 ＝ 各種マスタが定義する、当該サマリ商品・当該商流販売店の社外売上高単価
-        // （画面では算出せずマスタ値をそのまま表示する。モックはダミー値）
-        headerName: '函単価(円)',
-        field: 'casePrice',
-        flex: 1,
-        minWidth: 83,
-        ...GRID_NUMBER_FILTER,
-        valueFormatter: formatNumber,
-        cellClass: 'cell-right',
-      },
-      {
-        // 入数 ＝ 各種マスタが定義する、当該サマリ商品の入数
-        // （画面では算出せずマスタ値をそのまま表示する。モックはダミー値）
-        headerName: '入数',
-        field: 'caseQuantity',
-        flex: 1,
-        minWidth: 75,
-        ...GRID_NUMBER_FILTER,
-        valueFormatter: formatNumber,
-        cellClass: 'cell-right',
-      },
-      {
         // 1本あたり単価 ＝ サマリ商品の函単価 ÷ サマリ商品の入数（算出項目）
+        // 初期表示は非表示（見出しの右クリック「列選択」で表示できる）
         headerName: '1本あたり単価(円)',
         colId: 'unitPrice',
-        flex: 1.3,
-        minWidth: 113,
+        hide: true,
+        width: 90,
         ...GRID_NUMBER_FILTER,
         valueGetter: (params) =>
           params.data ? unitPriceOf(params.data) : null,
@@ -313,45 +298,34 @@ export default function ManagedProductPlanDetail({
         cellClass: 'cell-right',
       },
       {
-        headerName: '前年函数',
-        field: 'prevYearCases',
-        flex: 1,
-        minWidth: 75,
+        // 入数 ＝ 各種マスタが定義する、当該サマリ商品の入数
+        // （画面では算出せずマスタ値をそのまま表示する。モックはダミー値）
+        // 初期表示は非表示（見出しの右クリック「列選択」で表示できる）
+        headerName: '入数',
+        field: 'caseQuantity',
+        hide: true,
+        width: 60,
         ...GRID_NUMBER_FILTER,
         valueFormatter: formatNumber,
         cellClass: 'cell-right',
       },
       {
-        headerName: '参照商品コード',
-        field: 'referenceProductCode',
-        flex: 1.2,
-        minWidth: 120,
-        filter: true,
-        cellClass: 'cell-left',
-      },
-      {
-        headerName: '参照商品名称',
-        field: 'referenceProduct',
-        flex: 2,
-        minWidth: 150,
-        filter: true,
-        cellClass: 'cell-left',
-      },
-      {
-        headerName: '目標函数',
-        field: 'targetCases',
-        flex: 1,
-        minWidth: 75,
+        // 函単価 ＝ 各種マスタが定義する、当該サマリ商品・当該商流販売店の社外売上高単価
+        // （画面では算出せずマスタ値をそのまま表示する。モックはダミー値）
+        // 初期表示は非表示（見出しの右クリック「列選択」で表示できる）
+        headerName: '函単価(円)',
+        field: 'casePrice',
+        hide: true,
+        width: 66,
         ...GRID_NUMBER_FILTER,
         valueFormatter: formatNumber,
         cellClass: 'cell-right',
       },
       {
-        // 計画函数（インライン編集可、背景色：薄い黄色）
+        // 計画函数（インライン編集可。編集できるセルは白、値を変えたら黄色の強調 → 02 §7.2）
         headerName: '計画函数',
         field: 'plannedCases',
-        flex: 1,
-        minWidth: 75,
+        width: 60,
         ...GRID_NUMBER_FILTER,
         editable: true,
         singleClickEdit: true,
@@ -369,11 +343,43 @@ export default function ManagedProductPlanDetail({
         onCellValueChanged: handlePlannedCasesChanged,
       },
       {
+        headerName: '目標函数',
+        field: 'targetCases',
+        width: 60,
+        ...GRID_NUMBER_FILTER,
+        valueFormatter: formatNumber,
+        cellClass: 'cell-right',
+      },
+      {
+        headerName: '前年函数',
+        field: 'prevYearCases',
+        width: 60,
+        ...GRID_NUMBER_FILTER,
+        valueFormatter: formatNumber,
+        cellClass: 'cell-right',
+      },
+      {
+        headerName: '参考商品コード',
+        field: 'referenceProductCode',
+        width: 96,
+        filter: true,
+        cellClass: 'cell-left',
+      },
+      {
+        headerName: '参考商品名称',
+        field: 'referenceProduct',
+        // 商品名は残りの幅に広げる（管理対象商品一覧のサマリ商品・参考商品と同じ。→ 02 §7「列状態の永続化」）
+        flex: 1,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 240,
+        filter: true,
+        cellClass: 'cell-left',
+      },
+      {
         // 当月進捗率 ＝ 当月函数 ÷ 計画函数（小数第一位を四捨五入）
         headerName: '当月進捗率',
         colId: 'progressRate',
-        flex: 1,
-        minWidth: 75,
+        width: 60,
         // 値は「94%」の文字列のため、数値へ変換して数値フィルタで絞り込む
         ...GRID_NUMBER_TEXT_FILTER,
         valueGetter: (params) => {
@@ -388,8 +394,7 @@ export default function ManagedProductPlanDetail({
       {
         headerName: '当月函数',
         field: 'currentMonthCases',
-        flex: 1,
-        minWidth: 75,
+        width: 60,
         ...GRID_NUMBER_FILTER,
         valueFormatter: formatNumber,
         cellClass: 'cell-right',
@@ -398,7 +403,31 @@ export default function ManagedProductPlanDetail({
     [handlePlannedCasesChanged]
   );
 
+  // ヘッダーが省略表示された場合にマウスオーバーで全文表示する（参照を固定する → 02 §7.1）
+  const columnDefsWithTooltip = useMemo(
+    () => withHeaderTooltips(columnDefs),
+    [columnDefs]
+  );
+
   // defaultColDef設定（共通プリセット＋編集可=白／編集不可=灰の背景色）
+  // 計画函数：値を変えたセルの強調（薄い黄＋オレンジ枠。元の値に戻したら解除 → 02 §7.2）。
+  // 利用者が編集したセルだけが対象（計算し直したセルは対象外）。
+  const productPlanChanged = useChangedCells();
+  const productPlanGridContext = useMemo(
+    () => ({ isCellChanged: productPlanChanged.isCellChanged }),
+    [productPlanChanged.isCellChanged]
+  );
+  const handleProductPlanCellValueChanged = useCallback(
+    (e: CellValueChangedEvent) => {
+      productPlanChanged.trackCellChange(withComparableCellValues(e));
+      e.api.refreshCells({
+        rowNodes: [e.node],
+        columns: [e.column],
+        force: true,
+      });
+    },
+    [productPlanChanged]
+  );
   const defaultColDef = useMemo<ColDef<ProductSalesPlanData>>(
     () => ({
       ...GRID_DEFAULT_COL_DEF,
@@ -414,12 +443,11 @@ export default function ManagedProductPlanDetail({
     []
   );
 
-  // 列幅・並び順・ソートの保存／復元（列は flex 指定のため初回オートサイズは抑止）
-  // ※サマリ商品コード・参照商品コード列の追加に伴い v2 へ更新
-  //   （旧保存状態のままだと新列が末尾に回るため）。
+  // 列幅・並び順・ソートの保存／復元
+  // ※列の並び順の変更と初期非表示列の追加に伴い v4 へ更新
+  //   （旧保存状態のままだと新しい並び順・初期非表示が反映されないため）。
   const gridColumnStateProps = useGridColumnState(
-    'ManagedProductPlanDetail.grid.columnState.v2',
-    { autoSize: false }
+    'ManagedProductPlanDetail.grid.columnState.v4'
   );
 
   // 一覧へ戻る：計画詳細(マージン率固定・NET入力)と同様、入力中データの破棄を確認してから
@@ -442,7 +470,7 @@ export default function ManagedProductPlanDetail({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             {/* ヘッダ部（タイトル + 情報カード） */}
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する。計画詳細(自販機)が右端に本画面への
@@ -567,7 +595,7 @@ export default function ManagedProductPlanDetail({
             {/* グリッド部 */}
             <div className="px-6 pt-3 pb-2">
               <div>
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md">
+                <div className={`${CARD_CLASS} overflow-hidden`}>
                   {/* グリッド本体（1920x1080 のPCで画面いっぱいに表示）。減算値 7.5rem は
                 ヘッダーメニュー・フッタ・グリッド部の余白の固定高。
                 基本情報カードはスクロールアウトしてよい。 */}
@@ -580,14 +608,16 @@ export default function ManagedProductPlanDetail({
                   >
                     <AgGridReact
                       rowData={rowData}
-                      columnDefs={withHeaderTooltips(columnDefs)}
+                      context={productPlanGridContext}
+                      onCellValueChanged={handleProductPlanCellValueChanged}
+                      columnDefs={columnDefsWithTooltip}
                       defaultColDef={defaultColDef}
                       statusBar={GRID_STATUS_BAR}
                       getContextMenuItems={gridFilterContextMenuItems}
                       domLayout="normal"
                       ensureDomOrder={true}
                       stopEditingWhenCellsLoseFocus={true}
-                      getRowId={(params) => params.data.id}
+                      getRowId={getRowId}
                       {...GRID_BASE_PROPS}
                       {...gridColumnStateProps}
                     />

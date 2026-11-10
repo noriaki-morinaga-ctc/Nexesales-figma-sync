@@ -7,7 +7,7 @@ import path from 'node:path';
 const APP_DIR = path.resolve(__dirname);
 const ROUTES_SRC = readFileSync(path.join(APP_DIR, 'routes.tsx'), 'utf8');
 const HEADER_SRC = readFileSync(
-  path.join(APP_DIR, 'components', 'shared', 'Header.tsx'),
+  path.join(APP_DIR, 'components', 'shared', 'layout', 'Header.tsx'),
   'utf8'
 );
 

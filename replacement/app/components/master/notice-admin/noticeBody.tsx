@@ -44,12 +44,14 @@ export const renderInline = (seg: NoticeInline, i: number): ReactNode => {
   if (typeof seg === 'string') return <span key={i}>{seg}</span>;
   if (isImgSeg(seg))
     return (
+      // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
       <img
         key={i}
+        loading="lazy"
         src={seg.img}
         alt={seg.alt ?? ''}
         // 本文エディタ（globals.css の .notice-editor img）と表示を揃える
-        className="inline-block align-bottom max-w-full max-h-[12.5rem] w-auto h-auto object-contain rounded border border-gray-200 m-[0.15rem]"
+        className="inline-block align-bottom max-w-full max-h-50 w-auto h-auto object-contain rounded border border-gray-200 m-[0.15rem]"
       />
     );
   let content: ReactNode = seg.text;
@@ -77,7 +79,7 @@ export const renderInline = (seg: NoticeInline, i: number): ReactNode => {
 
 // 箇条書き・番号付きリストの共通 className（マーカーは外側に表示）
 const LIST_CLASS =
-  'pl-5 space-y-0.5 text-xs text-gray-700 leading-relaxed list-outside';
+  'pl-5 space-y-0.5 text-xs text-gray-700 leading-normal list-outside';
 
 export const renderNoticeBody = (body: NoticeBlock[]) =>
   body.map((block, bi) => {
@@ -105,24 +107,26 @@ export const renderNoticeBody = (body: NoticeBlock[]) =>
       return (
         <blockquote
           key={bi}
-          className="border-l-4 border-gray-300 pl-3 py-0.5 text-xs text-gray-600 italic leading-relaxed whitespace-pre-line"
+          className="border-l-4 border-gray-300 pl-3 py-0.5 text-xs text-gray-600 italic leading-normal whitespace-pre-line"
         >
           {block.content.map(renderInline)}
         </blockquote>
       );
     if (block.type === 'img')
       return (
+        // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
         <img
           key={bi}
+          loading="lazy"
           src={block.src}
           alt={block.alt ?? ''}
-          className="max-w-full max-h-[12.5rem] w-auto h-auto object-contain rounded border border-gray-200 my-1"
+          className="max-w-full max-h-50 w-auto h-auto object-contain rounded border border-gray-200 my-1"
         />
       );
     return (
       <p
         key={bi}
-        className="text-xs text-gray-700 leading-relaxed whitespace-pre-line"
+        className="text-xs text-gray-700 leading-normal whitespace-pre-line"
       >
         {block.content.map(renderInline)}
       </p>
@@ -136,7 +140,8 @@ export const esc = (s: string) =>
 const runToHtml = (seg: NoticeInline): string => {
   if (typeof seg === 'string') return esc(seg).replace(/\n/g, '<br>');
   if (isImgSeg(seg))
-    return `<img src="${seg.img.replace(/"/g, '%22')}" alt="${esc(seg.alt ?? '')}" contenteditable="false">`;
+    // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
+    return `<img loading="lazy" src="${seg.img.replace(/"/g, '%22')}" alt="${esc(seg.alt ?? '')}" contenteditable="false">`;
   let h = esc(seg.text).replace(/\n/g, '<br>');
   if (seg.b) h = `<strong>${h}</strong>`;
   if (seg.i) h = `<em>${h}</em>`;
@@ -156,7 +161,8 @@ export const blocksToHtml = (blocks: NoticeBlock[]): string =>
       if (b.type === 'quote')
         return `<blockquote>${b.content.map(runToHtml).join('') || '<br>'}</blockquote>`;
       if (b.type === 'img')
-        return `<img src="${b.src.replace(/"/g, '%22')}" alt="${esc(b.alt ?? '')}">`;
+        // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
+        return `<img loading="lazy" src="${b.src.replace(/"/g, '%22')}" alt="${esc(b.alt ?? '')}">`;
       return `<div>${b.content.map(runToHtml).join('') || '<br>'}</div>`;
     })
     .join('');

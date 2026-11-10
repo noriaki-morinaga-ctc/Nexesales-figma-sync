@@ -1,9 +1,19 @@
 import React from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { GridApi, ColDef, GetRowIdParams } from 'ag-grid-community';
-import { GRID_BASE_PROPS } from '../grid';
+import {
+  Store,
+  Box,
+  FileText,
+  SquareCheckBig,
+  Bell,
+  Download,
+  Info,
+} from 'lucide-react';
+
+import { GRID_BASE_PROPS, GRID_COLORS } from '../grid';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import { Store, Box, FileText } from 'lucide-react';
+import { CARD_TITLE_CLASS, CARD_CLASS } from '../../../styles/commonStyles';
 
 interface TopDashboardProps {
   onMenuChange?: (menuId: string) => void;
@@ -241,9 +251,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
           className="text-blue-600 hover:text-blue-800 underline"
           onClick={(e) => {
             e.preventDefault();
-            console.log(
-              `Clicked: ${props.data.category} - ${props.colDef.headerName}`
-            );
             // 販売計画表の未登録未申請の6月分がクリックされた場合、販売計画一覧に遷移
             if (
               props.data.category === '未登録未申請' &&
@@ -266,10 +273,10 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
     {
       headerName: '販売計画',
       field: 'category',
-      width: 170,
+      width: 136,
       cellClass: 'col-first',
       cellStyle: {
-        backgroundColor: '#D9F2FF',
+        backgroundColor: GRID_COLORS.salesCategoryBg,
         fontWeight: 'bold',
         justifyContent: 'flex-start',
       },
@@ -278,44 +285,44 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
       headerName: '6月分',
       field: 'jun',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '7月分',
       field: 'jul',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '8月分',
       field: 'aug',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '9月分',
       field: 'sep',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
   ];
@@ -325,9 +332,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
     {
       headerName: '支払',
       field: 'category',
-      width: 170,
+      width: 136,
       cellStyle: {
-        backgroundColor: '#CFEFD6',
+        backgroundColor: GRID_COLORS.paymentCategoryBg,
         fontWeight: 'bold',
         justifyContent: 'flex-start',
       },
@@ -336,50 +343,50 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
       headerName: '6月分',
       field: 'jun',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '7月分',
       field: 'jul',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '8月分',
       field: 'aug',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
     {
       headerName: '9月分',
       field: 'sep',
       flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       cellRenderer: LinkCellRenderer,
+      cellClass: 'cell-center',
       cellStyle: {
         backgroundColor: 'white',
-        textAlign: 'center',
       },
     },
   ];
 
   return (
-    <div className="min-w-[75rem] h-full overflow-hidden">
+    <div className="min-w-300 h-full overflow-hidden">
       <div className="px-6 py-3 h-full flex flex-col overflow-hidden">
         {/* TOPからの遷移。解約の承認フローが支払と異なるため、ロケ契約(償却)一覧は
             支払メニューの配下ではなくこの画面を入口とする
@@ -405,22 +412,11 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
           <div className="col-span-6 flex flex-col overflow-hidden border-r border-gray-200 pr-4">
             {/* アイコンとタイトルラベル */}
             <div className="flex items-center gap-2 mb-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-700"
-              >
-                <path d="M9 11l3 3L22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-              </svg>
-              <h2 className="text-gray-900 font-bold text-lg">ToDo一覧</h2>
+              <SquareCheckBig
+                className="h-5 w-5 text-gray-700"
+                aria-hidden="true"
+              />
+              <h2 className={CARD_TITLE_CLASS}>ToDo一覧</h2>
             </div>
 
             {/* ToDo一覧テーブル */}
@@ -453,7 +449,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                     <div className="flex flex-col">
                       <div className="flex justify-end mb-2"></div>
                       <div className="grid-unified grid-sales-plan ag-theme-quartz shadow-md">
+                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                         <AgGridReact
+                          className="grid-summary-table"
                           rowData={todoData}
                           getRowId={getRowId}
                           columnDefs={columnDefs}
@@ -465,7 +463,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                             suppressHeaderMenuButton: true,
                             sortable: false,
                             resizable: false,
-                            headerClass: 'grid-header-center',
                           }}
                           onGridReady={(params) => setTodoGridApi(params.api)}
                         />
@@ -474,7 +471,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
 
                     {/* 支払表 */}
                     <div className="grid-unified grid-payment ag-theme-quartz shadow-md">
+                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                       <AgGridReact
+                        className="grid-summary-table"
                         rowData={paymentData}
                         getRowId={getRowId}
                         columnDefs={paymentColumnDefs}
@@ -486,7 +485,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                           suppressHeaderMenuButton: true,
                           sortable: false,
                           resizable: false,
-                          headerClass: 'grid-header-center',
                         }}
                         onGridReady={(params) => setPaymentGridApi(params.api)}
                       />
@@ -501,7 +499,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                     <div className="flex flex-col">
                       <div className="flex justify-end mb-2"></div>
                       <div className="grid-unified grid-sales-plan ag-theme-quartz">
+                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                         <AgGridReact
+                          className="grid-summary-table"
                           rowData={todoDataVending}
                           getRowId={getRowId}
                           columnDefs={columnDefs}
@@ -513,7 +513,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                             suppressHeaderMenuButton: true,
                             sortable: false,
                             resizable: false,
-                            headerClass: 'grid-header-center',
                           }}
                           onGridReady={(params) => setTodoGridApi(params.api)}
                         />
@@ -522,7 +521,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
 
                     {/* 支払表 */}
                     <div className="grid-unified grid-payment ag-theme-quartz">
+                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                       <AgGridReact
+                        className="grid-summary-table"
                         rowData={paymentDataVending}
                         getRowId={getRowId}
                         columnDefs={paymentColumnDefs}
@@ -534,7 +535,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                           suppressHeaderMenuButton: true,
                           sortable: false,
                           resizable: false,
-                          headerClass: 'grid-header-center',
                         }}
                         onGridReady={(params) => setPaymentGridApi(params.api)}
                       />
@@ -549,35 +549,18 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
           <div className="col-span-4 flex flex-col overflow-hidden">
             {/* アイコンとタイトルラベル */}
             <div className="flex items-center gap-2 mb-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-700"
-              >
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21 a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-              <h2 className="text-gray-900 font-bold text-lg">お知らせ</h2>
+              <Bell className="h-5 w-5 text-gray-700" aria-hidden="true" />
+              <h2 className={CARD_TITLE_CLASS}>お知らせ</h2>
             </div>
 
             {/* お知らせカード一覧 */}
             <div className="flex-1 overflow-y-auto space-y-3">
               {notifications.map((notification, index) => (
-                <div
-                  key={index}
-                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-md"
-                >
+                <div key={index} className={`${CARD_CLASS} p-4`}>
                   {/* バッジと日時 */}
                   <div className="flex items-center gap-2 mb-2">
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-bold text-white ${notification.type === 'important' ? 'bg-orange-500' : 'bg-green-500'}`}
+                      className={`px-3 py-1 rounded-full text-sm font-bold text-white ${notification.type === 'important' ? 'bg-orange-700' : 'bg-green-700'}`}
                     >
                       {notification.type === 'important' ? '重要' : 'お知らせ'}
                     </span>
@@ -587,7 +570,7 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                   </div>
 
                   {/* タイトル */}
-                  <h3 className="text-lg font-bold mb-2 text-[#385799]">
+                  <h3 className="text-lg font-bold mb-2 text-blue-900">
                     {notification.title}
                   </h3>
 
@@ -603,44 +586,14 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
                       onClick={(e) => {
                         e.preventDefault();
-                        console.log(
-                          `Clicked: ${notification.title} - ${notification.action.label}`
-                        );
+                        // TODO: お知らせのアクション（PDF表示・画面遷移）は未実装
                       }}
                     >
                       {notification.action.type === 'pdf' && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
+                        <Download className="h-4 w-4" aria-hidden="true" />
                       )}
                       {notification.action.type === 'link' && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 16v-4" />
-                          <path d="M12 8h.01" />
-                        </svg>
+                        <Info className="h-4 w-4" aria-hidden="true" />
                       )}
                       {notification.action.label}
                     </a>

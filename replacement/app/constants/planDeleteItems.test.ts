@@ -6,7 +6,7 @@ import {
   simulationExpenseItems,
   simulationKeyItems,
 } from './planDeleteItems';
-import type { NonProductExpenseData } from './nonProductExpenseTypes';
+import type { NonProductExpenseData } from '../types/nonProductExpense';
 
 // 削除確認ペインのラベルだけを取り出す（並び順の検証用）。
 const labels = (items: { label: string }[]): string[] =>

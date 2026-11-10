@@ -21,18 +21,19 @@ import {
 } from '../../../grid/gridCommon';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
-import { SPLIT_AFFECTED_SUMMARY_KEYS } from '../../../../utils/paymentSummarySplit';
+import { SPLIT_AFFECTED_SUMMARY_KEYS } from '../../../../utils/payment/payment-detail/paymentSummarySplit';
 import {
   fillSummaryRowValues,
   summaryPayValuesOf,
   type SummaryDetailTotals,
   type SummaryRowKind,
-} from '../../../../utils/paymentSummaryAggregate';
+} from '../../../../utils/payment/payment-detail/paymentSummaryAggregate';
 import {
   WITH_INVOICE_ACTUAL_FUNC,
   WITH_INVOICE_SUMMARY_FIXED_VALUES,
 } from '../../../../constants/paymentWithInvoiceMockData';
-import type { SplitOutTotal } from '../../../../utils/additionalEntrySplit';
+import type { SplitOutTotal } from '../../../../utils/payment/payment-detail/additionalEntrySplit';
+import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 
 // 列（情報の種類）。差＝支払・実績情報−販売計画書、計画誤差率＝差／支払・実績情報、
 // 前年比＝支払・実績情報／前年実績。
@@ -50,7 +51,7 @@ const COLS: ColDefItem[] = [
   {
     key: 'pay',
     name: '支払・実績情報',
-    width: 130,
+    width: 104,
     convertible: true,
     tooltip:
       '同商流販売店で支払回数が増える場合は、加算していく（支払先が違う場合も）',
@@ -58,15 +59,15 @@ const COLS: ColDefItem[] = [
   {
     key: 'plan',
     name: '販売計画書',
-    width: 130,
+    width: 104,
     convertible: true,
     tooltip:
       '販売計画に複数商流がある場合は、支払対象の商流販売店分の計画数値を抽出する',
   },
-  { key: 'diff', name: '差', width: 120, convertible: true },
-  { key: 'errRate', name: '計画誤差率', width: 110 },
-  { key: 'prev', name: '前年実績', width: 130, convertible: true },
-  { key: 'yoy', name: '前年比', width: 100 },
+  { key: 'diff', name: '差', width: 96, convertible: true },
+  { key: 'errRate', name: '計画誤差率', width: 88 },
+  { key: 'prev', name: '前年実績', width: 104, convertible: true },
+  { key: 'yoy', name: '前年比', width: 80 },
 ];
 
 // 列キー → 列名（列方向の計算式ツールチップの置換に使う）。
@@ -541,6 +542,7 @@ interface AggregationPaneProps {
   centerFeePayAmount: number;
 }
 
+// 規約例外（画面ごとの部品）：追加口の請求書の有無で表示する行と計算（追加口の分割・センターフィ等）が違うため、中身が似ていても今は画面ごとに持つ。後で共通化する可能性あり（→ 02 §12.2）
 export function AggregationPane({
   summaryTab = '詳細',
   onSummaryTabChange,
@@ -581,43 +583,24 @@ export function AggregationPane({
   );
   // 補助項目（Excelの「折り畳み」指定＝納品金額・支払NET売上高・センターフィ額・社外売上高）の表示。
   // 計画詳細(マージン率固定・NET入力)の販売計画(集計)詳細タブと同じトグルにそろえる。
-  const [showFolded, setShowFolded] = useState(false);
+  const [isFoldedShown, setIsFoldedShown] = useState(false);
 
   // カード本体（サマリ表）の縦幅。追加口一覧と同様にリサイズハンドルのドラッグで
   // 手動調整可能。JS動的値のため inline style を許容する。
   const GRID_MIN_HEIGHT = 200; // 縮めすぎ防止の下限
   // 既定は「補助項目を隠した状態の11項目＋ヘッダー」が縦スクロールなしで収まる高さ。
-  const [gridHeight, setGridHeight] = useState(440);
-
-  // リサイズハンドルのドラッグ開始。マウス移動量に応じて本体の縦幅を更新する。
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = gridHeight;
-    const onMove = (ev: MouseEvent) => {
-      const next = Math.max(
-        GRID_MIN_HEIGHT,
-        startHeight + (ev.clientY - startY)
-      );
-      setGridHeight(next);
-    };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.userSelect = '';
-    };
-    document.body.style.userSelect = 'none'; // ドラッグ中のテキスト選択を抑止
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
+  const gridResize = useResizableHeight({
+    defaultHeight: 440,
+    minHeight: GRID_MIN_HEIGHT,
+    maxHeight: Infinity,
+  });
+  const gridHeight = gridResize.height;
 
   // 列幅・並び順・ソートの永続化。
   // v1→v2：表示項目を行・情報の種類を列に置く構成へ組み替えた（→ ★支払画面集計修正）。
   // v2→v3：項目名「拡売費（NET未承認以外）」が収まるよう表示項目の列幅を広げた。
-  // 列数が少なく横に余白が出るため、列幅は自動調整ではなく列定義の flex で表幅いっぱいに広げる。
   const gridColumnStateProps = useGridColumnState(
-    '支払詳細C.支払情報サマリ.columnState.v3',
-    { autoSize: false }
+    '支払詳細C.支払情報サマリ.columnState.v3'
   );
 
   // 表示単位を反映した全項目の値（補助項目を隠していても計算式の実値行に使うため全行分持つ）。
@@ -644,7 +627,7 @@ export function AggregationPane({
       valueByKey.get(rowKey)?.[colKey] ?? null;
 
     return rows
-      .filter((r) => showFolded || !r.folded)
+      .filter((r) => isFoldedShown || !r.folded)
       .map((r) => {
         const vals = valueByKey.get(r.key) ?? {};
         const tips: Record<string, string> = {};
@@ -663,7 +646,7 @@ export function AggregationPane({
           ...tips,
         };
       });
-  }, [valueByKey, showFolded, rows]);
+  }, [valueByKey, isFoldedShown, rows]);
 
   // 値セルのスタイル（データ行は右寄せ）
   const valueCellStyle = () => ({ textAlign: 'right' as const });
@@ -672,11 +655,7 @@ export function AggregationPane({
     headerName: c.name,
     field: c.key,
     headerTooltip: c.tooltip,
-    // 値は右寄せのため、見出しも右寄せにして数値と縦位置をそろえる。
-    headerClass: 'jbr-summary-header-right',
-    // 表全体の横幅いっぱいに広げる（最小幅は確保）
-    flex: 1,
-    minWidth: c.width,
+    width: c.width,
     // 見出しクリックでの並べ替え。整形済み文字列を数値へ戻して比較する。
     sortable: true,
     comparator: compareValueCells,
@@ -691,7 +670,7 @@ export function AggregationPane({
       {
         headerName: '表示項目',
         field: 'label',
-        width: 190,
+        width: 152,
         sortable: true,
         filter: true,
         // 実績算出元・計算式・補足はツールチップで示す（Excelの右側の注記に対応）。
@@ -805,17 +784,19 @@ export function AggregationPane({
                     計画詳細(マージン率固定・NET入力)の販売計画(集計)詳細タブと同テーマ・同挙動。 */}
                 <button
                   type="button"
-                  onClick={() => setShowFolded((prev) => !prev)}
-                  aria-pressed={showFolded}
-                  aria-label={showFolded ? '補助項目を隠す' : '補助項目を表示'}
+                  onClick={() => setIsFoldedShown((prev) => !prev)}
+                  aria-pressed={isFoldedShown}
+                  aria-label={
+                    isFoldedShown ? '補助項目を隠す' : '補助項目を表示'
+                  }
                   className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm whitespace-nowrap text-gray-700 hover:bg-gray-50"
                 >
-                  {showFolded ? (
+                  {isFoldedShown ? (
                     <Minus className="h-4 w-4" />
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
-                  {showFolded ? '補助項目を隠す' : '補助項目を表示'}
+                  {isFoldedShown ? '補助項目を隠す' : '補助項目を表示'}
                 </button>
 
                 {/* 表示単位トグル（円／千円）。金額行のみ千円換算する。 */}
@@ -830,7 +811,7 @@ export function AggregationPane({
                       aria-pressed={displayUnit === 'yen'}
                       className={`px-4 text-sm font-medium transition-colors ${
                         displayUnit === 'yen'
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -842,7 +823,7 @@ export function AggregationPane({
                       aria-pressed={displayUnit === 'thousand'}
                       className={`px-4 text-sm font-medium transition-colors ${
                         displayUnit === 'thousand'
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -856,21 +837,12 @@ export function AggregationPane({
               className="jbr-actual-bill-grid"
               style={{ height: gridHeight, width: '100%' }}
             >
-              {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）に委譲。
+              {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）、見出しの寄せは
+                    grid.css の共通指定（左寄せ）に委譲。
                     項目名列の左寄せは共通クラス（ag-cell-left-pinned）に委譲する。 */}
-              <style>{`
-                  /* ヘッダー文字を左寄せ */
-                  .jbr-actual-bill-grid .ag-header-cell-label {
-                    justify-content: flex-start;
-                  }
-                  /* 値列（右寄せ）の見出しは右寄せにして数値と縦位置をそろえる */
-                  .jbr-actual-bill-grid
-                    .ag-header-cell.jbr-summary-header-right
-                    .ag-header-cell-label {
-                    justify-content: flex-end;
-                  }
-                `}</style>
+              {/* 規約例外（集計表）：表示項目（管理区分）ごとの行が決まっている集計表（支払情報サマリ）のため、件数表示（statusBar）は付けない */}
               <AgGridReact
+                className="grid-summary-table"
                 rowData={rowData}
                 getRowId={getSummaryRowId}
                 columnDefs={columnDefs}
@@ -888,14 +860,11 @@ export function AggregationPane({
         )}
         {/* リサイズハンドル：上下ドラッグでカード本体の縦幅を手動調整する（追加口一覧と同様）。
               詳細＝サマリ表／グラフ、分割・振替＝他部門一覧の各グリッドを可変にする。 */}
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label="支払情報サマリの高さを変更"
-          onMouseDown={handleResizeStart}
-          className="flex items-center justify-center h-3 cursor-ns-resize bg-gray-100 hover:bg-gray-200 border-t border-gray-200 transition-colors"
-        >
-          <div className="w-10 h-1 rounded-full bg-gray-400" />
+        <div className="relative h-2">
+          <ResizeHandle
+            onMouseDown={gridResize.handleMouseDown}
+            ariaLabel="支払情報サマリの高さを変更"
+          />
         </div>
       </>
     </CollapsibleCard>

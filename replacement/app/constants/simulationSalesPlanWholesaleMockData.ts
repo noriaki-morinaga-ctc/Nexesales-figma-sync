@@ -1,7 +1,4 @@
-// シミュレーション(NET固定) のダミーデータ集約
-
-import { toComboOptions } from '../components/ui/single-combobox-cell-editor';
-import type { ProductData } from '../components/shared/SimulationDetailTable';
+import type { ProductData } from '../types/simulation'; // シミュレーション(NET固定) のダミーデータ集約
 
 export type DetailFormValues = {
   category: string;
@@ -186,47 +183,6 @@ export const CAMPAIGN_OPTIONS = Array.from(
 );
 
 export const PROBABILITY_OPTIONS = ['A', 'B', 'C', '確定', '不採用'];
-
-export const EXP_CODE_OPTIONS = toComboOptions([
-  'A001',
-  'A002',
-  'A003',
-  'A004',
-  'A005',
-  'B001',
-  'B002',
-  'B003',
-  'B004',
-  'B005',
-  'C001',
-  'C002',
-]);
-
-export const EXP_ACCOUNT_OPTIONS = toComboOptions([
-  '販促費',
-  '広告費',
-  'イベント費',
-  'その他',
-]);
-
-export const EXP_CLASS_OPTIONS = toComboOptions([
-  '拡売費A',
-  '拡売費B',
-  '拡売費C',
-]);
-
-// 施策区分（拡売費①②内）
-export const EXP_CAMPAIGN_OPTIONS = toComboOptions([
-  '新規導入',
-  '販売促進',
-  'スポット',
-  'リピート',
-]);
-
-// 施策コード（拡売費①②内）SK001〜SK013
-export const EXP_CAMPAIGN_CODE_OPTIONS = toComboOptions(
-  Array.from({ length: 13 }, (_, i) => `SK${String(i + 1).padStart(3, '0')}`)
-);
 
 export const SIMULATION_WS_CAMPAIGN_SUMMARY_ROWS: ProductData[] = [];
 

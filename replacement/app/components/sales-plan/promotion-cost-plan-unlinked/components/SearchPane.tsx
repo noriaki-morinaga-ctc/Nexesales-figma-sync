@@ -1,8 +1,9 @@
+import { History } from 'lucide-react';
+import { useState } from 'react';
+
 import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { MonthStripPicker } from '../../../ui/month-strip-picker';
 import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import { History } from 'lucide-react';
-import { useState } from 'react';
 import {
   SALES_PERSON_OPTIONS,
   OFFICE_OPTIONS,
@@ -21,7 +22,11 @@ import {
 } from '../../../../constants/salesPlanNoLinkPattern';
 import { BASIC_INFO_STATUS } from '../../../../constants/planBasicInfoMockData';
 import { SingleCombobox } from '../../../ui/single-combobox';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import {
+  FORM_LABEL_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+} from '../../../../../styles/commonStyles';
 
 interface SearchPaneProps {
   onStatusClick?: () => void;
@@ -144,10 +149,10 @@ export function SearchPane({
               <button
                 type="button"
                 onClick={onStatusClick}
-                className="flex items-center gap-1 bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-xs"
+                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-1 px-2 py-1 whitespace-nowrap text-xs`}
                 aria-label="コメント履歴"
               >
-                <History className="h-[0.875rem] w-[0.875rem]" />
+                <History className="h-4 w-4" />
                 <span className="hidden 2xl:inline">コメント履歴</span>
               </button>
             </div>
@@ -223,12 +228,14 @@ export function SearchPane({
             {/* 事業場（本画面では常に非活性。販売店と同様、常時disabledのため onChange は no-op） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-office"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 事業場
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-office"
                   options={OFFICE_OPTIONS}
                   value={office}
                   onChange={() => undefined}
@@ -241,12 +248,14 @@ export function SearchPane({
             {/* 部署（営業企画は選択可・営業は自部署を自動選択して非活性） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-department-value"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 部署
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-department-value"
                   options={DEPARTMENT_OPTIONS}
                   value={departmentValue}
                   onChange={handleDepartmentChange}
@@ -259,12 +268,14 @@ export function SearchPane({
             {/* 末端組織（名称・コード検索可能なシングルコンボボックス。全パターン活性） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-terminal-org"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 末端組織
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-terminal-org"
                   options={TERMINAL_ORG_OPTIONS}
                   value={terminalOrg}
                   onChange={handleTerminalOrgChange}
@@ -277,12 +288,14 @@ export function SearchPane({
             {/* 作成者（名称・コード検索可能なシングルコンボボックス。1名のみ選択） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-creator"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 作成者
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-creator"
                   options={SALES_PERSON_OPTIONS}
                   value={creator}
                   onChange={setCreator}
@@ -301,12 +314,14 @@ export function SearchPane({
             {/* 販売店（③販売店のみ のときだけ通常コードから選択できる） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-dealer-value"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 販売店
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-dealer-value"
                   options={control.dealerOptions}
                   value={dealerValue}
                   onChange={setDealer}
@@ -320,12 +335,14 @@ export function SearchPane({
             {/* 一次店（②商流のみ のときだけ通常コードかダミーから選択できる） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-first-store-value"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 一次店
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-first-store-value"
                   options={control.firstStoreOptions}
                   value={firstStoreValue}
                   onChange={setFirstStore}
@@ -339,12 +356,14 @@ export function SearchPane({
             {/* 三次店（②商流のみ のときだけ通常コードかダミーから選択できる） */}
             <div className="flex items-center gap-2">
               <label
+                htmlFor="search-third-store-value"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
               >
                 三次店
               </label>
               <div className="flex-1 min-w-0">
                 <SingleCombobox
+                  id="search-third-store-value"
                   options={control.thirdStoreOptions}
                   value={thirdStoreValue}
                   onChange={setThirdStore}

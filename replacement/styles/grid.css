@@ -91,8 +91,10 @@
   height: 100%;
 }
 
-/* ヘッダーセル内のコンテンツラッパー */
-.ag-header-cell[col-id='ag-Grid-AutoColumn'] .ag-header-cell-comp-wrapper {
+/* ヘッダーセル内のコンテンツラッパー（全選択チェックボックスがあるときだけ中央。
+   見出しの文字だけのツリー列は、ほかの見出しと同じ左寄せ → 02 §7「ヘッダーの寄せ」） */
+.ag-header-cell[col-id='ag-Grid-AutoColumn']:has(.ag-header-select-all)
+  .ag-header-cell-comp-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +127,13 @@
   justify-content: flex-start;
   text-align: left;
   /* padding:0 を解除し、他セルと同じ左右余白を復元（テーマ値・フォールバック 0.5rem） */
+  padding-inline: var(--ag-cell-horizontal-padding, 0.5rem);
+}
+
+/* 先頭が数値の列（マスタメンテの適用優先順など）は右寄せに戻す（数値＝右寄せ。Q&A QM-027、10/30） */
+.ag-cell[aria-colindex='1'].ag-cell-right {
+  justify-content: flex-end;
+  text-align: right;
   padding-inline: var(--ag-cell-horizontal-padding, 0.5rem);
 }
 
@@ -271,11 +280,19 @@
 }
 
 /* ============================================
-   ヘッダー中央配置ユーティリティ
+   ヘッダーの寄せ（全グリッド左寄せ。画面で寄せを指定しない → 02 §7）
    ============================================ */
-.grid-header-center .ag-header-cell-label {
-  justify-content: center;
-  width: 100%;
+/* 列見出し・グループ見出しとも左寄せ。数値列（rightAligned）の見出しも左にそろえる
+   （AG Grid は数値列の見出しを row-reverse で右へ寄せるため、並びを row に戻す）。
+   折り返す見出し（wrapHeaderText）も行ごとに左へ置く。 */
+.ag-header-cell-label,
+.ag-header-group-cell-label,
+.ag-right-aligned-header .ag-header-cell-label {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.ag-header-cell-text {
+  text-align: left;
 }
 
 /* ============================================
@@ -360,7 +377,7 @@
   .ag-checkbox-input-wrapper:not(.ag-checked):not(.ag-indeterminate):not(
     .ag-disabled
   ) {
-  border-color: #6b7280;
+  border-color: var(--grid-checkbox-border);
 }
 
 /* 非活性（承認待ち以外の行）はチェックボックス列のセル全体を灰色で塗りつぶす。
@@ -371,14 +388,14 @@
    詳細度が高く同じく !important のため、ホバー中は全グリッド共通の薄い青が
    優先される（＝全グリッド共通のホバー仕様どおり。意図した挙動）。 */
 .sales-plan-list-grid .ag-cell.cell-selection-disabled {
-  background-color: #f7f7f7 !important;
+  background-color: var(--grid-selection-disabled-bg) !important;
 }
 /* 非活性のチェックボックスは枠線・内側とも薄くする。
    内側はセルの灰色を透かすため塗らない（transparent）。
    AG Grid 既定の filter／opacity を解除しないと半透明のままになる。 */
 .sales-plan-list-grid .ag-checkbox-input-wrapper.ag-disabled {
   background-color: transparent;
-  border-color: #d1d5db;
+  border-color: var(--grid-checkbox-disabled-border);
   filter: none;
   opacity: 1;
 }
@@ -394,7 +411,7 @@
    AG Grid グリッド統一スタイル
    ============================================ */
 .grid-unified.ag-theme-quartz {
-  --grid-border-color: #cfcfcf;
+  --grid-border-color: var(--grid-unified-border);
   --grid-border-width: 0.125rem;
 }
 
@@ -418,13 +435,13 @@
 
 /* 販売計画表のヘッダー色 */
 .grid-sales-plan.ag-theme-quartz .ag-header-cell {
-  background-color: #1e90ff;
+  background-color: var(--grid-sales-header-bg);
   color: white;
 }
 
 /* 支払表のヘッダー色 */
 .grid-payment.ag-theme-quartz .ag-header-cell {
-  background-color: #32cd32;
+  background-color: var(--grid-payment-header-bg);
   color: white;
 }
 
@@ -436,4 +453,59 @@
   font-size: 0.875rem;
   line-height: 2rem;
   padding: 0 0.25rem;
+}
+
+/* 件数表示を横スクロールバーと同じ行の左に置く（共通の GRID_STATUS_BAR → 02 §7。UI/UX UX-030）。
+   クラスと CSS 変数は件数パネル（GridDisplayedRowsStatusPanel）が付ける。
+   --grid-count-w：件数の幅＋間隔／--grid-hscroll-content-w：スクロールバーの中身の幅（列の合計幅－件数の幅）／
+   --grid-hscroll-h：スクロールバーの行の高さ。
+   スクロールバーを件数の幅だけ狭め、中身も同じだけ狭めて、バーと表の動く範囲をそろえる。
+   行の展開（masterDetail）の中の別グリッドに効かないよう、子セレクタ（>）で自分のグリッドの要素だけを指す。 */
+.grid-count-in-hscroll
+  > .ag-root-wrapper-body
+  > .ag-root
+  > .ag-body-horizontal-scroll
+  > .ag-body-horizontal-scroll-viewport {
+  margin-left: var(--grid-count-w, 0);
+}
+/* スクロールバーを内容に重ねて出す環境（Mac の既定など。AG Grid が ag-scrollbar-invisible を付けて
+   明細の上に重ねる）では、件数が最後の行に重なるため、スクロールバーの行を明細の下に並べる */
+.grid-count-in-hscroll
+  > .ag-root-wrapper-body
+  > .ag-root
+  > .ag-body-horizontal-scroll.ag-scrollbar-invisible {
+  position: relative;
+}
+.grid-count-in-hscroll
+  > .ag-root-wrapper-body
+  > .ag-root
+  > .ag-body-horizontal-scroll
+  > .ag-body-horizontal-scroll-viewport
+  > .ag-body-horizontal-scroll-container {
+  width: var(--grid-hscroll-content-w) !important;
+}
+.grid-count-in-hscroll > .ag-status-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: var(--grid-hscroll-h, 1rem);
+  min-height: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.grid-count-in-hscroll > .ag-status-bar .ag-status-bar-left,
+.grid-count-in-hscroll > .ag-status-bar .ag-status-panel {
+  height: var(--grid-hscroll-h, 1rem);
+  min-height: 0;
+  padding: 0;
+  line-height: var(--grid-hscroll-h, 1rem);
+  pointer-events: auto;
+}
+
+/* 期限超過のセル（cellClassRules で cell-overdue を付ける）：薄い赤の背景（GRID_COLORS.overdueBg）。
+   文言の右に「期限超過」のラベル（OVERDUE_BADGE_CLASS）も出す（UI/UX UX-028 → 02 §7「期限超過の表示」） */
+.ag-cell.cell-overdue {
+  background-color: var(--grid-overdue-bg);
 }

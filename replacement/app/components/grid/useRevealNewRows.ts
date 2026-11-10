@@ -2,13 +2,16 @@
 //
 // 行追加は React の state 更新で行うため、追加した直後はまだグリッドに行が無い。
 // そこで markRows で行IDを記録しておき、グリッドの onRowDataUpdated（＝行が反映された
-// 後）に、さらに描画が済む次フレームで次の3つをまとめて行う。
+// 後）に、さらに描画が済む次フレームで次の順に行う。
 //   1. グリッド内部で新規行までスクロール（ensureIndexVisible）
-//   2. 新規行が画面で見えていなければ、ページ側のスクロール領域も動かす
+//   2. スクロールで行が描画し直された次のフレームで、新規行が画面で見えていなければ
+//      ページ側のスクロール領域も動かす
 //   3. 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
+//      （描画し直したセルがまだ DOM を持たないうちに flashCells を呼ぶと AG Grid 内部で
+//      例外になるため、1 と同じフレームでは行わない）
 //
 // タブ・フィルタで新規行が表示対象外のときは行が存在しないため、何もしない。
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { GridApi, IRowNode } from 'ag-grid-community';
 
 // 行フラッシュの既定時間（ms）。AG Grid 既定（0.5秒）では見落とすため長めにする。
@@ -159,33 +162,37 @@ export function useRevealNewRows(
           scrollPosition === 'top' ? 'top' : null
         );
 
-        // 新規行が画面で見えていなければ、ページ側のスクロール領域も動かす。
-        const rowEl = nodes[0].id ? rowElementOf(nodes[0].id) : null;
-        const gridEl = rowEl?.closest<HTMLElement>('.ag-root-wrapper') ?? null;
-        const scroller = gridEl ? scrollParentOf(gridEl) : null;
-        if (rowEl && scroller) {
-          // 下ペイン表示中は画面下部が覆われる。<main> の padding-bottom がその高さに
-          // なるため、これを除いた位置を可視域の下端とみなす。
-          const main = scroller.closest('main') ?? scroller;
-          const padBottom =
-            parseFloat(window.getComputedStyle(main).paddingBottom) || 0;
-          const clearBottom = main.getBoundingClientRect().bottom - padBottom;
-          const scrollerTop = scroller.getBoundingClientRect().top;
-          const rowRect = rowEl.getBoundingClientRect();
-          // 行が半分以上隠れているときだけ、行が上端へ来るようにスクロールする。
-          // 下ペイン展開中は可視域が狭いため、少しでも見えていれば動かさない
-          // （動かすと列見出しが画面外へ出てしまう）。
-          if (
-            rowRect.top < scrollerTop ||
-            rowRect.top + rowRect.height / 2 > clearBottom
-          ) {
-            scroller.scrollTop += rowRect.top - scrollerTop - TOP_GAP_PX;
+        // スクロールで描画し直した行が DOM に揃う次フレームで、残りを行う
+        window.requestAnimationFrame(() => {
+          // 新規行が画面で見えていなければ、ページ側のスクロール領域も動かす。
+          const rowEl = nodes[0].id ? rowElementOf(nodes[0].id) : null;
+          const gridEl =
+            rowEl?.closest<HTMLElement>('.ag-root-wrapper') ?? null;
+          const scroller = gridEl ? scrollParentOf(gridEl) : null;
+          if (rowEl && scroller) {
+            // 下ペイン表示中は画面下部が覆われる。<main> の padding-bottom がその高さに
+            // なるため、これを除いた位置を可視域の下端とみなす。
+            const main = scroller.closest('main') ?? scroller;
+            const padBottom =
+              parseFloat(window.getComputedStyle(main).paddingBottom) || 0;
+            const clearBottom = main.getBoundingClientRect().bottom - padBottom;
+            const scrollerTop = scroller.getBoundingClientRect().top;
+            const rowRect = rowEl.getBoundingClientRect();
+            // 行が半分以上隠れているときだけ、行が上端へ来るようにスクロールする。
+            // 下ペイン展開中は可視域が狭いため、少しでも見えていれば動かさない
+            // （動かすと列見出しが画面外へ出てしまう）。
+            if (
+              rowRect.top < scrollerTop ||
+              rowRect.top + rowRect.height / 2 > clearBottom
+            ) {
+              scroller.scrollTop += rowRect.top - scrollerTop - TOP_GAP_PX;
+            }
           }
-        }
 
-        // 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
-        if (focusColumn) api.setFocusedCell(headIndex, focusColumn);
-        api.flashCells({ rowNodes: nodes, flashDuration, fadeDuration });
+          // 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
+          if (focusColumn) api.setFocusedCell(headIndex, focusColumn);
+          api.flashCells({ rowNodes: nodes, flashDuration, fadeDuration });
+        });
       });
     },
     [
@@ -198,5 +205,9 @@ export function useRevealNewRows(
     ]
   );
 
-  return { captureApi, markRows, onRowDataUpdated };
+  // 戻り値を固定し、画面側の useCallback の依存配列へ入れても作り直しが起きないようにする
+  return useMemo(
+    () => ({ captureApi, markRows, onRowDataUpdated }),
+    [captureApi, markRows, onRowDataUpdated]
+  );
 }

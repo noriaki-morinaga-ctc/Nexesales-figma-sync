@@ -47,7 +47,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../../ui/tabs';
 import { useExclusivePane } from '../../../ui/use-exclusive-pane';
 import { SCREEN_TITLE_CLASS } from '../../../../../styles/commonStyles';
 import { PdfPreview } from './PdfPreview';
-import { EvidenceDateInput } from './EvidenceDateInput';
+import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
 import {
   canPreviewEvidence,
   convertToPdf,
@@ -345,7 +345,9 @@ function SlotPreviewOverlay({ slot, onClose }: SlotPreviewOverlayProps) {
           <PdfPreview src={pdfUrl} fileName={slot.fileName} />
         ) : imageUrl ? (
           // 画像：left-top アライン、drag でパン、Ctrl+ホイールでズーム
+          // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
           <img
+            loading="lazy"
             src={imageUrl}
             alt={`${slot.fileName} のプレビュー`}
             className="absolute max-h-none max-w-none origin-top-left select-none bg-white shadow-md"
@@ -387,7 +389,7 @@ function SlotPreviewOverlay({ slot, onClose }: SlotPreviewOverlayProps) {
             className="flex h-full flex-col items-center justify-center gap-3 text-gray-400"
             onClick={onClose}
           >
-            <FileQuestion className="h-12 w-12" aria-hidden="true" />
+            <FileQuestion className="h-8 w-8" aria-hidden="true" />
             <p className="text-sm text-center">
               プレビュー非対応。
               <br />
@@ -400,7 +402,7 @@ function SlotPreviewOverlay({ slot, onClose }: SlotPreviewOverlayProps) {
                 className="flex items-center gap-1.5 rounded-lg border border-gray-500 px-3 py-1.5 text-xs text-gray-300 hover:border-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                <Download className="h-4 w-4" aria-hidden="true" />
                 原本をダウンロード
               </a>
             )}
@@ -549,7 +551,7 @@ function FileDropField({
               {isConverting && (
                 <span className="flex shrink-0 items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">
                   <Loader2
-                    className="h-3 w-3 animate-spin"
+                    className="h-4 w-4 animate-spin"
                     aria-hidden="true"
                   />
                   変換中
@@ -618,7 +620,7 @@ function FileDropField({
       </div>
       {rejected && (
         <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {rejected}
         </p>
       )}
@@ -644,7 +646,7 @@ function MemoField({ value, onChange, disabled }: MemoFieldProps) {
         htmlFor={id}
         className="mb-1 flex items-center gap-1 text-xs text-gray-600"
       >
-        <StickyNote className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <StickyNote className="h-4 w-4 shrink-0" aria-hidden="true" />
         備考（添付理由・補足）
       </label>
       <Textarea
@@ -761,11 +763,12 @@ function SlotRowWithMemo({
                 >
                   回収予定日
                 </label>
-                <EvidenceDateInput
+                <DateMonthYearPicker
                   id={collectionDateId}
                   value={slot.collectionDate ?? ''}
                   onChange={(v) => onFieldChange?.({ collectionDate: v })}
                   disabled={disabled}
+                  clearable
                 />
               </div>
             )}
@@ -814,11 +817,12 @@ function SlotRowWithMemo({
                 >
                   発行日
                 </label>
-                <EvidenceDateInput
+                <DateMonthYearPicker
                   id={issueDateId}
                   value={slot.issueDate ?? ''}
                   onChange={(v) => onFieldChange?.({ issueDate: v })}
                   disabled={disabled}
+                  clearable
                 />
               </div>
             </div>
@@ -1062,8 +1066,9 @@ export function EvidenceUploadPane({
     if (!st) return;
     const deltaPx = st.startX - e.clientX;
     if (Math.abs(deltaPx) > DRAG_THRESHOLD_PX) dragMovedRef.current = true;
-    const next = st.startWidth + deltaPx / 16;
-    const maxPaneRem = Math.floor(window.innerWidth / 16);
+    // 1rem = 12.8px（画面全体を 80% にしている → 01「ルートフォントサイズ設定」）
+    const next = st.startWidth + deltaPx / 12.8;
+    const maxPaneRem = Math.floor(window.innerWidth / 12.8);
     setPaneWidthRem(Math.min(maxPaneRem, Math.max(PANE_MIN_REM, next)));
   }, []);
   const handleResizeEnd = useCallback(() => {
@@ -1096,7 +1101,8 @@ export function EvidenceUploadPane({
   const [referenceValue, setReferenceValue] = useState<string>(
     REFERENCE_OPTIONS[0].value
   );
-  const [referenceAccordionOpen, setReferenceAccordionOpen] = useState(false);
+  const [isReferenceAccordionOpen, setIsReferenceAccordionOpen] =
+    useState(false);
 
   // ===== 請求書 =====
   // 未着・回収予定日・受領形態・発行日は行（EvidenceSlot）ごとに持つ（修正指示1）
@@ -1554,7 +1560,7 @@ export function EvidenceUploadPane({
       )}
 
       <div
-        className={`fixed top-11 right-0 h-[calc(100vh-2.75rem)] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 flex flex-col ${
+        className={`fixed top-11 bottom-0 right-0 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 flex flex-col ${
           open && !isCollapsed ? 'translate-x-0' : 'translate-x-full'
         }`}
         // 幅はドラッグリサイズで JS が決める（inline style 例外：JS動的計算値）
@@ -1598,6 +1604,7 @@ export function EvidenceUploadPane({
             className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
             onClick={handleClose}
             aria-label="閉じる"
+            title="閉じる"
           >
             <X className="size-6" aria-hidden="true" />
           </button>
@@ -1717,15 +1724,15 @@ export function EvidenceUploadPane({
                   <button
                     type="button"
                     className="flex w-full items-center justify-between px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                    aria-expanded={referenceAccordionOpen}
-                    onClick={() => setReferenceAccordionOpen((o) => !o)}
+                    aria-expanded={isReferenceAccordionOpen}
+                    onClick={() => setIsReferenceAccordionOpen((o) => !o)}
                   >
                     <span className="text-sm font-medium text-gray-700">
                       流用対象根拠資料（
                       {(REFERENCE_FILES_MOCK[referenceValue] ?? []).length}
                       件）
                     </span>
-                    {referenceAccordionOpen ? (
+                    {isReferenceAccordionOpen ? (
                       <ChevronUp
                         className="h-4 w-4 text-gray-500"
                         aria-hidden="true"
@@ -1737,7 +1744,7 @@ export function EvidenceUploadPane({
                       />
                     )}
                   </button>
-                  {referenceAccordionOpen && (
+                  {isReferenceAccordionOpen && (
                     <div className="px-3 pb-3">
                       {(REFERENCE_FILES_MOCK[referenceValue] ?? []).length ===
                       0 ? (
@@ -1754,7 +1761,7 @@ export function EvidenceUploadPane({
                                   key={i}
                                   className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5"
                                 >
-                                  <span className="shrink-0 rounded bg-[rgb(19,80,218)] px-1.5 py-0.5 text-xs font-bold text-white">
+                                  <span className="shrink-0 rounded bg-blue-700 px-1.5 py-0.5 text-xs font-bold text-white">
                                     {ref.kind}
                                   </span>
                                   <Icon

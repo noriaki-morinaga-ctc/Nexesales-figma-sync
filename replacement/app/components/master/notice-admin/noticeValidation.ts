@@ -1,6 +1,6 @@
 import { NOW_STR, type NoticeDraft } from './noticeStore';
 import { bodyHasContent } from './noticeBody';
-import { TITLE_MAX } from './noticeUi';
+import { TITLE_MAX } from './NoticeUi';
 
 // ===== お知らせ編集の入力チェック（宣言的ルール駆動） =====
 export type FieldKey = 'title' | 'startAt' | 'endAt' | 'body';

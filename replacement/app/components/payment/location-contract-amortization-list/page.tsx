@@ -19,7 +19,10 @@ import { useState, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { CustomCellRendererProps } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
+import { format, parse } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
+import { SearchRangeField } from '../../ui/search-range-field';
 import { CopyableArea } from '../../ui/copyable-area';
 import { Button } from '../../ui/button';
 import {
@@ -31,7 +34,7 @@ import {
   useOrgCascadeSearch,
   toOrgComboOptions,
 } from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/orgCascade';
+import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
 import type { OrgLevel } from '../../../constants/orgHierarchy';
 import {
   useGridColumnState,
@@ -42,6 +45,7 @@ import {
   GRID_MONTH_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   formatEmptyAsDash,
+  StatusIconCellRenderer,
 } from '../../grid';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import { Calendar } from '../../ui/calendar';
@@ -66,8 +70,6 @@ import {
   SEARCH_LABEL_CLASS,
   TEXT_INPUT_CLASS,
 } from '../../../../styles/commonStyles';
-import { format, parse } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { ScreenTitle } from '../../ui/screen-title';
 
 // 検索条件の初期値（クリアボタンで戻す値）
@@ -98,13 +100,12 @@ const INITIAL_PRIMARY_STORE = '';
 const INITIAL_NOTE1 = '';
 
 // 事業場・部署・営業担当者／申請事業場・申請部署・申請者は複数選択で、
-// それぞれの組で上位・下位の選択肢を連動させる（→ utils/orgCascade.ts。末端組織は持たない）。
+// それぞれの組で上位・下位の選択肢を連動させる（→ utils/common/orgCascade.ts。末端組織は持たない）。
 // 選択肢は組織階層マスタ（constants/orgHierarchy.ts）から作り、
 // 候補は2行表示（上段＝名称／下段＝コード）で名称・コードのどちらでも検索できる（→ 02 §9「選択肢の形」）。
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '営業担当者' },
-  units: { salesRep: '名' },
 };
 const APPLICANT_ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
@@ -113,7 +114,6 @@ const APPLICANT_ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     department: '申請部署',
     salesRep: '申請者',
   },
-  units: { salesRep: '名' },
 };
 
 // 販売店・三次店・一次店の選択肢（事業場等と同じく「名称＋コード」の2行表示・両行検索）。
@@ -198,7 +198,7 @@ type CancelPaneTab = (typeof CANCEL_PANE_TABS)[number]['value'];
 
 // コメント履歴（モック）。解約申請〜承認のやり取りを新しい順に表示する。
 // status は「その操作の後の解約ステータス」。支払詳細のコメント履歴
-//（shared/CommentHistoryPane）と同じく、承認・検印の流れを履歴で追えるようにする。
+//（shared/common/CommentHistoryPane）と同じく、承認・検印の流れを履歴で追えるようにする。
 // 差戻しは戻された段階をステータス（承認差戻し／検印差戻し）で区別する。
 const CANCELLATION_COMMENT_HISTORY = [
   {
@@ -495,15 +495,14 @@ const effectiveDisplayStatus = (data?: AmortizationListData): string => {
   return data?.status ?? '';
 };
 
-// 入力不可のとき、入力コントロールを出さない項目（日付選択）の表示。
-// 他ペインの非活性表示（bg-gray-100／border-gray-200／text-gray-500）に合わせる。
-function PaneReadOnlyBox({
-  value,
-  className = '',
-}: {
+interface PaneReadOnlyBoxProps {
   value: string;
   className?: string;
-}) {
+}
+
+// 入力不可のとき、入力コントロールを出さない項目（日付選択）の表示。
+// 他ペインの非活性表示（bg-gray-100／border-gray-200／text-gray-500）に合わせる。
+function PaneReadOnlyBox({ value, className = '' }: PaneReadOnlyBoxProps) {
   return (
     <div
       className={`h-8 flex items-center rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 ${className}`}
@@ -526,6 +525,13 @@ const parseDateString = (dateStr: string): Date | null => {
   return null;
 };
 
+interface DateCalendarInputProps {
+  value: string;
+  onChange: (v: string) => void;
+  // 入力欄の幅（既定 w-36。検索条件では列の幅いっぱいにするため w-full を渡す）
+  className?: string;
+}
+
 // 解約情報ペインの日付入力（カレンダーで日付を選ぶ・YYYY/MM/DD）。
 // 未入力（ブランク）を許容する。クリアは共通の年月ピッカー（MonthYearPicker）と
 // 揃えて、入力欄の右端に重ねた×ボタンで行う（値があるときだけ表示する）。
@@ -533,10 +539,8 @@ const parseDateString = (dateStr: string): Date | null => {
 function DateCalendarInput({
   value,
   onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+  className = 'w-36',
+}: DateCalendarInputProps) {
   const [open, setOpen] = useState(false);
   const selected = parseDateString(value) ?? undefined;
   const showClear = !!value;
@@ -544,15 +548,17 @@ function DateCalendarInput({
     <Popover open={open} onOpenChange={setOpen}>
       {/* クリア（×）はトリガーの入れ子ボタンにできないため、
           相対配置のラッパー内でトリガーの右側へ重ねて配置する。 */}
-      <div className="relative">
+      <div className={`relative ${className}`}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={`flex h-9.5 w-36 items-center justify-between rounded-md border border-gray-400 bg-white px-3 text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+            className={`flex h-9.5 w-full items-center justify-between rounded-md border border-gray-400 bg-white px-3 text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
               showClear ? 'pr-8' : ''
             }`}
           >
-            <span className={value ? '' : 'text-gray-400'}>
+            <span
+              className={`min-w-0 truncate ${value ? '' : 'text-gray-400'}`}
+            >
               {value || 'YYYY/MM/DD'}
             </span>
             <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
@@ -562,11 +568,12 @@ function DateCalendarInput({
           <button
             type="button"
             aria-label="日付をクリア"
+            title="日付をクリア"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange('')}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -605,7 +612,7 @@ const PaymentNoRenderer = (
       type="button"
       variant="link"
       size="sm"
-      className="h-auto p-0"
+      className="h-auto p-0 text-blue-700"
       onClick={() => context.onOpenPaymentDetail(data)}
       aria-label={`支払No ${data.paymentNo} の支払詳細を開く`}
     >
@@ -642,29 +649,15 @@ const CancellationButtonRenderer = (
     ? BUTTON_STYLES.outline
     : BUTTON_STYLES.approve;
   const label = isBeforeCancellation ? '解約' : '参照';
+  // セルは flex にしない（→ 02 §7）。縦中央寄せはレンダラーのルートで行う
   return (
-    <button
-      className={`${colorClass} h-7 flex-shrink-0 rounded-full px-3 py-0.5 text-sm font-medium whitespace-nowrap transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none`}
-      onClick={() => context.onCancel(data)}
-    >
-      {label}
-    </button>
-  );
-};
-
-// 解約ステータスセルレンダラー（アイコン＋文言）
-const StatusRenderer = (
-  props: CustomCellRendererProps<AmortizationListData>
-) => {
-  const config = STATUS_CONFIG[props.value];
-  if (!config) {
-    return <span className="text-gray-900">{props.value}</span>;
-  }
-  const Icon = config.icon;
-  return (
-    <div className="flex items-center gap-1 overflow-hidden">
-      <Icon className={`h-5 w-5 flex-shrink-0 ${config.className}`} />
-      <span className="text-gray-900 truncate">{props.value}</span>
+    <div className="flex h-full items-center justify-center">
+      <button
+        className={`${colorClass} h-7 flex-shrink-0 rounded-full px-3 py-0.5 text-sm font-medium whitespace-nowrap transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+        onClick={() => context.onCancel(data)}
+      >
+        {label}
+      </button>
     </div>
   );
 };
@@ -827,7 +820,7 @@ export default function LocationContractAmortizationList({
     useState<AmortizationListData[]>(generateSampleData());
 
   // 解約情報ペイン（右スライド）の開閉・対象行・入力値
-  const [cancelPaneOpen, setCancelPaneOpen] = useState(false);
+  const [isCancelPaneOpen, setIsCancelPaneOpen] = useState(false);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cxDate, setCxDate] = useState(''); // 解約日
   const [cxPostingMonth, setCxPostingMonth] = useState(''); // 計上月
@@ -887,7 +880,7 @@ export default function LocationContractAmortizationList({
 
   // 解約情報ペインを閉じる（ペインの✕・保存・取消・解約ステータス操作で共用）。
   const handleCloseCancelPane = () => {
-    setCancelPaneOpen(false);
+    setIsCancelPaneOpen(false);
   };
 
   // 解約情報ペインの操作ボタン（申請・引戻し・承認・検印・差戻し）押下：
@@ -984,7 +977,7 @@ export default function LocationContractAmortizationList({
     setCxCollectionDate(hasInfo ? (data.collectionScheduledDate ?? '') : '');
     setCxComment(''); // コメントは毎回入力するためブランクで開く
     setCancelPaneTab('info'); // 開くたびに解約情報タブから表示する
-    setCancelPaneOpen(true);
+    setIsCancelPaneOpen(true);
   };
 
   // 解約情報ペインの入力内容を対象行へ反映する値。契約状況を「解約処理中」にすることで
@@ -1180,7 +1173,8 @@ export default function LocationContractAmortizationList({
       {
         headerName: '解約ステータス',
         field: 'status',
-        cellRenderer: StatusRenderer,
+        cellRenderer: StatusIconCellRenderer,
+        cellRendererParams: { statusConfig: STATUS_CONFIG },
         cellClass: 'cell-left',
         // 表示値は契約状況から決定する（操作ボタン列と共用のヘルパー）。
         valueGetter: (params) => effectiveDisplayStatus(params.data),
@@ -1359,14 +1353,12 @@ export default function LocationContractAmortizationList({
         suppressMovable: true,
         resizable: false,
         // ボタン名が2文字（解約／参照）のため、ボタンとヘッダーが収まる最小限の幅にする
-        width: 80,
-        minWidth: 80,
-        maxWidth: 80,
+        width: 64,
+        minWidth: 64,
+        maxWidth: 64,
         suppressSizeToFit: true,
+        cellClass: 'cell-center',
         cellStyle: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           padding: '0',
         },
       },
@@ -1384,7 +1376,7 @@ export default function LocationContractAmortizationList({
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当て、
     // 横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="ロケ契約(償却)一覧" />
@@ -1412,54 +1404,48 @@ export default function LocationContractAmortizationList({
                   3行目＝事業場・部署・営業担当者／4行目＝申請事業場・申請部署・申請者 */}
               <div className={SEARCH_GRID_CLASS}>
                 {/* 1行目1〜2列目: 発生日（開始 ～ 終了）。年月日（YYYY/MM/DD）で範囲指定する。
-                    開始は1列目・終了は2列目の入力欄の左の線にそろえ、「～」は真ん中に置く（→ 05）。
-                    入力欄の幅・カレンダーの操作は解約情報ペインの解約日と揃えるため、
+                    開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05）。
+                    カレンダーの操作は解約情報ペインの解約日と揃えるため、
                     同じ DateCalendarInput を使う（未指定で絞り込まないので×でクリアできる）。 */}
-                {/* DateCalendarInput は id/aria-label 非対応のため範囲をグループ化して名前付け */}
-                <div
-                  className="col-span-2 flex items-center gap-2"
-                  role="group"
-                  aria-label="検索発生日の範囲"
-                >
-                  <label className={SEARCH_LABEL_CLASS}>発生日</label>
-                  <DateCalendarInput
-                    value={accrualDateStart}
-                    onChange={setAccrualDateStart}
-                  />
-                  <span className="flex-1 text-center text-sm text-gray-700">
-                    ～
-                  </span>
-                  <div className="flex shrink-0 w-[calc(50%-6.75rem)]">
+                <SearchRangeField
+                  label="発生日"
+                  groupLabel="検索発生日の範囲"
+                  start={
                     <DateCalendarInput
+                      className="w-full"
+                      value={accrualDateStart}
+                      onChange={setAccrualDateStart}
+                    />
+                  }
+                  end={
+                    <DateCalendarInput
+                      className="w-full"
                       value={accrualDateEnd}
                       onChange={setAccrualDateEnd}
                     />
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* 1行目3〜4列目: 償却期間（開始年月日 ～ 終了年月日）。年月日（YYYY/MM/DD）で範囲指定する。
                     発生日と同じく、解約日と揃えた DateCalendarInput を使う。 */}
-                {/* DateCalendarInput は id/aria-label 非対応のため範囲をグループ化して名前付け */}
-                <div
-                  className="col-span-2 flex items-center gap-2"
-                  role="group"
-                  aria-label="検索償却期間の範囲"
-                >
-                  <label className={SEARCH_LABEL_CLASS}>償却期間</label>
-                  <DateCalendarInput
-                    value={amortPeriodStart}
-                    onChange={setAmortPeriodStart}
-                  />
-                  <span className="flex-1 text-center text-sm text-gray-700">
-                    ～
-                  </span>
-                  <div className="flex shrink-0 w-[calc(50%-6.75rem)]">
+                <SearchRangeField
+                  label="償却期間"
+                  groupLabel="検索償却期間の範囲"
+                  start={
                     <DateCalendarInput
+                      className="w-full"
+                      value={amortPeriodStart}
+                      onChange={setAmortPeriodStart}
+                    />
+                  }
+                  end={
+                    <DateCalendarInput
+                      className="w-full"
                       value={amortPeriodEnd}
                       onChange={setAmortPeriodEnd}
                     />
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* 1行目5列目: 契約状況 */}
                 <div className="flex items-center gap-2">
@@ -1511,11 +1497,16 @@ export default function LocationContractAmortizationList({
                   role="group"
                   aria-labelledby="label-retailer"
                 >
-                  <label id="label-retailer" className={SEARCH_LABEL_CLASS}>
+                  <label
+                    htmlFor="search-retailer"
+                    id="label-retailer"
+                    className={SEARCH_LABEL_CLASS}
+                  >
                     販売店
                   </label>
                   <div className="flex-1 min-w-0">
                     <SingleCombobox
+                      id="search-retailer"
                       options={RETAILER_OPTIONS}
                       value={retailer}
                       onChange={setRetailer}
@@ -1532,6 +1523,7 @@ export default function LocationContractAmortizationList({
                   aria-labelledby="label-tertiary-store"
                 >
                   <label
+                    htmlFor="search-tertiary-store"
                     id="label-tertiary-store"
                     className={SEARCH_LABEL_CLASS}
                   >
@@ -1539,6 +1531,7 @@ export default function LocationContractAmortizationList({
                   </label>
                   <div className="flex-1 min-w-0">
                     <SingleCombobox
+                      id="search-tertiary-store"
                       options={TERTIARY_STORE_OPTIONS}
                       value={tertiaryStore}
                       onChange={setTertiaryStore}
@@ -1555,6 +1548,7 @@ export default function LocationContractAmortizationList({
                   aria-labelledby="label-primary-store"
                 >
                   <label
+                    htmlFor="search-primary-store"
                     id="label-primary-store"
                     className={SEARCH_LABEL_CLASS}
                   >
@@ -1562,6 +1556,7 @@ export default function LocationContractAmortizationList({
                   </label>
                   <div className="flex-1 min-w-0">
                     <SingleCombobox
+                      id="search-primary-store"
                       options={PRIMARY_STORE_OPTIONS}
                       value={primaryStore}
                       onChange={setPrimaryStore}
@@ -1751,7 +1746,7 @@ export default function LocationContractAmortizationList({
         <CollapsibleCard
           title="ロケ契約(償却)一覧"
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           contentClassName="p-2 flex flex-col flex-1 min-h-0"
         >
           {/* 当グリッド専用スタイル：1列目が実データ列（販売店）のため、共通の
@@ -1802,7 +1797,7 @@ export default function LocationContractAmortizationList({
         {/* 解約情報ペイン（右スライド）。グリッドの解約情報ボタンで開き、「保存」押下で入力内容を対象行へ反映する。
             ペイン内はタブで「解約情報」と「コメント履歴」を切り替える。 */}
         <RightPane
-          open={cancelPaneOpen}
+          open={isCancelPaneOpen}
           onClose={handleCloseCancelPane}
           title="解約情報"
           initialWidth={30}

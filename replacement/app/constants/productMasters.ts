@@ -127,7 +127,7 @@ export const CONTAINER_CAPACITY_MASTER: MasterItem[] = [
 // seihan由来の商品は「seihan × 0.57」、itemBaraPrice/opeBaraPrice が固定値（70/65）の商品のうち
 // 旧原価が原価率98%を超えていた外れ値は「ext × 0.58」で算出した（目標原価率55〜60%）。
 // 個別に costOfSales を変更する場合はこの基準を崩さないこと。
-// 回帰ガード: src/app/utils/aggregationNonNegative.test.ts
+// 回帰ガード: src/app/utils/sales-plan/common/aggregationNonNegative.test.ts
 // 一般卸メッシュ
 export const WHOLESALE_MESH_OPTIONS: WholesaleMeshOption[] = [
   {
@@ -652,7 +652,7 @@ export const WHOLESALE_MESH_OPTIONS: WholesaleMeshOption[] = [
 // seihan由来の商品は「seihan × 0.57」、itemBaraPrice/opeBaraPrice が固定値（70/65）の商品のうち
 // 旧原価が原価率98%を超えていた外れ値は「ext × 0.58」で算出した（目標原価率55〜60%）。
 // 個別に costOfSales を変更する場合はこの基準を崩さないこと。
-// 回帰ガード: src/app/utils/aggregationNonNegative.test.ts
+// 回帰ガード: src/app/utils/sales-plan/common/aggregationNonNegative.test.ts
 // サマリ商品名（全画面共通の全件リスト）
 export const SUMMARY_PRODUCT_OPTIONS: SummaryProductOption[] = [
   {

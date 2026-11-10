@@ -9,6 +9,26 @@ import React, {
 } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
+  ColDef,
+  ICellRendererParams,
+  RowClassParams,
+  GridApi,
+  GridReadyEvent,
+  GetRowIdParams,
+  FilterChangedEvent,
+  RowDataUpdatedEvent,
+} from 'ag-grid-community';
+
+import { Trash2, Copy, FileSearch } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { planDetailTotalRatesOf } from '../../../../utils/sales-plan/plan-detail/planDetailTotalRates';
+import {
+  campaignComboOptions,
+  registeredCampaignName,
+} from '../../../../utils/sales-plan/simulation/simulationCampaignName';
+
+import {
   GRID_COLORS,
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -19,6 +39,8 @@ import {
   requiredEmptyCellStyle,
   useFormulaSourceHighlight,
   useGridColumnState,
+  useChangedCells,
+  useLinkedCellUndo,
   withHeaderTooltips,
   copySourceLeftBorder,
   CopySourceLegend,
@@ -26,6 +48,7 @@ import {
   type FormulaDefs,
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
+  useRevealNewRows,
 } from '../../../grid';
 import { DeltaCell, formatDelta, deltaTextColor } from '../../../ui/delta-cell';
 import {
@@ -35,35 +58,27 @@ import {
   roundPlanNumber,
   planAmountFormatter,
   planRateFormatter,
-} from '../../../../utils/planDetailNumberFormat';
-import {
-  ColDef,
-  ICellRendererParams,
-  IRowNode,
-  RowClassParams,
-  GridApi,
-  GridReadyEvent,
-} from 'ag-grid-community';
-
-import { Trash2, Copy, FileSearch } from 'lucide-react';
-import { toast } from 'sonner';
+} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
 import { BottomPane } from '../../../ui/bottom-pane';
-import { SimulationReferenceTable } from '../../../shared/SimulationReferenceTable';
+import { SimulationReferenceTable } from '../../../shared/sales-plan/simulation/SimulationReferenceTable';
 import {
   DETAIL_PERIOD_FROM_ID,
   SimulationPeriodPicker,
-} from '../../../shared/SimulationPeriodPicker';
+} from '../../../shared/sales-plan/simulation/SimulationPeriodPicker';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   CARD_TITLE_CLASS,
   FORM_LABEL_CLASS,
+  CARD_CLASS,
 } from '../../../../../styles/commonStyles';
 import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import {
   canSelectConfirm,
   confirmBlockReason,
-} from '../../../../utils/simulationConfirmRules';
+  hasSameSimulationKey,
+  simulationKeyDuplicateMessage,
+} from '../../../../utils/sales-plan/simulation/simulationConfirmRules';
 
 import { MonthYearCellEditor } from '../../../ui/month-year-cell-editor';
 import {
@@ -81,13 +96,13 @@ import {
   PROMOTION_NONE_LABEL,
   CATEGORY_LABELS_MARGIN,
 } from '../../../../constants/promotionCategories';
-import { buildCategoryChangeRows } from '../../../../utils/productCategoryChange';
-import { stripCopySource } from '../../../../utils/copySourceMarks';
-import { planDetailCodeColumns } from '../../../shared/planDetailCodeColumns';
+import { buildCategoryChangeRows } from '../../../../utils/sales-plan/common/productCategoryChange';
+import { stripCopySource } from '../../../../utils/common/copySourceMarks';
+import { planDetailCodeColumns } from '../../../shared/sales-plan/common/planDetailCodeColumns';
 import {
   heldRowKeyOf,
   isRowInActiveTab,
-} from '../../../../utils/heldCategoryRows';
+} from '../../../../utils/sales-plan/simulation/heldCategoryRows';
 import {
   managementClassFromCode,
   campaignClassFromCode,
@@ -115,12 +130,19 @@ import {
   campaignCodeComboOptions,
   campaignCodeNameComboOptions,
 } from '../../../../constants/comboFieldOptions';
-import { CURRENT_USER_NAME } from '../../../../constants/planBasicInfoMockData';
-import { addMonths, isInPeriod, withYear } from '../../../../utils/yearMonth';
+import {
+  CURRENT_USER_NAME,
+  SIMULATION_CLOSED_MONTHS,
+} from '../../../../constants/planBasicInfoMockData';
+import {
+  addMonths,
+  isInPeriod,
+  withYear,
+} from '../../../../utils/common/yearMonth';
 import {
   isFixedMarginMonth,
   isNetInputMonth,
-} from '../../../../utils/tradeSystem';
+} from '../../../../utils/sales-plan/simulation/tradeSystem';
 import { SUMMARY_PRODUCT_OPTIONS } from '../../../../constants/productMasters';
 import {
   makeExternalUnitPriceOf,
@@ -129,8 +151,8 @@ import {
   makeDetailValueOf,
   makeDetailTooltip,
   deltaResult,
-} from '../../../../utils/formulaCellHelpers';
-import { simulationManagementProfitOf } from '../../../../utils/simulationManagementProfit';
+} from '../../../../utils/sales-plan/common/formulaCellHelpers';
+import { simulationManagementProfitOf } from '../../../../utils/sales-plan/simulation/simulationManagementProfit';
 
 // 拡売費の管理コード／施策コードの全候補（管理区分・施策区分で絞り込んで使う）
 const MGMT_CODE_LIST = EXPENSE_MANAGEMENT_CODE_OPTIONS.map((o) => o.value);
@@ -233,30 +255,16 @@ export interface ProductData {
   _giftLast?: boolean;
 }
 
-// 新規行の強調表示。フォーカスを当てる列（先頭の対象年月）と、行フラッシュの時間。
-// 一瞬で消えると見落とすため、既定（0.5秒）より長めに設定する。
+// 新規行の強調表示でフォーカスを当てる列（先頭の対象年月）。
+// 強調（スクロール・フラッシュ）は共通の useRevealNewRows が行う（→ 02 変更履歴）。
 const REVEAL_FOCUS_COLUMN = 'targetMonth';
-const REVEAL_FLASH_DURATION_MS = 1500;
-const REVEAL_FADE_DURATION_MS = 800;
-// ページ側スクロールの判定に使う値：行高を取得できないときの既定値と、寄せるときの余白（px）。
-const REVEAL_FALLBACK_ROW_HEIGHT_PX = 36; // 共通テーマの行の高さ（画面設計標準 4.7）
-const REVEAL_TOP_GAP_PX = 8;
 
-// 要素の最も近いスクロール可能な祖先。ページ側で動かす対象を1つに限定するために使う。
-const scrollParentOf = (el: HTMLElement): HTMLElement | null => {
-  let parent: HTMLElement | null = el.parentElement;
-  while (parent) {
-    const overflowY = window.getComputedStyle(parent).overflowY;
-    if (
-      (overflowY === 'auto' || overflowY === 'scroll') &&
-      parent.scrollHeight > parent.clientHeight + 1
-    ) {
-      return parent;
-    }
-    parent = parent.parentElement;
-  }
-  return null;
-};
+// 明細行の一意ID（Undo履歴を維持するためモジュール直下で参照を固定する → 02 §7.1）。
+// 編集対象フィールド（metaBrand/summaryProduct/section）は含めない。
+// 含めると編集で行IDが変わり、変更セルのハイライト記録（useChangedCells）
+// が孤立する。id だけで一意（コピー行の id は copy-... で一意採番）。
+const getDetailRowId = (params: GetRowIdParams<ProductData>) =>
+  String(params.data.id);
 
 // 不採用行のグレーアウト背景：readonly(GRID_COLORS.readonly)より薄い灰。
 // 不採用は変更可能なため、他のグレーアウトと区別する（gridStyles は変更しない）。
@@ -289,6 +297,9 @@ const isFixedMarginRow = (data: any): boolean =>
   isFixedMarginMonth(data?.targetMonth);
 const isNetInputRow = (data: any): boolean =>
   isNetInputMonth(data?.targetMonth);
+// シミュレーション更新KEYの単価：NET入力はNET、固定マージン率は納価
+const usesNetAsKey = (row: { targetMonth?: string }): boolean =>
+  isNetInputRow(row);
 
 // 数値変換・整形（モジュール内ヘルパー）。
 const pmNum = (str?: string): number => {
@@ -320,6 +331,22 @@ const pmFmt = (
   const body = Number.isInteger(num) ? String(num) : num.toFixed(2);
   return percent ? `${body}%` : body;
 };
+
+// 再計算（computeDerived）で書き換わる算出列。連動セルの Undo（useLinkedCellUndo）で
+// 主セルと一緒に退避・復元する従属セルとして使う（→ 02 §7.3）。
+const DERIVED_FIELDS: (keyof ProductData)[] = [
+  'net',
+  'margin',
+  'discount',
+  'externalSales',
+  '_volumeAdd',
+  '_condition',
+  '_tradeProfit',
+  '_directFixed',
+  'netSales',
+  'managementProfitAmount',
+  'managementProfitRate',
+];
 
 // 補足2-1 パターン別に NET／マージン率／値入率／社外売上高／売上高／管理利益を算出（data を直接更新）。
 //  Pattern A（固定マージン率）：マージン率=固定(marginBefore)、NET=納価−納価×マージン率
@@ -516,6 +543,12 @@ const EMPTY_EXPENSE_FIELDS = {
 
 export interface DetailTableHandle {
   addCopiedRow: (data: ProductData) => void;
+  /** 同じ対象年月・同じ企画の明細へ企画名を連動する */
+  syncCampaignName: (
+    targetMonth: string,
+    campaign: string,
+    campaignName: string
+  ) => void;
   /** 既存行をテンプレートに新規行を合計行直下へ追加（明細追加用） */
   addNewRow: (overrides: Partial<ProductData> & { section: string }) => void;
   /** id 一致行を更新（明細編集用） */
@@ -582,14 +615,14 @@ const THIS_YEAR = new Date().getFullYear();
 // 行ごとに「固定マージン率（NETが算出）」「NET入力（マージン率が算出）」が入れ替わるため、
 // net / margin は isFormula で行単位に判定する。
 const SIM_COLUMN_LABELS: Record<string, string> = {
-  plan: '計画函数(変更後)',
-  planBefore: '計画函数(変更前)',
-  net: 'NET(変更後)',
-  netBefore: 'NET(変更前)',
-  planPrice: '納価(変更後)',
-  planPriceBefore: '納価(変更前)',
-  price: '売価(変更後)',
-  priceBefore: '売価(変更前)',
+  plan: '計画函数(SIM値)',
+  planBefore: '計画函数(計画値)',
+  net: 'NET(SIM値)',
+  netBefore: 'NET(計画値)',
+  planPrice: '納価(SIM値)',
+  planPriceBefore: '納価(計画値)',
+  price: '売価(SIM値)',
+  priceBefore: '売価(計画値)',
   margin: 'マージン率',
   quantity: '入数',
   externalSales: '社外売上高',
@@ -599,8 +632,8 @@ const SIM_COLUMN_LABELS: Record<string, string> = {
   _tradeProfit: '売買差益',
   _directFixed: '直接固定費',
   managementProfitAmount: '管理利益額',
-  exp1PlannedAmountBefore: '拡売費①計画金額(変更前)',
-  exp2PlannedAmountBefore: '拡売費②計画金額(変更前)',
+  exp1PlannedAmountBefore: '拡売費①計画金額',
+  exp2PlannedAmountBefore: '拡売費②計画金額',
   __unitPrice: '社外売単価',
 };
 
@@ -713,7 +746,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     },
     ref
   ) {
-    // State management for dynamic data
+    // 明細データ（グリッドの行）の状態
     const [regularProductsData, setRegularProductsData] = useState<
       Array<ProductData>
     >(() => withTargetYear(REGULAR_PRODUCTS_DATA, THIS_YEAR).map(initSimRow));
@@ -900,7 +933,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [aggregationPeriodData]);
 
-    // State for section tab filter
+    // 区分タブの絞り込み
     const [activeTab, setActiveTab] = useState<string>('all');
     // 表示中のタブで商品区分を変更した行。変更直後に行が消えると利用者が混乱するため、
     // 別の商品区分タブへ切り替えるまでは表示中のタブに残し、切替時に変更後のタブへ移す。
@@ -917,78 +950,16 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       (() => void) | null
     >(null);
 
-    // 参照用下ペイン（自計画を参照し、コピー／ドラッグ&ドロップで明細へ行追加）
-    const [showReferencePane, setShowReferencePane] = useState(false);
-    // ドラッグ&ドロップのドロップ先となる明細グリッドの API
+    // 参照用下ペイン（自計画を参照し、コピーで明細へ行追加）
+    const [isReferencePaneShown, setIsReferencePaneShown] = useState(false);
+    // 明細グリッドの API
     const mainGridApiRef = useRef<GridApi | null>(null);
 
     // ── 新規行（コピー）の強調表示 ──
-    // 行追加は state 更新のため、追加直後はまだグリッドに行が無い。
-    // ここへ行IDを積み、グリッドの onRowDataUpdated（＝行が反映された後）で強調する。
-    const pendingRevealIdsRef = useRef<string[]>([]);
-
-    // 新規行を可視域へ送り、行全体をフラッシュしてフォーカスを移す。
-    // スクロールは2層必要：グリッドはページ（<main>）の内側にあり、下ペイン表示中は
-    // 画面下部がペインで覆われるため、グリッド内部のスクロールだけでは見えないことがある。
-    // タブ・フィルタで新規行が表示対象外のときは行が無いため何もしない。
-    const revealPendingRows = useCallback(() => {
-      const ids = pendingRevealIdsRef.current;
-      if (ids.length === 0) return;
-      const api = mainGridApiRef.current;
-      if (!api) return;
-      pendingRevealIdsRef.current = [];
-      // 行が追加された直後はセルがまだ描画されておらず flashCells が効かないため、
-      // 描画が済む次フレームまで待ってから強調・スクロールを行う。
-      window.requestAnimationFrame(() => {
-        const nodes = ids
-          .map((id) => api.getRowNode(id))
-          .filter((n): n is IRowNode<ProductData> => !!n && n.rowIndex != null);
-        if (nodes.length === 0) return;
-        const headIndex = nodes[0].rowIndex as number;
-
-        // 層2（先）：グリッド内部で新規行を先頭へ送る。これで新規行は見出し行の直下に来る。
-        api.ensureIndexVisible(headIndex, 'top');
-
-        // 層1（後）：新規行が画面で見えていなければ、ページ側のスクロール領域を動かす。
-        // scrollIntoView はスクロール可能な祖先をすべて動かし <main> まで動いてしまうため、
-        // 対象のスクロール領域だけを scrollTop で調整する。
-        const gridEl = gridContainerRef.current;
-        const scroller = gridEl ? scrollParentOf(gridEl) : null;
-        if (gridEl && scroller) {
-          // 下ペイン表示中は画面下部が覆われる。<main> の padding-bottom がその高さ
-          // （下ペイン＋フッター）になるため、これを除いた位置を可視域の下端とみなす。
-          const main = gridEl.closest('main');
-          const padBottom = main
-            ? parseFloat(window.getComputedStyle(main).paddingBottom) || 0
-            : 0;
-          const clearBottom =
-            (main ?? scroller).getBoundingClientRect().bottom - padBottom;
-          const scrollerTop = scroller.getBoundingClientRect().top;
-          const headerHeight =
-            gridEl.querySelector('.ag-header')?.getBoundingClientRect()
-              .height ?? 0;
-          const rowHeight =
-            gridEl.querySelector('.ag-row')?.getBoundingClientRect().height ??
-            REVEAL_FALLBACK_ROW_HEIGHT_PX;
-          // ensureIndexVisible 済みのため、新規行はグリッド見出しの直下にある
-          const rowTop = gridEl.getBoundingClientRect().top + headerHeight;
-          // 行が半分以上隠れているときだけ、行が上端へ来るようにスクロールする。
-          // 下ペイン展開中は可視域が見出し行＋1行分に満たないため、少しでも見えていれば
-          // 動かさない（動かすと列見出しが画面外へ出てしまう）。
-          if (rowTop < scrollerTop || rowTop + rowHeight / 2 > clearBottom) {
-            scroller.scrollTop += rowTop - scrollerTop - REVEAL_TOP_GAP_PX;
-          }
-        }
-
-        // 行全体をフラッシュし、先頭セルへフォーカスを移す
-        api.setFocusedCell(headIndex, REVEAL_FOCUS_COLUMN);
-        api.flashCells({
-          rowNodes: nodes,
-          flashDuration: REVEAL_FLASH_DURATION_MS,
-          fadeDuration: REVEAL_FADE_DURATION_MS,
-        });
-      });
-    }, []);
+    // 行追加は state 更新のため、追加直後はまだグリッドに行が無い。markRows で行IDを記録し、
+    // グリッドの onRowDataUpdated（＝行が反映された後）で可視域へ送り、行全体をフラッシュして
+    // 先頭セルへフォーカスを移す（下ペイン表示中のページ側のスクロールも共通フックが行う）。
+    const reveal = useRevealNewRows({ focusColumn: REVEAL_FOCUS_COLUMN });
 
     // 明細グリッドのコンテナ（コピー元ペインを開いた際、グリッドヘッダーを
     // ヘッダーメニュー直下へスクロールするための参照）
@@ -999,7 +970,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // ※ scrollIntoView は main／ドキュメントまでスクロールして sticky ヘッダーの表示を
     //   乱すため使わず、画面内のスクロール領域（最も近いスクロール可能な祖先）だけを動かす。
     useEffect(() => {
-      if (!showReferencePane) return;
+      if (!isReferencePaneShown) return;
       const id = window.setTimeout(() => {
         const gridEl = gridContainerRef.current;
         if (!gridEl) return;
@@ -1021,15 +992,33 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         scroller.scrollBy({ top: delta, behavior: 'smooth' });
       }, 350);
       return () => window.clearTimeout(id);
-    }, [showReferencePane]);
+    }, [isReferencePaneShown]);
 
     // 「反映済を除く」フィルター（デフォルトON）
-    const [excludeReflected, setExcludeReflected] = useState(true);
+    const [shouldExcludeReflected, setShouldExcludeReflected] = useState(true);
 
     // 「不採用を除く」フィルター（デフォルトON）
-    const [excludeRejected, setExcludeRejected] = useState(true);
+    const [shouldExcludeRejected, setShouldExcludeRejected] = useState(true);
 
-    // Handle adding new row
+    // 連動セル（拡売費の管理区分⇔管理コード／施策区分⇔施策コード）の Undo/Redo を、
+    // 主セル1回で従属セルごと一括・厳密に戻す共通フック（→ 02 §7.3）。
+    const { makeHandler: makeLinkedHandler, clearCache: clearLinkedCache } =
+      useLinkedCellUndo<ProductData>();
+
+    // グリッド再構築トークン。セル編集（AG Grid が node.data を直接更新済み）以外の
+    // 値更新（明細編集ペイン・ギフトセット更新・保存・未保存入力の破棄など）は、行の構造が
+    // 変わらず rowStructureSignature が変化しないため、このトークンを進めて rowData を
+    // 明示的に作り直し、状態の新値をグリッドへ反映する（→ 02 §7.1）。
+    // ※作り直しで rowData 参照が変わり Undo 履歴はクリアされるが、これらは意図的な
+    //   一括・ペイン操作のため許容する（セル編集の Undo は維持される）。
+    const [gridRebuildToken, setGridRebuildToken] = useState(0);
+    const bumpGridRebuild = useCallback(() => {
+      // 作り直し（保存確定を含む）で行の値が入れ替わるため、連動セルのキャッシュも破棄する。
+      clearLinkedCache();
+      setGridRebuildToken((t) => t + 1);
+    }, [clearLinkedCache]);
+
+    // 行の追加
     const handleAddRow = useCallback(
       (section: string) => {
         if (onOpenAddDetail) {
@@ -1039,7 +1028,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [onOpenAddDetail]
     );
 
-    // Handle delete click
+    // 削除ボタンのクリック
     const handleDeleteClick = useCallback(
       (data: ProductData) => {
         if (onOpenDeleteDetail) {
@@ -1049,44 +1038,73 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [onOpenDeleteDetail]
     );
 
-    // Handle copy row
-    const handleCopyRow = useCallback((data: ProductData) => {
-      // Create a deep copy of the row data
-      const copiedData: ProductData = {
-        ...data,
-        // コピー行には一意な id を再採番（getRowId 衝突・編集時の源行巻き込みを防止）
-        id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-        // 挿入順を採番。商品区分によらず表示時は合計行直下（先頭）へ並ぶ
-        _addedSeq: Date.now(),
-        // 計画キーはコピー元から引き継ぐ（同一計画の明細として確定排他の対象になる）。
-        // 元行（_planKey 無し）からのコピーは元行 id を計画キーとして共有する。
-        _planKey:
-          data._planKey ??
-          (data.id != null
-            ? `id:${data.id}`
-            : `plan-${Date.now()}-${Math.floor(Math.random() * 1e6)}`),
-        // 拡売費①②はコピー元（明細追加/コピーフォームの入力値）をそのまま引き継ぐ。
-        // 参照ペインからのコピーのみ handleReferenceCopyRow 側で空にする。
-        // 追加・コピーで作られた行の作成者はログインユーザー（コピー元の作成者は引き継がない）。
-        exp1Creator: CURRENT_USER_NAME,
-        exp2Creator: CURRENT_USER_NAME,
-      };
+    // 企画名の連動：同じ対象年月・同じ企画の明細すべて（フィルタで非表示の明細・反映済・不採用も含む）へ反映する。
+    const handleSyncCampaignName = useCallback(
+      (targetMonth: string, campaign: string, campaignName: string) => {
+        if (!campaign) return;
+        const isSameCampaign = (row: ProductData) =>
+          row.targetMonth === targetMonth && row.campaign === campaign;
+        const applyName = (prev: ProductData[]) =>
+          prev.map((row) =>
+            isSameCampaign(row) && row.campaignName !== campaignName
+              ? { ...row, campaignName }
+              : row
+          );
+        setRegularProductsData(applyName);
+        setNewProductsData(applyName);
+        setPromotionProductsData(applyName);
+        setGiftProductsData(applyName);
+        // rowData は値編集で作り直さないため、表示中の行は公式の updateData で更新する（→ 02 §7.1）
+        mainGridApiRef.current?.forEachNode((node) => {
+          if (node.data && isSameCampaign(node.data)) {
+            node.updateData({ ...node.data, campaignName });
+          }
+        });
+      },
+      []
+    );
 
-      // コピーした行を強調対象にする（行反映後に revealPendingRows が拾う）
-      pendingRevealIdsRef.current = [String(copiedData.id)];
+    // 行のコピー
+    const handleCopyRow = useCallback(
+      (data: ProductData) => {
+        // 行データを複製する
+        const copiedData: ProductData = {
+          ...data,
+          // コピー行には一意な id を再採番（getRowId 衝突・編集時の源行巻き込みを防止）
+          id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          // 挿入順を採番。商品区分によらず表示時は合計行直下（先頭）へ並ぶ
+          _addedSeq: Date.now(),
+          // 計画キーはコピー元から引き継ぐ（同一計画の明細として確定排他の対象になる）。
+          // 元行（_planKey 無し）からのコピーは元行 id を計画キーとして共有する。
+          _planKey:
+            data._planKey ??
+            (data.id != null
+              ? `id:${data.id}`
+              : `plan-${Date.now()}-${Math.floor(Math.random() * 1e6)}`),
+          // 拡売費①②はコピー元（明細追加/コピーフォームの入力値）をそのまま引き継ぐ。
+          // 参照ペインからのコピーのみ handleReferenceCopyRow 側で空にする。
+          // 追加・コピーで作られた行の作成者はログインユーザー（コピー元の作成者は引き継がない）。
+          exp1Creator: CURRENT_USER_NAME,
+          exp2Creator: CURRENT_USER_NAME,
+        };
 
-      // 編集ルーティング維持のため行は商品区分ごとの配列へ格納する（表示順は
-      // rowData 側で _addedSeq により合計行直下へ並べ替える）。
-      if (data.section === '定番商品') {
-        setRegularProductsData((prev) => [copiedData, ...prev]);
-      } else if (data.section === '新商品') {
-        setNewProductsData((prev) => [copiedData, ...prev]);
-      } else if (data.section === '特殊商品') {
-        setPromotionProductsData((prev) => [copiedData, ...prev]);
-      } else if (data.section === 'ギフト') {
-        setGiftProductsData((prev) => [copiedData, ...prev]);
-      }
-    }, []);
+        // コピーした行を強調対象にする（行が反映された後に強調される）
+        reveal.markRows([String(copiedData.id)]);
+
+        // 編集ルーティング維持のため行は商品区分ごとの配列へ格納する（表示順は
+        // rowData 側で _addedSeq により合計行直下へ並べ替える）。
+        if (data.section === '定番商品') {
+          setRegularProductsData((prev) => [copiedData, ...prev]);
+        } else if (data.section === '新商品') {
+          setNewProductsData((prev) => [copiedData, ...prev]);
+        } else if (data.section === '特殊商品') {
+          setPromotionProductsData((prev) => [copiedData, ...prev]);
+        } else if (data.section === 'ギフト') {
+          setGiftProductsData((prev) => [copiedData, ...prev]);
+        }
+      },
+      [reveal]
+    );
 
     // 参照表からのコピー：
     // ・企画／企画名／確度は未選択（空＝「ー」表示）
@@ -1176,10 +1194,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           } as ProductData)
         );
         // コピーした3行（上旬/中旬/下旬）すべてを強調対象にする
-        pendingRevealIdsRef.current = rows.map((r) => String(r.id));
+        reveal.markRows(rows.map((r) => String(r.id)));
         setGiftProductsData((prev) => [...rows, ...prev]);
       },
-      []
+      [reveal]
     );
 
     // ギフト：セットの共通項目・各期間の計画(箱数)を更新。
@@ -1209,8 +1227,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             return merged;
           })
         );
+        // セル編集を通らない値更新のため rowData を作り直して新値を反映する。
+        bumpGridRebuild();
       },
-      []
+      [bumpGridRebuild]
     );
 
     // ギフト：セットの現在値を取得（編集ペインの初期表示用）。
@@ -1236,7 +1256,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [giftProductsData]
     );
 
-    // Expose addCopiedRow to parent via ref
+    // 親から ref 経由で addCopiedRow を呼べるようにする
     useImperativeHandle(ref, () => ({
       addCopiedRow: (data: ProductData) => {
         handleCopyRow({ ...data, _copySource: 'detail' });
@@ -1283,6 +1303,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         setNewProductsData(upd);
         setPromotionProductsData(upd);
         setGiftProductsData(upd);
+        // 明細編集ペインの更新はセル編集を通らず node.data が未更新のため、rowData を作り直す。
+        bumpGridRebuild();
       },
       // 明細削除：ギフトはセット単位（giftSetId）、その他は一意な id で除去
       deleteRow: (target: ProductData | ProductData['id']) => {
@@ -1304,6 +1326,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         setGiftProductsData(del);
       },
       addGiftSet: handleAddGiftSet,
+      syncCampaignName: handleSyncCampaignName,
       addCopiedGiftSet: handleAddCopiedGiftSet,
       updateGiftSet: handleUpdateGiftSet,
       getGiftSet,
@@ -1320,8 +1343,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         setNewProductsData(saved.new);
         setPromotionProductsData(saved.promotion);
         setGiftProductsData(saved.gift);
-        changedCellsRef.current.clear();
-        originalCellValuesRef.current.clear();
+        resetChangedCells();
+        // 保存した値（帯の除去を含む）はセル編集を通らないため、rowData を作り直す。
+        bumpGridRebuild();
         setTimeout(
           () => mainGridApiRef.current?.refreshCells({ force: true }),
           0
@@ -1347,7 +1371,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [getGiftSet, handleAddCopiedGiftSet, handleCopyRow]
     );
 
-    // Handle checkbox update for expTarget
+    // 経費対象（expTarget）のチェックの更新
     const handleUpdateRegularProduct = useCallback(
       (updatedData: ProductData) => {
         setRegularProductsData((prev) =>
@@ -1424,10 +1448,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [giftProductsData, activeTab]
     );
 
-    // 編集されたセル（行ID::列ID）の集合。編集後に黄色＋オレンジ枠で強調する。
-    const changedCellsRef = useRef<Set<string>>(new Set());
-    // 各セルの元値（初回編集時に記録）。元値に戻したら強調を解除するため。
-    const originalCellValuesRef = useRef<Map<string, string>>(new Map());
+    // 編集セルの変更ハイライト（黄＋オレンジ枠）：共通フックで変更セル・元値を追跡する（→ 02 §7.2）。
+    // 元値に戻したら強調を解除する。色付けは各列の cellStyle で isCellChanged を見て行う。
+    const { isCellChanged, trackCellChange, resetChangedCells } =
+      useChangedCells();
     // 未保存の入力を破棄し、保存済みの明細へ戻す（詳細の対象期間の変更時）。
     // 編集セルの強調と、商品区分の変更でタブに残している行も解除する。
     const discardUnsavedEdits = () => {
@@ -1437,8 +1461,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       setPromotionProductsData(saved.promotion);
       setGiftProductsData(saved.gift);
       setHeldRowKeys(new Set());
-      changedCellsRef.current.clear();
-      originalCellValuesRef.current.clear();
+      resetChangedCells();
+      // 保存済みの明細へ戻す値はセル編集を通らないため、rowData を作り直す。
+      bumpGridRebuild();
       setTimeout(
         () => mainGridApiRef.current?.refreshCells({ force: true }),
         0
@@ -1456,13 +1481,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         discardUnsavedEdits();
         apply(next);
       });
-    };
-
-    const cellChangeKey = (params: any) =>
-      `${params.node?.id}::${params.column?.getColId?.() ?? params.colDef?.field}`;
-    const isCellChanged = (params: any) => {
-      if (params.data?._isHeader || params.node?.rowPinned) return false;
-      return changedCellsRef.current.has(cellChangeKey(params));
     };
 
     // Yellow: 手入力可能セル
@@ -1543,7 +1561,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       return { backgroundColor: GRID_COLORS.readonly };
     };
 
-    // White with red text for negative values
+    // 白背景・マイナス値は赤字
     const whiteCellStyleWithRedNegative = (params: any) => {
       if (params.data?._isHeader || params.node?.rowPinned) return undefined;
       // 確度が「反映済」「不採用」の場合はグレーアウト
@@ -1681,8 +1699,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       if (num < 0) return `▲${body}`;
       return body;
     };
+    // section に応じた state 同期（連動セルの共通フックの syncState 用）。
+    // フックが node.data 更新・行の再描画を済ませるため state だけを更新し、rowData は作り直さない（→ 02 §7.1）。
+    const syncRowState = (row: ProductData) => {
+      if (row.section === '定番商品') handleUpdateRegularProduct(row);
+      else if (row.section === '新商品') handleUpdateNewProduct(row);
+      else if (row.section === '特殊商品') handleUpdatePromotionProduct(row);
+      else if (row.section === 'ギフト') handleUpdateGiftProduct(row);
+    };
     // section に応じた更新（4分岐の一本化）
     const routeUpdate = (params: any, updatedData: ProductData) => {
+      // rowData は値編集で作り直さない（Undo 履歴を維持する → 02 §7.1）ため、当該ノードの
+      // data を直接更新し行内の全セル（増減・マージン率などの算出列）を再描画する。
+      Object.assign(params.data, updatedData);
+      params.api?.refreshCells({ rowNodes: [params.node], force: true });
       const s = params.data?.section;
       if (s === '定番商品') params.context.updateRegularProduct(updatedData);
       else if (s === '新商品') params.context.updateNewProduct(updatedData);
@@ -1690,32 +1720,32 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         params.context.updatePromotionProduct(updatedData);
       else if (s === 'ギフト') params.context.updateGiftProduct(updatedData);
     };
-    // 変更後セル：入力が +/- 始まりなら変更前からの相対、それ以外は絶対値
+    // 変更後セル：入力値をそのまま変更後の値にする（符号を付けた相対入力は行わない）
     const makeAfterSetter =
       (field: string, isPercent: boolean, digits?: number) => (params: any) => {
-        const before = parseMetric(params.data?.[`${field}Before`]);
         const raw = String(params.newValue ?? '').trim();
         if (raw === '') {
           params.data[field] = '';
           return true;
         }
-        let after: number;
-        if (/^[+-]/.test(raw)) {
-          const d = parseMetric(raw);
-          after = (isNaN(before) ? 0 : before) + (isNaN(d) ? 0 : d);
-        } else {
-          after = parseMetric(raw);
-        }
+        const after = parseMetric(raw);
         if (isNaN(after)) return false;
         params.data[field] = formatMetric(after, isPercent, digits);
         return true;
       };
+    // 増減の基準（変更前）。計画函数は空欄なら0として扱う（10/27 第4回 決定事項21）。
+    // 空欄＝元の計画に無い明細のため、変更後がそのまま「+」の増減になる。
+    // NET・納価・売価は従来どおり（どちらかが空なら増減も空欄）。
+    const deltaBaseOf = (field: string, data: any): number => {
+      const before = parseMetric(data?.[`${field}Before`]);
+      return field === 'plan' && isNaN(before) ? 0 : before;
+    };
     // 増減 = 変更後 − 変更前（保存せず都度算出）
     const makeDeltaGetter =
       (field: string, isPercent: boolean, digits?: number) => (params: any) => {
         if (params.data?._isHeader) return '';
         // 合計行（ピン留め）も「変更後合計 − 変更前合計」で増減合計を算出
-        const before = parseMetric(params.data?.[`${field}Before`]);
+        const before = deltaBaseOf(field, params.data);
         const after = parseMetric(params.data?.[field]);
         if (isNaN(before) || isNaN(after)) return '';
         const dv = after - before;
@@ -1806,7 +1836,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             ? planRateFormatter(m.decimals)
             : planAmountFormatter(m.decimals);
       const afterCol: ColDef = {
-        headerName: `変更後${suffix}`,
+        headerName: `SIM値${suffix}`,
         field: m.field,
         ...GRID_NUMBER_TEXT_FILTER,
         width: m.width,
@@ -1839,7 +1869,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       }
       return [
         {
-          headerName: `変更前${suffix}`,
+          headerName: `計画値${suffix}`,
           field: `${m.field}Before`,
           ...GRID_NUMBER_TEXT_FILTER,
           columnGroupShow: 'open',
@@ -1859,7 +1889,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           filterValueGetter: (params) => {
             const delta =
               parseMetric(params.data?.[m.field]) -
-              parseMetric(params.data?.[`${m.field}Before`]);
+              deltaBaseOf(m.field, params.data);
             return isNaN(delta) ? null : delta;
           },
           columnGroupShow: 'open',
@@ -1926,48 +1956,58 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       return isEmpty ? requiredEmptyCellStyle(base) : base;
     };
 
-    // 納価の同一値制御で「同一行」とみなすキー（6項目が全て一致）。
-    const sameNapaKey = (a: ProductData, b: ProductData) =>
-      a.targetMonth === b.targetMonth &&
-      a.campaign === b.campaign &&
-      a.probability === b.probability &&
-      a.productCategory === b.productCategory &&
-      a.promotion === b.promotion &&
-      a.summaryProduct === b.summaryProduct;
-
-    // 納価（変更後）の valueSetter：対象年月・企画・確度・商品区分・販促区分・
-    // サマリ商品名が全て同一の行が複数存在する場合、納価を他行と同じ値に変更できない。
-    const napaValueSetter = (params: any) => {
-      const prevValue = params.data.planPrice;
-      const ok = makeAfterSetter(
-        'planPrice',
-        false,
-        PLAN_DETAIL_DIGITS.price
-      )(params);
-      if (!ok) return false;
-      // 桁・小数表記の差で誤判定しないよう数値で比較する。
-      const newNum = parseMetric(params.data.planPrice);
-      if (!isNaN(newNum)) {
-        const dup = allDataRef.current.some(
-          (r) =>
-            r.id !== params.data.id &&
-            sameNapaKey(r, params.data) &&
-            parseMetric(r.planPrice) === newNum
-        );
-        if (dup) {
-          params.data.planPrice = prevValue; // 変更を破棄
-          toast.error(
-            '対象年月・企画・確度・商品区分・販促区分・サマリ商品名が同一の明細では、納価を同じ値に設定できません。'
-          );
+    // シミュレーション更新KEYの重複チェック付きの valueSetter を作る（VL-04）。
+    // 企画・確度・NET・納価の入力確定時に、KEYが同じ明細が他にあれば元の値に戻してトーストで知らせる。
+    const withSimulationKeyCheck =
+      (field: keyof ProductData, setValue: (params: any) => boolean) =>
+      (params: any) => {
+        const prevValue = params.data[field];
+        if (!setValue(params)) return false;
+        if (
+          hasSameSimulationKey(params.data, allDataRef.current, usesNetAsKey)
+        ) {
+          params.data[field] = prevValue; // 変更を破棄
+          toast.error(simulationKeyDuplicateMessage('変更'));
           return false;
         }
-      }
+        return true;
+      };
+    const campaignValueSetter = withSimulationKeyCheck('campaign', (params) => {
+      params.data.campaign = params.newValue ?? '';
       return true;
-    };
+    });
+    const probabilityValueSetter = withSimulationKeyCheck(
+      'probability',
+      (params) => {
+        params.data.probability = params.newValue ?? '';
+        return true;
+      }
+    );
+    const netValueSetter = withSimulationKeyCheck(
+      'net',
+      makeAfterSetter('net', false, PLAN_DETAIL_DIGITS.price)
+    );
+    const napaValueSetter = withSimulationKeyCheck(
+      'planPrice',
+      makeAfterSetter('planPrice', false, PLAN_DETAIL_DIGITS.price)
+    );
 
-    // 合計行（ピン留め）は不要のため廃止（シミュレーション詳細は入力主体のため）
+    // 企画を選んだら、同じ対象年月・同じ企画の明細に登録済みの企画名を設定する（無ければ空欄）。
+    // 従属セルの Undo は主セル1回で戻す共通フックに委譲する（→ 02 §7.3）。
+    const handleCampaignChanged = makeLinkedHandler('campaign', {
+      depFields: ['campaignName'],
+      deriveDeps: (value, row) => ({
+        campaignName: registeredCampaignName(
+          allDataRef.current,
+          row.targetMonth,
+          value,
+          row.id
+        ),
+      }),
+      syncState: syncRowState,
+    });
 
-    // Column Definitions
+    // 列定義
     // 拡売費①②の共通列（計画金額～摘要1(社内用)の11列）を生成する。
     // 管理区分・管理コード・施策区分・施策コードは「区分値／コード」列と「名称」列に分け、
     // 行の保持値（管理区分＝名称／管理コード＝コード）から導出して相互に連動させる。
@@ -1977,51 +2017,70 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       params.api?.refreshCells({ rowNodes: [params.node], force: true });
 
     const makeExpenseColumns = (prefix: 'exp1' | 'exp2'): ColDef[] => {
-      // 管理コード（コード列・名称列のいずれか）確定時：管理区分・勘定科目を自動補完
-      const handleMgmtCodeChanged = (params: any) => {
-        const cls = managementClassFromCode(
-          params.data[`${prefix}ManagementCode`]
-        );
-        if (cls) {
-          params.data[`${prefix}ManagementClass`] = cls;
-          params.data[`${prefix}AccountItem`] =
-            EXPENSE_MANAGEMENT_CLASS_OPTIONS.find((o) => o.value === cls)
-              ?.accountItem ?? params.data[`${prefix}AccountItem`];
-        }
-        // 管理区分で管理利益額の費目（ロケ補填・固定費・自販機関連費）が変わるため再計算する
-        recomputeDerived(params.data);
-        refreshExpenseRow(params);
-        routeUpdate(params, { ...params.data });
-      };
-      // 管理区分（区分値列・名称列のいずれか）確定時：該当しない管理コードはクリア
-      const handleMgmtClassChanged = (params: any) => {
-        const cls = params.data[`${prefix}ManagementClass`];
-        const code = params.data[`${prefix}ManagementCode`];
-        if (code && !isManagementCodeInClass(code, cls)) {
-          params.data[`${prefix}ManagementCode`] = '';
-        }
-        // 管理区分で管理利益額の費目（ロケ補填・固定費・自販機関連費）が変わるため再計算する
-        recomputeDerived(params.data);
-        refreshExpenseRow(params);
-        routeUpdate(params, { ...params.data });
-      };
+      // 以下4つの連動は共通フック（useLinkedCellUndo）に委譲する（→ 02 §7.3）。従属セルは
+      // Undo スタックに積まれず、Ctrl+Z 1回で主セルと従属セル（自動補完・クリアした区分／コード、
+      // 管理利益額などの算出列）がまとめて元に戻る。コード列・名称列のどちらから確定しても
+      // 同じ結果になるよう、確定値（名称列では名称）ではなく行データの値を基準に導出する。
+      const mgmtClassField = `${prefix}ManagementClass` as keyof ProductData;
+      const mgmtCodeField = `${prefix}ManagementCode` as keyof ProductData;
+      const accountItemField = `${prefix}AccountItem` as keyof ProductData;
+      const campaignClassField = `${prefix}CampaignClass` as keyof ProductData;
+      const campaignCodeField = `${prefix}CampaignCode` as keyof ProductData;
+      // 管理コード（コード列・名称列のいずれか）確定時：管理区分・勘定科目を自動補完し、
+      // 管理区分で管理利益額の費目（ロケ補填・固定費・自販機関連費）が変わるため再計算する
+      const handleMgmtCodeChanged = makeLinkedHandler(mgmtCodeField, {
+        depFields: [mgmtClassField, accountItemField, ...DERIVED_FIELDS],
+        deriveDeps: (_value, row) => {
+          const next: any = { ...row };
+          const cls = managementClassFromCode(next[mgmtCodeField]);
+          if (cls) {
+            next[mgmtClassField] = cls;
+            next[accountItemField] =
+              EXPENSE_MANAGEMENT_CLASS_OPTIONS.find((o) => o.value === cls)
+                ?.accountItem ?? next[accountItemField];
+          }
+          recomputeDerived(next);
+          return next;
+        },
+        syncState: syncRowState,
+      });
+      // 管理区分（区分値列・名称列のいずれか）確定時：該当しない管理コードはクリアし、再計算する
+      const handleMgmtClassChanged = makeLinkedHandler(mgmtClassField, {
+        depFields: [mgmtCodeField, ...DERIVED_FIELDS],
+        deriveDeps: (_value, row) => {
+          const next: any = { ...row };
+          const code = next[mgmtCodeField];
+          if (code && !isManagementCodeInClass(code, next[mgmtClassField])) {
+            next[mgmtCodeField] = '';
+          }
+          recomputeDerived(next);
+          return next;
+        },
+        syncState: syncRowState,
+      });
       // 施策コード（コード列・名称列のいずれか）確定時：施策区分を自動セット
-      const handleCampaignCodeChanged = (params: any) => {
-        const cls = campaignClassFromCode(params.data[`${prefix}CampaignCode`]);
-        if (cls) params.data[`${prefix}CampaignClass`] = cls;
-        refreshExpenseRow(params);
-        routeUpdate(params, { ...params.data });
-      };
+      const handleCampaignCodeChanged = makeLinkedHandler(campaignCodeField, {
+        depFields: [campaignClassField],
+        deriveDeps: (_value, row) => ({
+          [campaignClassField]:
+            campaignClassFromCode(row[campaignCodeField] as string) ||
+            row[campaignClassField],
+        }),
+        syncState: syncRowState,
+      });
       // 施策区分（区分値列・名称列のいずれか）確定時：該当しない施策コードはクリア
-      const handleCampaignClassChanged = (params: any) => {
-        const cls = params.data[`${prefix}CampaignClass`];
-        const code = params.data[`${prefix}CampaignCode`];
-        if (code && !isCampaignCodeInClass(code, cls)) {
-          params.data[`${prefix}CampaignCode`] = '';
-        }
-        refreshExpenseRow(params);
-        routeUpdate(params, { ...params.data });
-      };
+      const handleCampaignClassChanged = makeLinkedHandler(campaignClassField, {
+        depFields: [campaignCodeField],
+        deriveDeps: (_value, row) => {
+          const code = row[campaignCodeField] as string;
+          const cls = row[campaignClassField] as string;
+          return {
+            [campaignCodeField]:
+              code && !isCampaignCodeInClass(code, cls) ? '' : code,
+          };
+        },
+        syncState: syncRowState,
+      });
 
       // 拡売費①の必須項目（計画金額・計上年月・管理区分・管理コード）が全て未入力の行かを判定する
       const isExp1EmptyRow = (data: any): boolean =>
@@ -2046,7 +2105,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '計画金額',
           field: `${prefix}PlannedAmountBefore`,
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 100,
+          width: 80,
           cellClass: 'ag-cell-right',
           cellStyle: yellowCellStyleWithRedNegative,
           editable: baseEditable,
@@ -2070,7 +2129,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '計上年月',
           field: `${prefix}PostingMonth`,
           ...GRID_MONTH_TEXT_FILTER,
-          width: 120,
+          width: 96,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           // カレンダー入力フォーム（YYYY/MM）で入力
@@ -2086,7 +2145,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '管理区分',
           colId: `${prefix}ManagementClassCode`,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2112,7 +2171,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '管理区分名称',
           field: `${prefix}ManagementClass`,
-          width: 170,
+          width: 136,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2127,7 +2186,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '管理コード',
           field: `${prefix}ManagementCode`,
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2150,7 +2209,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '管理コード名称',
           colId: `${prefix}ManagementCodeName`,
-          width: 170,
+          width: 136,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2183,7 +2242,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '施策区分',
           colId: `${prefix}CampaignClassCode`,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2206,7 +2265,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '施策区分名称',
           field: `${prefix}CampaignClass`,
-          width: 150,
+          width: 120,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2221,7 +2280,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '施策コード',
           field: `${prefix}CampaignCode`,
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2244,7 +2303,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '施策コード名称',
           colId: `${prefix}CampaignCodeName`,
-          width: 190,
+          width: 152,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2274,7 +2333,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '摘要1(社内用)',
           field: `${prefix}Description`,
-          width: 150,
+          width: 120,
           cellClass: 'ag-cell-left',
           cellStyle: yellowCellStyle,
           editable: baseEditable,
@@ -2321,7 +2380,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '対象年月',
           field: 'targetMonth',
           ...GRID_MONTH_TEXT_FILTER,
-          width: 130,
+          width: 104,
           lockPinned: true,
           cellClass: 'ag-cell-left',
           // 自動表示の白背景に、行の追加経路を示すカラーバー（左罫線）を合成
@@ -2337,45 +2396,63 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '企画',
           field: 'campaign',
-          width: 100,
+          width: 80,
           lockPinned: true,
           cellClass: 'ag-cell-left',
           cellStyle: requiredCellStyle,
           editable: baseEditable,
           cellEditor: SingleComboboxCellEditor,
           cellEditorPopup: true,
-          cellEditorParams: {
-            comboOptions: toComboOptions(CAMPAIGN_OPTIONS),
-          },
+          // 使用中の企画は企画名を併記する（対象年月ごとに管理するため行の対象年月で作る）
+          cellEditorParams: (params: any) => ({
+            comboOptions: campaignComboOptions(
+              CAMPAIGN_OPTIONS,
+              allDataRef.current,
+              params.data?.targetMonth
+            ),
+            width: '22rem',
+          }),
+          valueSetter: campaignValueSetter,
+          onCellValueChanged: handleCampaignChanged,
+        },
+        {
+          // 企画名（企画の右隣・手入力）
+          headerName: '企画名',
+          field: 'campaignName',
+          width: 128,
+          cellClass: 'ag-cell-left',
+          cellStyle: requiredCellStyle,
+          // 合計行は企画名～サマリ商品名（スクロール列）を結合（表示は空欄）
+          colSpan: (params: any) => (params.node?.rowPinned ? 7 : 1),
+          editable: baseEditable,
+          cellEditor: 'agTextCellEditor',
+          valueFormatter: (params: any) =>
+            params.node?.rowPinned ? '' : formatEmptyAsDash(params),
           onCellValueChanged: (params) => {
-            const updatedData = {
+            routeUpdate(params, {
               ...params.data,
-              campaign: params.newValue,
-            };
-            if (params.data.section === '定番商品') {
-              params.context.updateRegularProduct(updatedData);
-            } else if (params.data.section === '新商品') {
-              params.context.updateNewProduct(updatedData);
-            } else if (params.data.section === '特殊商品') {
-              params.context.updatePromotionProduct(updatedData);
-            } else if (params.data.section === 'ギフト') {
-              params.context.updateGiftProduct(updatedData);
-            }
+              campaignName: params.newValue,
+            });
+            // 同じ対象年月・同じ企画の明細へ連動する（Undo でも再発火するため元の名前に戻る）
+            handleSyncCampaignName(
+              params.data.targetMonth,
+              params.data.campaign,
+              params.newValue ?? ''
+            );
           },
         },
         {
           headerName: '確度',
           field: 'probability',
-          width: 100,
+          width: 80,
           cellClass: 'ag-cell-left',
           cellStyle: requiredCellStyle,
           editable: baseEditable,
           cellEditor: SingleComboboxCellEditor,
           cellEditorPopup: true,
-          // 合計行は確度～サマリ商品名（スクロール列）を結合（表示は空欄）
-          colSpan: (params: any) => (params.node?.rowPinned ? 7 : 1),
           valueFormatter: (params: any) =>
             params.node?.rowPinned ? '' : formatEmptyAsDash(params),
+          valueSetter: probabilityValueSetter,
           // 確定の排他（同一計画・同一商品の二重確定）に該当する行は「確定」を選択不可にする。
           // 反映済はシステムが付与する状態のため手動選択肢には含めない。
           cellEditorParams: (params: any) => ({
@@ -2395,6 +2472,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               ...params.data,
               probability: params.newValue,
             };
+            // rowData は値編集で作り直さないため、当該ノードの data を直接更新する。
+            // 確度で行の背景（反映済・不採用のグレー：getRowStyle）が変わるため行ごと描き直す。
+            Object.assign(params.data, updatedData);
+            params.api.redrawRows({ rowNodes: [params.node] });
             if (params.data.section === '定番商品') {
               params.context.updateRegularProduct(updatedData);
             } else if (params.data.section === '新商品') {
@@ -2406,29 +2487,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             }
           },
         },
-        {
-          // 企画名（確度の右隣・手入力）
-          headerName: '企画名',
-          field: 'campaignName',
-          width: 160,
-          cellClass: 'ag-cell-left',
-          cellStyle: requiredCellStyle,
-          editable: baseEditable,
-          cellEditor: 'agTextCellEditor',
-          valueFormatter: (params: any) =>
-            params.node?.rowPinned ? '' : formatEmptyAsDash(params),
-          onCellValueChanged: (params) => {
-            routeUpdate(params, {
-              ...params.data,
-              campaignName: params.newValue,
-            });
-          },
-        },
         codeColumns.productCategoryCode,
         {
           headerName: '商品区分',
           field: 'productCategory',
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-left',
           // 商品区分：全区分を活性（編集可＝白／変更後は黄）。ギフトは3行1セットの先頭セルで結合表示する。
           cellStyle: yellowCellStyle,
@@ -2458,7 +2521,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 全区分=グレー（非活性・自動表示）。特殊商品/ギフトは区分名で固定表示。
           headerName: '販促区分',
           field: 'promotion',
-          width: 180,
+          width: 144,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           // 読み取り専用（自動表示）のため editor 設定は持たない。
@@ -2476,7 +2539,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: 'メタブランド',
           field: 'metaBrand',
-          width: 140,
+          width: 112,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           filter: true,
@@ -2486,7 +2549,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '容器容量G',
           field: 'containerCapacityG',
-          width: 140,
+          width: 112,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           filter: true,
@@ -2497,7 +2560,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 定番商品/新商品/特殊/ギフト=黄（セレクトボックス）
           headerName: 'サマリ商品',
           field: 'summaryProduct',
-          width: 330,
+          width: 264,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           // 読み取り専用（自動表示）のため editor 設定は持たない。
@@ -2516,7 +2579,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // セル結合対象外（行ごとに表示）のため rowSpan は常に1。
           headerName: '販売期間',
           field: 'period',
-          width: 90,
+          width: 72,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -2531,7 +2594,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '入数[自動表示]サマリ商品に紐づく入数を取得表示',
           field: 'quantity',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 85,
+          width: 68,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyle,
         },
@@ -2543,7 +2606,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 計画函数は整数のみ入力可
           integerOnly: true,
           headerTooltip: '函数-計画[入力値/自動表示]前年同月実績値を取得表示',
-          width: 100,
+          width: 80,
           isPercent: false,
           editable: baseEditable,
           afterStyle: yellowCellStyleWithRedNegative,
@@ -2557,11 +2620,13 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           header: 'NET',
           decimals: PLAN_DETAIL_DIGITS.price,
           headerTooltip: 'NET[自動表示]固定マージン率：納価-納価*マージン率',
-          width: 105,
+          width: 84,
           isPercent: false,
           // 補足2-1：NET入力パターンのみ活性、固定マージン率パターンは算出・非活性
           editable: netEditable,
           afterStyle: netAfterStyle,
+          // シミュレーション更新KEYが同じ明細があれば変更できない（VL-04）
+          afterValueSetter: netValueSetter,
           onAfterCellChange: (params: any) => recomputeDerived(params.data),
         }),
         makeComparisonGroup({
@@ -2570,13 +2635,12 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           decimals: PLAN_DETAIL_DIGITS.price,
           headerTooltip:
             '納価-計画[入力値]固定マージン率：前年同月実績を初期表示し手入力',
-          width: 100,
+          width: 80,
           isPercent: false,
           // 納価は両パターンとも活性
           editable: allEditable,
           afterStyle: yellowCellStyleWithRedNegative,
-          // 同一キー行（対象年月・企画・確度・商品区分・販促区分・サマリ商品名）で
-          // 同じ納価に変更できないよう制御（トースト表示）
+          // シミュレーション更新KEYが同じ明細があれば変更できない（VL-04）
           afterValueSetter: napaValueSetter,
           // 納価変更で NET・マージン率・値入率・社外売上高等（算出値）を再計算
           onAfterCellChange: (params: any) => recomputeDerived(params.data),
@@ -2589,7 +2653,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           decimals: PLAN_DETAIL_DIGITS.amount,
           headerTooltip:
             '売値[入力値/自動表示]前年同月実績値を取得表示（手入力可）',
-          width: 100,
+          width: 80,
           isPercent: false,
           editable: allEditable,
           afterStyle: yellowCellStyleWithRedNegative,
@@ -2604,7 +2668,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             'マージン率[条件分岐]固定マージン率：[自動表示]固定マージン率設定値を取得表示、NET入力：[算出](納価-NET)/納価*100%',
           field: 'margin',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyleWithRedNegative,
           editable: false,
@@ -2617,7 +2681,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '値入率[算出](売価-納価)/売価*100%',
           field: 'discount',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 100,
+          width: 80,
           cellClass: 'ag-cell-right',
           cellStyle: makeCellStyleWithRedNegative({ ギフト: 'white' }, 'gray'),
           // 値入率＝小数第1位（％）
@@ -2627,7 +2691,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '管理利益額',
           field: 'managementProfitAmount',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 120,
+          width: 96,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyleWithRedNegative,
           editable: false,
@@ -2638,7 +2702,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '管理利益率',
           field: 'managementProfitRate',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 120,
+          width: 96,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyleWithRedNegative,
           editable: false,
@@ -2647,7 +2711,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '売上高',
           field: 'netSales',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 120,
+          width: 96,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyleWithRedNegative,
           editable: false,
@@ -2656,10 +2720,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         },
         {
           headerName: '社外売上高',
-          headerTooltip: '社外売上高[算出]社外売単価×入数×計画函数(変更後)',
+          headerTooltip: '社外売上高[算出]社外売単価×入数×計画函数(SIM値)',
           field: 'externalSales',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 120,
+          width: 96,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyleWithRedNegative,
           editable: false,
@@ -2678,8 +2742,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         },
         {
           headerName: '',
-          field: 'actions',
-          width: 100,
+          colId: 'actions',
+          width: 80,
           pinned: 'right',
           lockPinned: true,
           cellClass: 'ag-cell-center',
@@ -2702,9 +2766,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             if (params.node.rowPinned) return null;
 
             // ギフトは3行1セット。コピー・削除はセット単位で行う。
-            // アイコンはセット先頭行(上旬)にのみ描画し、中旬/下旬は描画しない（結合風表示）。
+            // アイコンはセット中央行(中旬)にのみ描画し、3行を結合した中央に1つ表示する（10/27 第4回 決定事項24）。
             const isGift = params.data.section === 'ギフト';
-            if (isGift && !params.data._giftFirst) return null;
+            if (isGift && !params.data._giftMiddle) return null;
 
             const handleDelete = () => {
               params.context.onDeleteRow(params.data);
@@ -2715,20 +2779,32 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               params.context.onCopyForPane(params.data);
             };
 
-            // アクションは商品区分によらず常時活性（編集アイコンは廃止し、コピー・削除のみ）
+            // 確度が反映済の行はコピー・削除を非活性にする（編集アイコンは廃止し、コピー・削除のみ）
+            const isReflected = params.data.probability === '反映済';
+
             return (
               <div className="flex items-center justify-center gap-1">
                 <button
-                  onClick={handleCopyForPane}
-                  className="p-1 rounded transition-colors text-green-600 hover:text-green-800 hover:bg-green-50 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                  onClick={isReflected ? undefined : handleCopyForPane}
+                  disabled={isReflected}
+                  className={`p-1 rounded transition-colors ${
+                    isReflected
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-green-600 hover:text-green-800 hover:bg-green-50 focus:ring-2 focus:ring-green-500 focus:outline-none'
+                  }`}
                   aria-label={`${params.data.summaryProduct}をコピー`}
                   title="コピー"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={handleDelete}
-                  className="p-1 rounded transition-colors text-red-600 hover:text-red-800 hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  onClick={isReflected ? undefined : handleDelete}
+                  disabled={isReflected}
+                  className={`p-1 rounded transition-colors ${
+                    isReflected
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-800 hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:outline-none'
+                  }`}
                   aria-label={`${params.data.summaryProduct}を削除`}
                   title="削除"
                 >
@@ -2749,12 +2825,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     });
 
     // 列状態（列幅・ソート・固定・表示）を localStorage へ保存／復元する共通フック。
-    // 列は固定幅指定のため初回オートサイズは抑止（autoSize:false）。
     // 画面独自の onGridReady（API 保持・計算式ハイライトの API 捕捉）は option 経由で連結する。
     const gridColumnStateProps = useGridColumnState(
-      'Sim.detail.columnState.v2',
+      'Sim.detail.columnState.v3',
       {
-        autoSize: false,
         onGridReady: (e: GridReadyEvent) => {
           mainGridApiRef.current = e.api;
           formulaHL.captureApi(e.api);
@@ -2776,16 +2850,46 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       []
     );
 
-    // タブフィルター＋「反映済を除く」＋「不採用を除く」フィルターを適用したデータを生成
-    const rowData = useMemo(() => {
+    // Undo履歴を維持するため props の参照を安定させる（→ 02 §7.1）
+    const gridColumnDefs = useMemo(
+      () => withHeaderTooltips(columnDefs),
+      [columnDefs]
+    );
+    const gridDefaultColDef = useMemo<ColDef>(
+      () => ({
+        ...defaultColDef,
+        menuTabs: ['generalMenuTab', 'columnsMenuTab'],
+        // 計算式セルは計算式テキスト、それ以外は従来どおりセル値を表示する
+        tooltipValueGetter: formulaHL.tooltipValueGetter,
+        // 計算式セルのクリックで算出元セルを枠線強調
+        cellClassRules: {
+          // 共通の既定列設定のルール（値が無いセルの「-」をグレー等）を引き継ぐ
+          ...GRID_DEFAULT_COL_DEF.cellClassRules,
+          ...formulaHL.cellClassRules,
+          // ギフト結合セル（先頭行＝spanされる列）にセット下端の罫線を付与。
+          // 販売期間・計画・操作列は結合対象外（行ごと）のため除外。
+          'gift-merged-bottom': (p: any) =>
+            !!p.data?._giftFirst &&
+            p.colDef.field !== 'period' &&
+            p.colDef.field !== 'plan' &&
+            p.colDef.colId !== 'actions',
+        },
+      }),
+      [defaultColDef, formulaHL]
+    );
+
+    // 表示対象の行（タブ・保留行・「反映済を除く」「不採用を除く」・追加順の並べ替えを適用）。
+    const visibleRows = useMemo(() => {
       // 商品区分を変更して保留中の行は、別タブへ切り替えるまで表示中のタブに残す
       const byTab = periodData.filter((item) =>
         isRowInActiveTab(item, activeTab, heldRowKeys)
       );
       // 「反映済を除く」「不採用を除く」がチェックされている場合は該当行を非表示
       const filtered = byTab.filter((item) => {
-        if (excludeReflected && item.probability === '反映済') return false;
-        if (excludeRejected && item.probability === '不採用') return false;
+        if (shouldExcludeReflected && item.probability === '反映済')
+          return false;
+        if (shouldExcludeRejected && item.probability === '不採用')
+          return false;
         return true;
       });
       // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず
@@ -2793,10 +2897,122 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       const sorted = [...filtered].sort(
         (a, b) => (b._addedSeq ?? 0) - (a._addedSeq ?? 0)
       );
+      return sorted;
+    }, [
+      periodData,
+      activeTab,
+      heldRowKeys,
+      shouldExcludeReflected,
+      shouldExcludeRejected,
+    ]);
+
+    // 列フィルタを通過した行のID（フィルタ無しは null）。合計行を表示中の明細だけで計算し直すために使う
+    // （10/27 第4回 決定事項19・画面設計標準 4.4 ③）。公式の onFilterChanged／forEachNodeAfterFilter で取得する。
+    const [filteredRowIds, setFilteredRowIds] = useState<Set<string> | null>(
+      null
+    );
+    const collectFilteredRowIds = useCallback((api: GridApi) => {
+      if (!api.isAnyFilterPresent()) {
+        setFilteredRowIds(null);
+        return;
+      }
+      const ids = new Set<string>();
+      api.forEachNodeAfterFilter((node) => {
+        if (node.id) ids.add(node.id);
+      });
+      setFilteredRowIds(ids);
+    }, []);
+    const handleFilterChanged = useCallback(
+      (e: FilterChangedEvent) => collectFilteredRowIds(e.api),
+      [collectFilteredRowIds]
+    );
+    // 行の追加・削除や区分タブの切替の後は、フィルタを掛け直した結果で取り直す。
+    const handleRowDataUpdated = useCallback(
+      (e: RowDataUpdatedEvent) => {
+        collectFilteredRowIds(e.api);
+        reveal.onRowDataUpdated(e);
+      },
+      [collectFilteredRowIds, reveal]
+    );
+
+    // 合計行（表の最上行に固定する青帯の行）。確度が混ざった明細の単純合計で、
+    // 表示中の明細（区分タブ・反映済／不採用を除く・列フィルタの結果）だけを合計する。
+    const pinnedTotalRows = useMemo(() => {
+      const targetRows = visibleRows.filter(
+        (row) => !filteredRowIds || filteredRowIds.has(String(row.id))
+      );
+      // ギフトは上旬/中旬/下旬の3行1セット。販売期間・計画函数以外はセル結合されて
+      // 3行で1つの値の表示になるため、セット代表行だけを集計して三重計上を防ぐ（計画詳細と同じ）。
+      const countedGiftSets = new Set<string>();
+      const mergedRows = targetRows.filter((row) => {
+        if (!row.giftSetId) return true;
+        if (countedGiftSets.has(row.giftSetId)) return false;
+        countedGiftSets.add(row.giftSetId);
+        return true;
+      });
+      const sumOf = (rows: ProductData[], field: keyof ProductData): string =>
+        String(
+          rows.reduce((sum, row) => {
+            const value = parseMetric(row[field] as string);
+            return sum + (isNaN(value) ? 0 : value);
+          }, 0)
+        );
+      // ％の列は合計せず、分子・分母の合算から率を求める（計画詳細と同じ。分母が0なら「-」）
+      const rates = planDetailTotalRatesOf(
+        mergedRows,
+        'marginRateFixed',
+        costUnitPriceOf
+      );
+      const rateText = (value: number): string =>
+        Number.isFinite(value) ? String(value) : '';
+      const profitAmount = Number(sumOf(mergedRows, 'managementProfitAmount'));
+      const netSales = Number(sumOf(mergedRows, 'netSales'));
+      const total: Partial<ProductData> = {
+        id: 'pinned-total',
+        section: '合計',
+        targetMonth: '合計',
+        metaBrand: '合計',
+        // 計画函数はギフトも行ごとに値が異なる（セル結合対象外）ため全行を集計する
+        plan: sumOf(targetRows, 'plan'),
+        planBefore: sumOf(targetRows, 'planBefore'),
+        // NET・納価・売価・入数は単価・単位のため合計しない（空欄＝「-」表示）
+        margin: rateText(rates.margin),
+        discount: rateText(rates.discount),
+        managementProfitAmount: String(profitAmount),
+        managementProfitRate: netSales
+          ? formatPlanRate((profitAmount / netSales) * 100, 2)
+          : '',
+        netSales: String(netSales),
+        externalSales: sumOf(mergedRows, 'externalSales'),
+        exp1PlannedAmount: sumOf(mergedRows, 'exp1PlannedAmount'),
+        exp1PlannedAmountBefore: sumOf(mergedRows, 'exp1PlannedAmountBefore'),
+        exp2PlannedAmount: sumOf(mergedRows, 'exp2PlannedAmount'),
+        exp2PlannedAmountBefore: sumOf(mergedRows, 'exp2PlannedAmountBefore'),
+      };
+      return [total];
+      // parseMetric は純粋関数のため依存に含めない
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visibleRows, filteredRowIds]);
+
+    // 行の構造シグネチャ（表示行の行ID＋ギフトセット＋挿入順）。セル値の編集では変化せず、
+    // 行の追加・削除・コピー、タブ・期間・絞り込みの切替などで表示行が変わったときだけ変化する。
+    // これを rowData 作り直しのきっかけにし、値編集では rowData 参照を変えない
+    // ＝AG Grid の Undo/Redo 履歴を維持する（rowData 参照が変わると公式仕様で履歴がクリアされる。
+    // セル値は AG Grid がノードの data を直接更新し、state へは onCellValueChanged で同期する → 02 §7.1）。
+    const rowStructureSignature = useMemo(
+      () =>
+        visibleRows
+          .map((r) => `${r.id}#${r.giftSetId ?? ''}#${r._addedSeq ?? ''}`)
+          .join('|'),
+      [visibleRows]
+    );
+
+    // グリッドへ渡す行データ（ギフトのセル結合用の印を付与）
+    const rowData = useMemo(() => {
       // ギフトの3行1セットをセル結合するため、セット単位で
       // 先頭行(_giftFirst＋行数_giftSpan)・中央行(_giftMiddle：操作アイコン表示)・
       // 最終行(_giftLast：操作列の下罫線)を付与する。
-      const annotated = sorted.map((row) => ({
+      const annotated = visibleRows.map((row) => ({
         ...row,
         _giftFirst: false,
         _giftSpan: 1,
@@ -2825,7 +3041,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         i = j;
       }
       return annotated;
-    }, [periodData, activeTab, heldRowKeys, excludeReflected, excludeRejected]);
+      // visibleRows は本文で参照するが依存には含めない（値編集で rowData 参照を変えず
+      // Undo 履歴を維持するため、作り直しは構造シグネチャ／再構築トークンの変化時のみに限定）。
+      // 構造変化・セル編集を通らない値更新の時点では visibleRows が最新のため、作り直す値も最新。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rowStructureSignature, gridRebuildToken]);
 
     const getRowStyle = useCallback((params: RowClassParams) => {
       // ピン留めされた行（合計行）
@@ -2855,7 +3075,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
     return (
       <>
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+        <div className={`${CARD_CLASS} overflow-hidden mb-4`}>
           {/* Table title header */}
           <div className="bg-white px-3 pt-2 pb-4 card-header-accent">
             {/* 1段目: タイトル、計画コピー対象月、コピーボタン、函数計画の初期表示 */}
@@ -2869,6 +3089,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 <SimulationPeriodPicker
                   fromId={DETAIL_PERIOD_FROM_ID}
                   ariaLabelPrefix="詳細の対象期間"
+                  disabledMonths={SIMULATION_CLOSED_MONTHS}
                   fromPeriod={targetPeriodFrom}
                   toPeriod={targetPeriodTo}
                   onFromPeriodChange={(v) =>
@@ -2888,10 +3109,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 />
               </div>
 
-              {/* 参照ボタン：自計画を参照し、コピー／ドラッグ&ドロップで明細へ行追加 */}
+              {/* 参照ボタン：自計画を参照し、コピーで明細へ行追加 */}
               <button
                 type="button"
-                onClick={() => setShowReferencePane((prev) => !prev)}
+                onClick={() => setIsReferencePaneShown((prev) => !prev)}
                 className={`flex items-center gap-1 ml-2 px-3 py-1 text-sm whitespace-nowrap ${BUTTON_STYLES.outline} ${BUTTON_BASE}`}
               >
                 <FileSearch className="w-4 h-4" />
@@ -2962,8 +3183,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap ml-4">
                 <input
                   type="checkbox"
-                  checked={excludeReflected}
-                  onChange={(e) => setExcludeReflected(e.target.checked)}
+                  checked={shouldExcludeReflected}
+                  onChange={(e) => setShouldExcludeReflected(e.target.checked)}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <span className={FORM_LABEL_CLASS}>反映済を除く</span>
@@ -2973,8 +3194,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap ml-2">
                 <input
                   type="checkbox"
-                  checked={excludeRejected}
-                  onChange={(e) => setExcludeRejected(e.target.checked)}
+                  checked={shouldExcludeRejected}
+                  onChange={(e) => setShouldExcludeRejected(e.target.checked)}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <span className={FORM_LABEL_CLASS}>不採用を除く</span>
@@ -2987,7 +3208,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                   onClick={() =>
                     handleAddRow(activeTab === 'all' ? '' : activeTab)
                   }
-                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
                   aria-label="＋明細追加"
                 >
                   ＋明細追加
@@ -3066,8 +3287,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             <AgGridReact
               rowData={rowData}
               // 行が反映された後に、コピーした新規行を可視域へ送って強調する
-              onRowDataUpdated={revealPendingRows}
-              columnDefs={withHeaderTooltips(columnDefs)}
+              onRowDataUpdated={handleRowDataUpdated}
+              // 合計行（表の最上行に固定）。列フィルタの変更で表示中の明細だけの合計に計算し直す
+              pinnedTopRowData={pinnedTotalRows}
+              onFilterChanged={handleFilterChanged}
+              columnDefs={gridColumnDefs}
               // ギフトの3行1セルをセル結合（rowSpan）するために必須
               suppressRowTransform={true}
               onCellMouseOver={formulaHL.onCellMouseOver}
@@ -3079,54 +3303,18 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               onCellValueChanged={(params: any) => {
                 // 編集済みセルを記録（元値に戻したら解除）し、当該セルを再描画して
                 // 黄色＋オレンジ枠（changedCellStyle）を反映する
-                const key = cellChangeKey(params);
-                if (!originalCellValuesRef.current.has(key)) {
-                  originalCellValuesRef.current.set(
-                    key,
-                    String(params.oldValue ?? '')
-                  );
-                }
-                const orig = originalCellValuesRef.current.get(key) ?? '';
-                if (String(params.newValue ?? '') === orig) {
-                  changedCellsRef.current.delete(key);
-                } else {
-                  changedCellsRef.current.add(key);
-                }
+                trackCellChange(params);
                 params.api.refreshCells({
                   rowNodes: [params.node],
                   columns: [params.column.getColId()],
                   force: true,
                 });
               }}
-              defaultColDef={{
-                ...defaultColDef,
-                menuTabs: ['generalMenuTab', 'columnsMenuTab'],
-                // 計算式セルは計算式テキスト、それ以外は従来どおりセル値を表示する
-                tooltipValueGetter: formulaHL.tooltipValueGetter,
-                // 計算式セルのクリックで算出元セルを枠線強調
-                cellClassRules: {
-                  // 共通の既定列設定のルール（値が無いセルの「-」をグレー等）を引き継ぐ
-                  ...defaultColDef.cellClassRules,
-                  ...formulaHL.cellClassRules,
-                  // ギフト結合セル（先頭行＝spanされる列）にセット下端の罫線を付与。
-                  // 販売期間・計画・操作列は結合対象外（行ごと）のため除外。
-                  'gift-merged-bottom': (p: any) =>
-                    !!p.data?._giftFirst &&
-                    p.colDef.field !== 'period' &&
-                    p.colDef.field !== 'plan' &&
-                    p.colDef.field !== 'actions',
-                },
-              }}
+              defaultColDef={gridDefaultColDef}
               getContextMenuItems={gridFilterContextMenuItems}
               statusBar={GRID_STATUS_BAR}
               getRowStyle={getRowStyle}
-              getRowId={(params) => {
-                // 各行を一意に識別するためのID生成。
-                // 編集対象フィールド（metaBrand/summaryProduct/section）は含めない。
-                // 含めると編集で行IDが変わり、変更セルのハイライト記録（changedCellsRef）
-                // が孤立する。id だけで一意（コピー行の id は copy-... で一意採番）。
-                return String(params.data.id);
-              }}
+              getRowId={getDetailRowId}
               ensureDomOrder={true}
               context={{
                 onAddRow: handleAddRow,
@@ -3145,16 +3333,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           </div>
         </div>
 
-        {/* 参照用下ペイン：自計画を参照し、コピー／ドラッグ&ドロップで明細へ行を追加。
+        {/* 参照用下ペイン：自計画を参照し、コピーで明細へ行を追加。
           プッシュ式：親画面に被さらず中身を押し上げるため、参照表と明細表を同時に視認できる。 */}
         <BottomPane
-          open
-          collapsed={!showReferencePane}
-          onCollapsedChange={(next) => setShowReferencePane(!next)}
-          onClose={() => setShowReferencePane(false)}
-          prominentTab
-          collapsedTabLabel="過去の計画明細からコピー"
-          collapsedTabIcon={<Copy className="h-4 w-4" />}
+          open={isReferencePaneShown}
+          onClose={() => setIsReferencePaneShown(false)}
           title="販売計画(コピー元)"
         >
           <SimulationReferenceTable

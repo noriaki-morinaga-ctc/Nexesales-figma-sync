@@ -11,7 +11,7 @@ import {
   SUMMARY_PRODUCT_BY_VALUE,
 } from '../../../../constants/productMasters';
 import { productCodeFromValue } from '../../../../constants/comboFieldOptions';
-import { expenseSummaryProductOptionCode } from '../../../../utils/summaryProductSearch';
+import { expenseSummaryProductOptionCode } from '../../../../utils/common/summaryProductSearch';
 import { SUMMARY_PRODUCT_ENTRY_REFERENCE } from './DetailTable';
 
 export const entrySummaryProductComboOptions = (): SingleComboboxOption[] =>

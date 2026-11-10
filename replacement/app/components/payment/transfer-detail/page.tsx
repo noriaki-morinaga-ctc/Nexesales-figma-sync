@@ -66,7 +66,8 @@ export default function TransferDetail() {
   // フッターのコメント入力（差戻し理由など。支払詳細(その他)と同様）
   const [commentInput, setCommentInput] = useState('');
   // コメント履歴（右ペイン）。基本情報のステータス横のボタンから開く。
-  const [showCommentHistoryPane, setShowCommentHistoryPane] = useState(false);
+  const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
+    useState(false);
   // 基本情報（TransferDetailSearch）の現在値。検印済み明細の絞り込みと、
   // 振替明細の枝番行（振替先行）の活性・初期値に使う。
   const [basicInfo, setBasicInfo] = useState<
@@ -195,7 +196,7 @@ export default function TransferDetail() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="振替詳細" />
@@ -213,7 +214,7 @@ export default function TransferDetail() {
                   terminalOrgOptions={TRANSFER_TERMINAL_ORG_OPTIONS}
                   onStatusClick={() =>
                     // 開くボタン再押下で閉じる（トグル）
-                    setShowCommentHistoryPane((prev) => !prev)
+                    setIsCommentHistoryPaneShown((prev) => !prev)
                   }
                 />
               </section>
@@ -269,7 +270,7 @@ export default function TransferDetail() {
         {/* フッターエリア（固定） */}
         <div
           data-screen-footer
-          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+          className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div>
@@ -297,7 +298,7 @@ export default function TransferDetail() {
                   onChange={(e) => setCommentInput(e.target.value)}
                   placeholder="コメントを入力（差戻し理由など）"
                   rows={2}
-                  className="h-10 w-full min-w-[10rem] max-w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
                 />
               </div>
               <button
@@ -357,8 +358,8 @@ export default function TransferDetail() {
 
       {/* 右ペイン：コメント履歴（基本情報のステータス横のボタンから開く） */}
       <RightPane
-        open={showCommentHistoryPane}
-        onClose={() => setShowCommentHistoryPane(false)}
+        open={isCommentHistoryPaneShown}
+        onClose={() => setIsCommentHistoryPaneShown(false)}
         title="コメント履歴"
         description=""
       >

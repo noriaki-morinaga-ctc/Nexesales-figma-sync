@@ -13,7 +13,7 @@ import {
   type BillingEdiImportRow,
   type BillingEdiSearchCriteria,
 } from '../../../constants/billingEdiMockData';
-import { filterBillingEdiRows } from '../../../utils/billingEdiImport';
+import { filterBillingEdiRows } from '../../../utils/payment/billing/billingEdiImport';
 import { ScreenTitle } from '../../ui/screen-title';
 
 interface BillingEdiListProps {
@@ -46,7 +46,7 @@ export default function BillingEdiList({
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当て、
     // 横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="請求EDI取込一覧" />
@@ -58,7 +58,7 @@ export default function BillingEdiList({
         <CollapsibleCard
           title="請求EDI取込一覧"
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           contentClassName="p-2 flex flex-col flex-1 min-h-0"
         >
           {/* 一覧グリッド */}

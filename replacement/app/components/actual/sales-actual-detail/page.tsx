@@ -1,12 +1,12 @@
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../ui/collapsible';
-import { ChevronDown, Save, Undo2 } from 'lucide-react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { Save, Undo2 } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GetRowIdParams } from 'ag-grid-community';
+import {
+  ColDef,
+  GetRowIdParams,
+  type CellValueChangedEvent,
+} from 'ag-grid-community';
+
 import {
   GRID_COLORS,
   GRID_BASE_PROPS,
@@ -14,6 +14,8 @@ import {
   formatEmptyAsDash,
   useGridColumnState,
   GRID_NO_FILTER_COLUMN_TYPES,
+  useChangedCells,
+  withComparableCellValues,
 } from '../../grid';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { FORM_LABEL_CLASS } from '../../../../styles/commonStyles';
@@ -36,7 +38,7 @@ import {
   firstStoreCode,
   thirdStoreCode,
 } from '../../../constants/storeTierMockData';
-import { joinCodeName } from '../../../utils/nameCode';
+import { joinCodeName } from '../../../utils/common/nameCode';
 import { ScreenTitle } from '../../ui/screen-title';
 
 // 基本情報に表示する一次店/三次店。販売計画(自販機)と同じ参照元（storeTierMockData）
@@ -375,7 +377,7 @@ export default function SalesActualDetail() {
   }>({ references: [], affects: [] });
 
   // 数式ガイド（数式表示）モード。ON のときのみセルクリックで強調表示・数式表示を行う。
-  const [showFormulaGuide, setShowFormulaGuide] = useState(false);
+  const [isFormulaGuideShown, setIsFormulaGuideShown] = useState(false);
 
   // AG Grid の cellStyle は React の再描画では再評価されないため、強調表示の
   // 判定値は ref 経由で参照し、変更時に refreshCells で明示的に再描画する。
@@ -404,9 +406,9 @@ export default function SalesActualDetail() {
 
   // 数式ガイド OFF 時は選択中セル・ツールチップ・強調表示をクリアする。
   useEffect(() => {
-    showFormulaGuideRef.current = showFormulaGuide;
+    showFormulaGuideRef.current = isFormulaGuideShown;
     if (
-      !showFormulaGuide &&
+      !isFormulaGuideShown &&
       (clickedCell ||
         tooltipPosition ||
         highlightedCells.references.length > 0 ||
@@ -418,7 +420,7 @@ export default function SalesActualDetail() {
     }
     // 数式ガイドの ON→OFF 切替時のみクリアする意図のため、他の値は依存に含めない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFormulaGuide]);
+  }, [isFormulaGuideShown]);
 
   // 強調表示の状態を ref に同期し、グリッドのセルを再描画する。
   useEffect(() => {
@@ -888,9 +890,8 @@ export default function SalesActualDetail() {
       {
         headerName: '',
         field: 'category',
-        width: 180,
+        width: 144,
         lockPosition: true,
-        headerClass: 'ag-header-cell-left',
         // 行タイトル（文字列）は左寄せ。横余白は共通クラス側（padding-left: 0.5rem）。
         cellClass: CATEGORY_CELL_CLASS,
         cellStyle: (params) => {
@@ -917,7 +918,7 @@ export default function SalesActualDetail() {
                 headerName: '実績額',
                 field: 'col20',
                 cellClass: numericCellClass,
-                minWidth: 120,
+                minWidth: 96,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col20'),
@@ -944,7 +945,7 @@ export default function SalesActualDetail() {
                 headerName: '計画比',
                 field: 'col21',
                 cellClass: numericCellClass,
-                minWidth: 90,
+                minWidth: 72,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col21'),
@@ -995,7 +996,7 @@ export default function SalesActualDetail() {
                 headerName: '前年比',
                 field: 'col22',
                 cellClass: numericCellClass,
-                minWidth: 90,
+                minWidth: 72,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col22'),
@@ -1051,7 +1052,7 @@ export default function SalesActualDetail() {
                 headerName: '函数',
                 field: 'col23',
                 cellClass: numericCellClass,
-                minWidth: 100,
+                minWidth: 80,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col23'),
@@ -1062,7 +1063,7 @@ export default function SalesActualDetail() {
                 headerName: '入数',
                 field: 'col24',
                 cellClass: numericCellClass,
-                minWidth: 90,
+                minWidth: 72,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col24'),
@@ -1114,7 +1115,7 @@ export default function SalesActualDetail() {
                 headerName: '本数',
                 field: 'col25',
                 cellClass: numericCellClass,
-                minWidth: 90,
+                minWidth: 72,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col25'),
@@ -1166,7 +1167,7 @@ export default function SalesActualDetail() {
                 headerName: '専用機PM/提携機PC',
                 field: 'col26',
                 cellClass: numericCellClass,
-                minWidth: 170,
+                minWidth: 136,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col26'),
@@ -1222,7 +1223,7 @@ export default function SalesActualDetail() {
                 headerName: '稼働台数(コラム)',
                 field: 'col27',
                 cellClass: numericCellClass,
-                minWidth: 160,
+                minWidth: 128,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col27'),
@@ -1281,7 +1282,7 @@ export default function SalesActualDetail() {
             headerName: '函単価',
             field: 'col28',
             cellClass: numericCellClass,
-            minWidth: 90,
+            minWidth: 72,
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col28'),
@@ -1343,6 +1344,24 @@ export default function SalesActualDetail() {
   // cellStyle を「マージではなく置換」するため、ここに寄せ・文字サイズを持たせると
   // 列ごとの指定漏れで表示が揺れる（→ 02 §7）。
   // ソート・フィルターは、数式ガイドが行インデックス固定を前提とするため無効のまま。
+  // 販売実績の明細：値を変えたセルの強調（薄い黄＋オレンジ枠。元の値に戻したら解除 → 02 §7.2）。
+  // 利用者が編集したセルだけが対象（計算し直したセルは対象外）。
+  const salesActualChanged = useChangedCells();
+  const salesActualGridContext = useMemo(
+    () => ({ isCellChanged: salesActualChanged.isCellChanged }),
+    [salesActualChanged.isCellChanged]
+  );
+  const handleSalesActualCellValueChanged = useCallback(
+    (e: CellValueChangedEvent) => {
+      salesActualChanged.trackCellChange(withComparableCellValues(e));
+      e.api.refreshCells({
+        rowNodes: [e.node],
+        columns: [e.column],
+        force: true,
+      });
+    },
+    [salesActualChanged]
+  );
   const defaultColDef = useMemo(
     () => ({
       sortable: false,
@@ -1355,6 +1374,9 @@ export default function SalesActualDetail() {
       valueFormatter: formatEmptyAsDash,
       cellClassRules: {
         'cell-empty': GRID_DEFAULT_COL_DEF.cellClassRules!['cell-empty'],
+        // 値を変えたセルの強調（判定はグリッドの context.isCellChanged → 02 §7.2）
+        'ag-cell-changed':
+          GRID_DEFAULT_COL_DEF.cellClassRules!['ag-cell-changed'],
       },
     }),
     []
@@ -1376,7 +1398,7 @@ export default function SalesActualDetail() {
     // スペーサー（flex-1）で余白を吸収して、固定フッターをウィンドウ底部
     // （＝main の下端）に張り付ける。コンテンツが短い場合でもフッターが
     // 底部に固定され、長い場合は sticky で追従する。
-    <div className="min-w-[75rem] flex min-h-full flex-col">
+    <div className="min-w-300 flex min-h-full flex-col">
       <div className="px-6 pt-3 pb-3">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="販売実績詳細" />
@@ -1484,23 +1506,13 @@ export default function SalesActualDetail() {
         {/* 販売実績を配置 */}
         <div className="flex flex-col gap-4">
           {/* 販売実績一覧セクション */}
-          <Collapsible
+          <CollapsibleCard
+            title="販売実績"
             open={isSalesPlanOpen}
             onOpenChange={setIsSalesPlanOpen}
-            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
-          >
-            {/* タイトルヘッダー。数式ガイドの凡例・切替ボタンをタイトルの右端へ置く。
-                並び順は共通部品 CollapsibleCard の headerActions と同じく
-                「操作要素 → シェブロン（バー右端）」とする。 */}
-            <div className="bg-white px-3 pt-2 pb-4 card-header-accent flex items-center justify-between gap-2">
-              <span className="text-gray-900 font-bold text-lg">販売実績</span>
-
-              <div className="flex items-center gap-4">
-                {/* 数式ガイド（数式表示）トグルと色分け凡例。ON のときのみセルクリックで
-                    関連セル（クリック=青／参照元=緑／影響先=オレンジ）の強調表示と数式表示を行う。
-                    凡例は色相に加え実線/破線でも参照・依存を区別する（→ 06 色以外の手がかり）。
-                    色見本は GRID_COLORS と一致する Tailwind 標準色（blue/green/orange）。 */}
-                {showFormulaGuide && (
+            headerActions={
+              <>
+                {isFormulaGuideShown && (
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                     <span className="flex items-center gap-1.5">
                       <span className="inline-block w-4 h-4 rounded-sm border-2 border-solid border-blue-500" />
@@ -1522,49 +1534,34 @@ export default function SalesActualDetail() {
                 <span className="flex h-8 items-center gap-2">
                   <Switch
                     id="formula-guide"
-                    checked={showFormulaGuide}
-                    onCheckedChange={setShowFormulaGuide}
+                    checked={isFormulaGuideShown}
+                    onCheckedChange={setIsFormulaGuideShown}
                     className="h-5 w-9 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300"
                     aria-label="数式ガイドを切り替える"
                   />
                   <label
                     htmlFor="formula-guide"
                     className={`cursor-pointer text-sm font-medium whitespace-nowrap ${
-                      showFormulaGuide ? 'text-green-700' : 'text-gray-500'
+                      isFormulaGuideShown ? 'text-green-700' : 'text-gray-500'
                     }`}
                   >
-                    数式ガイド {showFormulaGuide ? 'ON' : 'OFF'}
+                    数式ガイド {isFormulaGuideShown ? 'ON' : 'OFF'}
                   </label>
                 </span>
-
-                <CollapsibleTrigger className="shrink-0 hover:text-blue-700 transition-colors">
-                  <ChevronDown
-                    className={`h-5 w-5 transition-transform ${isSalesPlanOpen ? 'rotate-180' : ''}`}
-                  />
-                </CollapsibleTrigger>
-              </div>
-            </div>
-
-            <CollapsibleContent>
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="sales-plan-grid overflow-x-auto w-full">
-                  <style>{`
+              </>
+            }
+          >
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="sales-plan-grid overflow-x-auto w-full">
+                <style>{`
                     /* ヘッダー・データ行は共通テーマ(GRID_THEME / themeBalham)本来の
                        表示（背景・文字色・行/列罫線・縞模様・選択色・行ホバー色）を
                        継承する。独自の header 背景／罫線／zebra／ホバー色は上書きせず、
-                       レイアウト（横余白・ヘッダーの寄せ）のみ指定する。
+                       レイアウト（横余白）のみ指定する。
+                       ※ ヘッダーの寄せは grid.css の共通指定（左寄せ）に委ねる。
                        ※ セルの横寄せは cellClass（grid.css の cell-left /
                           cell-right / cell-center）で指定し、ここでは指定しない
                           （セルへの display:flex は標準の省略表示を壊すため → 02 §7）。 */
-                    .sales-plan-grid .ag-header-cell-label {
-                      justify-content: center;
-                    }
-
-                    .sales-plan-grid
-                      .ag-header-cell-left
-                      .ag-header-cell-label {
-                      justify-content: flex-start;
-                    }
 
                     /* セルの横余白は共通クラス（cell-left / cell-right の 0.5rem）と
                        同値に揃える。背景色の変化はなめらかに遷移させる。 */
@@ -1604,31 +1601,34 @@ export default function SalesActualDetail() {
                       font-weight: bold;
                     }
                   `}</style>
-                  <AgGridReact
-                    rowData={salesPlanData}
-                    columnDefs={salesPlanColumnDefs}
-                    defaultColDef={defaultColDef}
-                    // defaultColDef で filter: false のため、型によるフィルタの追加を止める（→ grid/gridCommon）
-                    columnTypes={GRID_NO_FILTER_COLUMN_TYPES}
-                    pinnedTopRowData={unitRowData}
-                    getRowId={getSalesPlanRowId}
-                    getRowStyle={getRowStyle}
-                    // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
-                    tooltipShowMode="standard"
-                    suppressMovableColumns={true}
-                    stopEditingWhenCellsLoseFocus={true}
-                    domLayout="autoHeight"
-                    // 数式ガイドはシングルクリックのまま維持（ガイドON時のみ動作）。
-                    onCellClicked={handleCellClick}
-                    // 共通基本プロパティ（Enter縦移動・Excelライク編集・テキスト選択・列仮想化抑止）。
-                    // singleClickEdit を持たないため編集はダブルクリック／F2／直接入力で開始（標準準拠。Enterは移動のみ）。
-                    {...GRID_BASE_PROPS}
-                    {...gridColumnStateProps}
-                  />
-                </div>
+                {/* 規約例外（集計表）：実績額・計画比・前年比の行が決まっている集計表のため、件数表示（statusBar）は付けない */}
+                <AgGridReact
+                  className="grid-summary-table"
+                  rowData={salesPlanData}
+                  context={salesActualGridContext}
+                  onCellValueChanged={handleSalesActualCellValueChanged}
+                  columnDefs={salesPlanColumnDefs}
+                  defaultColDef={defaultColDef}
+                  // defaultColDef で filter: false のため、型によるフィルタの追加を止める（→ grid/gridCommon）
+                  columnTypes={GRID_NO_FILTER_COLUMN_TYPES}
+                  pinnedTopRowData={unitRowData}
+                  getRowId={getSalesPlanRowId}
+                  getRowStyle={getRowStyle}
+                  // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
+                  tooltipShowMode="standard"
+                  suppressMovableColumns={true}
+                  stopEditingWhenCellsLoseFocus={true}
+                  domLayout="autoHeight"
+                  // 数式ガイドはシングルクリックのまま維持（ガイドON時のみ動作）。
+                  onCellClicked={handleCellClick}
+                  // 共通基本プロパティ（Enter縦移動・Excelライク編集・テキスト選択・列仮想化抑止）。
+                  // singleClickEdit を持たないため編集はダブルクリック／F2／直接入力で開始（標準準拠。Enterは移動のみ）。
+                  {...GRID_BASE_PROPS}
+                  {...gridColumnStateProps}
+                />
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
+          </CollapsibleCard>
         </div>
       </div>
 
@@ -1669,7 +1669,7 @@ export default function SalesActualDetail() {
           表示位置のみ動的値のため inline style、他は Tailwind で指定する。 */}
       {tooltipPosition && (
         <div
-          className="fixed z-[9999] bg-gray-800 text-gray-50 text-xs py-1.5 px-2.5 rounded-md max-w-[22.5rem] shadow-lg pointer-events-none whitespace-pre-wrap leading-normal"
+          className="fixed z-70 bg-gray-800 text-gray-50 text-xs py-1.5 px-2.5 rounded-md max-w-90 shadow-lg pointer-events-none whitespace-pre-wrap leading-normal"
           style={{
             left: tooltipPosition.x,
             top: tooltipPosition.y - window.scrollY,

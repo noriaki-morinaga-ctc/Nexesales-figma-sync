@@ -9,7 +9,7 @@ import type { CellStyle } from 'ag-grid-community';
 export const GRID_COLORS = {
   editable: '#ffffff', // 編集可セル：白
   readonly: '#e8e8e8', // 編集不可セル：灰（全画面共通）
-  inheritedText: '#9ca3af', // 継承表示（親行の値をそのまま参照表示する等）：薄いグレー文字
+  inheritedText: '#4b5563', // 継承表示（親行の値をそのまま参照表示する等）：グレー文字（gray-600。編集不可の灰のセルの上でもコントラスト 4.5:1 以上 → 06）
   total: '#dbeafe', // 合計・集計行：薄い青
   planValue: '#ffffff', // 計画値：白系
   actualValue: '#f3f4f6', // 実績値：灰系（計画値と区別）
@@ -23,11 +23,12 @@ export const GRID_COLORS = {
   // どの明細が切り替わったのかを一覧上で見分けられるようにする。
   transferredBg: '#ede9fe',
   changedBorder: '#fdba74', // 入力変更セル枠：落ち着いたオレンジ（画面設計標準）
-  overText: '#dc2626', // 100%超過：赤字
+  overText: '#b91c1c', // 100%超過：赤字（red-700。編集不可の灰のセルの上でもコントラスト 4.5:1 以上 → 06）
   // 増減（差分）列の文字色。増加分（プラス）＝青字／減少分（マイナス）＝赤字。
   // （販売計画表（自販機）経費計画の ＋青／▲・−赤 表現を標準とする）
   increaseText: '#2563eb', // 増減の増加分（プラス）：青字
-  decreaseText: '#dc2626', // 増減の減少分（マイナス）：赤字
+  decreaseText: '#b91c1c', // 増減の減少分（マイナス）：赤字（red-700 → 06）
+  neutralText: '#374151', // 増減なし（±0）・実数表示の文字：濃いグレー
   // 既存の函数値（実績反映セル）。合計/集計の薄青フィル(total)と色が被らないよう、
   // 背景塗りではなく「セル枠」で表現する（existingFuncCellStyle を使用）。
   existingFuncBorder: '#93c5fd', // 既存函数値セルの枠線：落ち着いた薄青
@@ -46,11 +47,18 @@ export const GRID_COLORS = {
   // ※ 太字は合計行のみとする設計標準に合わせ、見出し行は太字にしない。
   sectionRowBg: '#d1d5db',
   alertRowBg: '#fecaca', // 警告行（計画差異が大きい等）：赤系
+  // 期限超過のセルの背景：薄い赤（grid.css の .cell-overdue。UI/UX UX-028 → 02 §7「期限超過の表示」）
+  overdueBg: '#fecaca',
   overBilledBg: '#fca5a5', // 超過行（計画NET−請求NETの超過等）：濃いめの赤系
   localeContractRowBg: '#dcfce7', // 読み取り専用の特例行（ロケ契約料等）：緑系
   // 行ホバー背景：薄い青。GRID_THEME（gridCommon.ts）の rowHoverColor（公式Theming API）と、
   // grid.css の inline背景セル用 !important 上書き（--grid-row-hover で参照）の両方で使う。
   rowHover: '#f0f9ff',
+  // ヘッダー（列見出し）：薄い青の背景・紺の文字・列の区切りは上下を空けた薄いグレーの線
+  // （UI/UX分科会 決定事項21＝宮澤案。GRID_THEME の headerBackgroundColor 等で使う。UX-031）
+  headerBackground: '#eaf0fb',
+  headerText: '#14275e',
+  headerColumnDivider: '#aeb9ca',
   // 数式ガイド：クリック（起点）セルの強調。青背景＋青「実線」枠。
   // 背景は合計行(total)と同色だが、青実線枠と用途（クリック時のみ表示）で区別する。
   clickHighlightBg: '#dbeafe', // クリックセル背景：薄い青
@@ -65,14 +73,12 @@ export const GRID_COLORS = {
   // 必須項目が未入力のセルの強調。赤「破線」枠＋赤字（背景は塗らない）。
   // 「未保存の差分（changedBg/Border＝黄背景＋オレンジ実線枠）」とは用途が異なるため、
   // 色・線種・背景の有無で分ける。数式ガイドの依存セル（オレンジ破線）とは背景の有無で区別する。
-  requiredEmptyBorder: '#dc2626', // 必須未入力セルの枠・文字：赤（破線）
+  requiredEmptyBorder: '#b91c1c', // 必須未入力セルの枠・文字：赤（破線。red-700 → 06）
   // 固定上段（単位・税抜き注記行＝pinnedTopRowData）とデータ行の境目に引く罫線。
   // テーマの行罫線（borderColor＝gridLine）より濃くして「ヘッダー相当の行の終わり」を示す。
   pinnedRowBorder: '#9ca3af',
   // ── 画面独自の <style>・cellStyle で使う色（以前は各画面に hex を直書きしていたもの）──
   background: '#ffffff', // グリッド・セルの既定の背景：白（GRID_THEME の backgroundColor）
-  headerBg: '#f3f4f6', // 見出し（列見出し・列グループ見出し）を塗る画面の背景：薄いグレー
-  headerAccentBorder: '#2563eb', // 見出しの下に引く強調線：青（年間合計・拡売費合計）
   strongDivider: '#d1d5db', // 濃いめの区切り線（項目の境目・四半期の境目・見出しの縦線）
   editingBg: '#fef08a', // 編集中のセルの背景：黄
   editingBorder: '#fbbf24', // 編集中のセルの枠：濃い黄
@@ -80,6 +86,17 @@ export const GRID_COLORS = {
   treeLevel1Bg: '#f9fafb', // 集計ツリーの2階層目のラベル列：ごく薄いグレー
   treeLevel2Bg: '#f3f4f6', // 集計ツリーの3階層目のラベル列：薄いグレー
   detailRowBg: '#f9fafb', // 展開した詳細行（masterDetail）の背景：ごく薄いグレー
+  displayOnlyBg: '#f7f7f7', // 一覧の明細グリッドの表示専用の列：ごく薄いグレー
+  mutedText: '#888888', // 合計行の項目名を目立たせない文字：グレー
+  salesCategoryBg: '#D9F2FF', // 販売計画の区分（見出し列）：薄い水色
+  paymentCategoryBg: '#CFEFD6', // 支払の区分（見出し列）：薄い緑
+  salesHeaderBg: '#1e90ff', // 販売計画の集計表（TOP）の見出し：青
+  paymentHeaderBg: '#32cd32', // 支払の集計表（TOP）の見出し：緑
+  unifiedBorder: '#cfcfcf', // 枠と行の区切りを太線でそろえる表（grid-unified）の線：グレー
+  checkboxBorder: '#6b7280', // 選べるチェックボックス（未チェック）の枠：濃いグレー
+  checkboxDisabledBorder: '#d1d5db', // 選べないチェックボックスの枠：薄いグレー
+  selectionDisabledBg: '#f7f7f7', // 選べない行のチェックボックス列：ごく薄いグレー
+  highlightBorderBg: '#eff6ff', // 強調枠を付けたセルの背景：ごく薄い青
 } as const;
 
 // ── コピー由来（行の追加経路）を示す左端カラーバー ──────────────

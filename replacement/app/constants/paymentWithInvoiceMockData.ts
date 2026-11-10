@@ -20,21 +20,21 @@
 // 拡売費の「未承認NET」の明細は、追加口明細の拡売費金額（NET未承認）からサマリ商品ごとに作る
 // （createNetUnapprovedRows）。支払金額は追加口明細の値と一致させる。
 import type { AdditionalEntryData } from '../components/payment/payment-detail-with-invoice/components/DetailTable';
-import { BASIC_INFO } from '../components/payment/payment-detail-with-invoice/components/SearchPane';
+import { BASIC_INFO } from '../components/shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
 import {
   createBlankExpenseRow,
   createNetUnapprovedRow,
   type ExpenseRow,
-} from '../components/shared/PaymentNonProductExpensePane';
+} from '../components/shared/payment/payment-detail/PaymentNonProductExpensePane';
 import {
   applyAutoTransfer,
   recalcEntryRow,
   toEntryNumber,
   type PlanType,
-} from '../utils/additionalEntryRules';
-import type { BilledCenterFeeRow } from '../utils/paymentBreakdownItems';
-import type { SummaryFixedValues } from '../utils/paymentSummaryAggregate';
-import { netRowDataSourceOf } from '../utils/netUnapprovedLink';
+} from '../utils/payment/payment-detail/additionalEntryRules';
+import type { BilledCenterFeeRow } from '../utils/payment/payment-detail/paymentBreakdownItems';
+import type { SummaryFixedValues } from '../utils/payment/payment-detail/paymentSummaryAggregate';
+import { netRowDataSourceOf } from '../utils/payment/payment-detail/netUnapprovedLink';
 import type { DataSource } from './dataSource';
 
 // 支払回数の選択肢（プルダウンの表示順）。
@@ -770,7 +770,7 @@ const expenseOf = (fields: Partial<ExpenseRow>): ExpenseRow => ({
 // 追加口明細の拡売費金額（NET未承認）から、未承認NETの明細をサマリ商品ごとに作る。
 //   支払金額 … 同じサマリ商品の追加口明細の拡売費金額（NET未承認）の合計
 //   データ元 … 差を出した追加口明細のデータ元（自動振替＝請求EDI・AIC入力、
-//              担当者が直した明細があれば手入力 → utils/netUnapprovedLink の netRowDataSourceOf）
+//              担当者が直した明細があれば手入力 → utils/payment/payment-detail/netUnapprovedLink の netRowDataSourceOf）
 // 拡売費金額が0のサマリ商品は明細を作らない。並びは追加口明細の順。
 export const createNetUnapprovedRows = (
   entryRows: readonly AdditionalEntryData[],

@@ -14,9 +14,14 @@
 //   ・営業経費小計／自販機関係費小計 … チャネルごとの括りは「区別しない」方針
 //                                      （→ 20260804_第26回_共通 決定事項20）と矛盾するため入れない
 // ※「全支払回数分の合算」は表の型が固まってから対応する（現状は表示中の支払回のみ集計）。
-import React, { useState, useMemo, type ReactNode } from 'react';
+import React, { useState, useMemo, type ReactNode, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GetRowIdParams, ICellRendererParams } from 'ag-grid-community';
+import {
+  ColDef,
+  GetRowIdParams,
+  ICellRendererParams,
+  type CellValueChangedEvent,
+} from 'ag-grid-community';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -25,12 +30,15 @@ import {
   gridFilterContextMenuItems,
   useGridColumnState,
   GRID_NUMBER_TEXT_FILTER,
+  useChangedCells,
+  withComparableCellValues,
 } from '../../../grid';
 import { EXPENSE_MANAGEMENT_CLASS_OPTIONS } from '../../../../constants/expenseRelations';
 import { managementClassCode } from '../../../../constants/paymentComboFieldOptions';
-import { isSplitDestRow } from '../../../../utils/paymentNoLink';
+import { isSplitDestRow } from '../../../../utils/payment/payment-detail/paymentNoLink';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
+import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 
 // 自部門の費用負担部署（基本情報カードの申請部署＝SearchPane の APPLICANT_DEPT と同じ）。
 // 分割先の費用負担部署がこれと異なる行を「他部門へ」に計上する。
@@ -127,29 +135,12 @@ export function AggregationPane({
   // JS動的値のため inline style を許容する。
   const GRID_MIN_HEIGHT = 200; // 縮めすぎ防止の下限
   // 既定値は管理項目別合計値（管理区分マスタ10行＋合計行）が縦スクロールせずに収まる高さ。
-  const [gridHeight, setGridHeight] = useState(460);
-
-  // リサイズハンドルのドラッグ開始。マウス移動量に応じて本体の縦幅を更新する。
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = gridHeight;
-    const onMove = (ev: MouseEvent) => {
-      const next = Math.max(
-        GRID_MIN_HEIGHT,
-        startHeight + (ev.clientY - startY)
-      );
-      setGridHeight(next);
-    };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.userSelect = '';
-    };
-    document.body.style.userSelect = 'none'; // ドラッグ中のテキスト選択を抑止
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
+  const gridResize = useResizableHeight({
+    defaultHeight: 460,
+    minHeight: GRID_MIN_HEIGHT,
+    maxHeight: Infinity,
+  });
+  const gridHeight = gridResize.height;
 
   // 列幅・並び順の永続化。案B（管理区分別）へ列構成を入れ替えたため版番号を上げる。
   const gridColumnStateProps = useGridColumnState(
@@ -271,15 +262,15 @@ export function AggregationPane({
       field,
       // 値は整形済みの文字列のため、数値へ変換して数値フィルタで絞り込む（→ 02 §7）
       ...GRID_NUMBER_TEXT_FILTER,
-      width: 130,
+      width: 104,
       cellClass: 'cell-right',
     });
     return [
-      { headerName: '管理区分', field: 'managementCode', width: 110 },
+      { headerName: '管理区分', field: 'managementCode', width: 88 },
       {
         headerName: '管理区分名称',
         field: 'expenseItem',
-        width: 200,
+        width: 160,
         cellClass: 'cell-left',
       },
       amountCol('支払合計', 'amount'),
@@ -290,7 +281,7 @@ export function AggregationPane({
         headerName: '前年比 (％)',
         field: 'yearOverYear',
         ...GRID_NUMBER_TEXT_FILTER,
-        width: 110,
+        width: 88,
         cellClass: 'cell-right',
       },
       amountCol('計画金額', 'planAmount'),
@@ -299,7 +290,7 @@ export function AggregationPane({
         headerName: '計画差異（％）',
         field: 'planDifferenceRate',
         ...GRID_NUMBER_TEXT_FILTER,
-        width: 130,
+        width: 104,
         cellClass: 'cell-right',
       },
       {
@@ -308,7 +299,7 @@ export function AggregationPane({
         //  → 20260821_第31回 決定事項4）。
         headerName: '差異理由',
         field: 'differenceReason',
-        width: 240,
+        width: 192,
         // 計画差異が大きく赤背景になる行のみ入力可能にする
         editable: (params) => !!params.data?.isAlertRow,
         cellStyle: { backgroundColor: GRID_COLORS.editable },
@@ -317,7 +308,7 @@ export function AggregationPane({
           if (params.value) return params.value;
           if (params.data?.isAlertRow) {
             return (
-              <span className="text-gray-400 italic">
+              <span className="text-gray-600 italic">
                 差異理由を入力してください
               </span>
             );
@@ -329,6 +320,24 @@ export function AggregationPane({
     ];
   }, [unitLabel]);
 
+  // 差異理由：値を変えたセルの強調（薄い黄＋オレンジ枠。元の値に戻したら解除 → 02 §7.2）。
+  // 利用者が編集したセルだけが対象（計算し直したセルは対象外）。
+  const summaryChanged = useChangedCells();
+  const summaryGridContext = useMemo(
+    () => ({ isCellChanged: summaryChanged.isCellChanged }),
+    [summaryChanged.isCellChanged]
+  );
+  const handleSummaryCellValueChanged = useCallback(
+    (e: CellValueChangedEvent) => {
+      summaryChanged.trackCellChange(withComparableCellValues(e));
+      e.api.refreshCells({
+        rowNodes: [e.node],
+        columns: [e.column],
+        force: true,
+      });
+    },
+    [summaryChanged]
+  );
   const defaultColDef: ColDef = useMemo(
     () => ({
       // 共通の既定列定義（grid/）。ヘッダーの…メニュー・フィルターボタン非表示、
@@ -411,7 +420,7 @@ export function AggregationPane({
                   aria-pressed={displayUnit === 'yen'}
                   className={`px-4 text-sm font-medium transition-colors ${
                     displayUnit === 'yen'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -423,7 +432,7 @@ export function AggregationPane({
                   aria-pressed={displayUnit === 'thousand'}
                   className={`px-4 text-sm font-medium transition-colors ${
                     displayUnit === 'thousand'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -441,12 +450,9 @@ export function AggregationPane({
                 ['--expense-total-bg' as string]: GRID_COLORS.total,
               }}
             >
-              {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）に委譲する。 */}
+              {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）、見出しの寄せは
+                  grid.css の共通指定（左寄せ）に委譲する。 */}
               <style>{`
-              /* ヘッダー文字を左寄せ */
-              .jbr-expense-summary-grid .ag-header-cell-label {
-                justify-content: flex-start;
-              }
               /* 以下の1行ハイライトは、各セルの cellStyle 背景を上書きするため全セルを対象にする。
                  ホバー行はセル背景を透明にし、テーマが行へ塗るホバー色を見せる。 */
               .jbr-expense-summary-grid .ag-row-hover .ag-cell {
@@ -461,9 +467,17 @@ export function AggregationPane({
                 background-color: var(--expense-total-bg) !important;
                 font-weight: 700;
               }
+              /* 値を変えたセル（差異理由）は、赤背景の行の中でも共通の変更ハイライト（薄い黄）を出す（→ 02 §7.2） */
+              .jbr-expense-summary-grid .ag-row .ag-cell.ag-cell-changed {
+                background-color: var(--grid-changed-bg) !important;
+              }
             `}</style>
+              {/* 規約例外（集計表）：表示項目（管理区分）ごとの行が決まっている集計表（支払情報サマリ）のため、件数表示（statusBar）は付けない */}
               <AgGridReact
+                className="grid-summary-table"
                 rowData={rowData}
+                context={summaryGridContext}
+                onCellValueChanged={handleSummaryCellValueChanged}
                 getRowId={getSummaryRowId}
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}
@@ -484,14 +498,11 @@ export function AggregationPane({
         )}
         {/* リサイズハンドル：上下ドラッグでカード本体の縦幅を手動調整する。
             詳細＝管理項目別合計値／分割・振替＝他部門一覧の各グリッドを可変にする。 */}
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label="支払情報サマリの高さを変更"
-          onMouseDown={handleResizeStart}
-          className="flex h-3 cursor-ns-resize items-center justify-center border-t border-gray-200 bg-gray-100 transition-colors hover:bg-gray-200"
-        >
-          <div className="h-1 w-10 rounded-full bg-gray-400" />
+        <div className="relative h-2">
+          <ResizeHandle
+            onMouseDown={gridResize.handleMouseDown}
+            ariaLabel="支払情報サマリの高さを変更"
+          />
         </div>
       </>
     </CollapsibleCard>

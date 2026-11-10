@@ -1,8 +1,8 @@
-# Figma Make 取り込み用（main 42f697e 時点の src 一式）
+# Figma Make 取り込み用（main cac344f8 時点の src 一式）
 
 Figma Make への指示：
 
-GitHubの feature/ui-replacement ブランチにある
+GitHub の Nexesales-figma-sync リポジトリ（main ブランチ）にある
 replacement/app/ を src/app/ に、
 replacement/styles/ を src/styles/ に配置し、
 replacement/main.tsx を src/main.tsx に置き換えてください。

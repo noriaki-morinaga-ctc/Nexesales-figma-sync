@@ -17,19 +17,55 @@ import type { CellClassRules } from 'ag-grid-community';
 //   - onCellValueChanged の冒頭で trackCellChange(params) を呼ぶ（変更/復帰で強調を出し入れ）。
 //   - cellStyle で isCellChanged(params) を見て changedCellStyle を適用する。
 //   - 保存確定時に resetChangedCells() で強調をクリアする。
-export function useChangedCells() {
+//   - ピン留め行にも編集できる行がある画面は、options.isPinnedRowTracked で対象に含める行を指定する。
+interface UseChangedCellsOptions {
+  // ピン留め行のうち、変更ハイライトの対象に含める行の判定。
+  // 省略時はピン留め行（合計行など）をすべて対象外とする。
+  isPinnedRowTracked?: (params: { data?: Record<string, unknown> }) => boolean;
+}
+
+// 変更の判定（useChangedCells の trackCellChange）用に、値を比べられる形にそろえる。
+// 値を「35,000」「110.0%」のような表示の書式の文字で持つ画面では、元と同じ数を入れ直しても
+// 文字が違うため変更ありになってしまう。カンマ・%・空白を除いて数値にできるものは数値の文字にする。
+// 使い方：trackCellChange(withComparableCellValues(event))
+export const toComparableCellValue = (v: unknown): unknown => {
+  if (v == null) return v;
+  const text = String(v).replace(/[,%s]/g, '');
+  const n = Number(text);
+  return text !== '' && Number.isFinite(n) ? String(n) : v;
+};
+export const withComparableCellValues = <
+  T extends { oldValue?: unknown; newValue?: unknown },
+>(
+  e: T
+): T => ({
+  ...e,
+  oldValue: toComparableCellValue(e.oldValue),
+  newValue: toComparableCellValue(e.newValue),
+});
+
+export function useChangedCells(options: UseChangedCellsOptions = {}) {
   // 変更されたセル（行ID::列ID）の集合。
   const changedCellsRef = useRef<Set<string>>(new Set());
   // 各セルの元値（初回編集時に記録）。元値へ戻したら強調を解除するため。
   const originalCellValuesRef = useRef<Map<string, string>>(new Map());
+  // options は毎レンダー作られ得るため ref 経由で最新を読む（isCellChanged の参照は固定のまま）。
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   // セルの一意キー（行ID::列ID）。列IDは colId 優先、無ければ field。
   const cellChangeKey = (params: any): string =>
     `${params.node?.id}::${params.column?.getColId?.() ?? params.colDef?.field}`;
 
-  // 変更済みセルか（ヘッダー行・合計行=ピン留め行は対象外）。
+  // 変更済みセルか（ヘッダー行・合計行=ピン留め行は対象外。
+  // ただし isPinnedRowTracked で指定したピン留め行は対象に含める）。
   const isCellChanged = useCallback((params: any): boolean => {
-    if (params?.data?._isHeader || params?.node?.rowPinned) return false;
+    if (params?.data?._isHeader) return false;
+    if (
+      params?.node?.rowPinned &&
+      !optionsRef.current.isPinnedRowTracked?.(params)
+    )
+      return false;
     return changedCellsRef.current.has(cellChangeKey(params));
   }, []);
 

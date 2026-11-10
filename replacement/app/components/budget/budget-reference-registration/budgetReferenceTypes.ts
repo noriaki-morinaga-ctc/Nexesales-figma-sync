@@ -1,13 +1,12 @@
 // ===== 予算参照登録画面の型定義 =====
 
-// アップロードの処理ステータス
-export type UploadStatusType = 'PROCESSING' | 'COMPLETED' | 'ERROR';
+import type {
+  UploadErrorItem,
+  UploadStatusType,
+} from '../../shared/upload/uploadTypes';
 
-// アップロードエラー明細（1行ごとのエラー内容）
-export interface UploadErrorItem {
-  rowNumber: number; // 行番号
-  errorMessage: string; // エラー内容
-}
+// アップロードの処理ステータス・エラー明細は共通（→ shared/upload/uploadTypes.ts）
+export type { UploadErrorItem, UploadStatusType };
 
 // アップロード履歴の1件分
 export interface UploadHistoryItem {

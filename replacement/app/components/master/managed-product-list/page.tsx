@@ -1,18 +1,12 @@
 ﻿import {
-  ChevronDown,
   Search,
   SquarePen,
   Trash2,
   Save,
-  XIcon,
   Upload,
   Download,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { CopyableArea } from '../../ui/copyable-area';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
 import 'ag-grid-enterprise';
 import { AgGridReact } from 'ag-grid-react';
 import type {
@@ -20,6 +14,18 @@ import type {
   GetRowIdParams,
   ICellRendererParams,
 } from 'ag-grid-community';
+import { toast } from 'sonner';
+
+import { CopyableArea } from '../../ui/copyable-area';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import {
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+} from '../../../../styles/commonStyles';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -31,15 +37,6 @@ import {
 } from '../../grid';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../ui/alert-dialog';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -50,7 +47,6 @@ import {
 import { Label } from '../../ui/label';
 import { Checkbox } from '../../ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
-import { toast } from 'sonner';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { summaryProductComboOptions } from '../../../constants/comboFieldOptions';
 import { RequiredBadge } from '../../ui/required-badge';
@@ -63,6 +59,7 @@ import {
   formatSummaryValue,
 } from '../../ui/search-summary';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
 
 interface ProductTargetData {
   id: string;
@@ -1198,7 +1195,7 @@ const ActionsCellRenderer = (props: ICellRendererParams) => {
   };
 
   return (
-    <div className="flex items-center justify-center gap-1">
+    <div className="flex h-full items-center justify-center gap-1">
       <button
         onClick={handleEdit}
         className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -1378,7 +1375,7 @@ export default function ManagedProductList({
       {
         headerName: '商品区分',
         field: 'productCategory',
-        width: 120,
+        width: 96,
         filter: true,
         cellStyle: {
           justifyContent: 'flex-start',
@@ -1392,7 +1389,8 @@ export default function ManagedProductList({
         headerName: 'サマリ商品',
         field: 'summaryProduct',
         flex: 1,
-        minWidth: 350,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 280,
         filter: true,
         cellStyle: {
           justifyContent: 'flex-start',
@@ -1403,7 +1401,8 @@ export default function ManagedProductList({
         headerName: '参考商品',
         field: 'referenceProduct',
         flex: 1,
-        minWidth: 350,
+        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+        minWidth: 280,
         filter: true,
         cellStyle: {
           justifyContent: 'flex-start',
@@ -1414,7 +1413,7 @@ export default function ManagedProductList({
         headerName: '管理対象開始月',
         field: 'targetStartMonth',
         ...GRID_MONTH_TEXT_FILTER,
-        width: 150,
+        width: 120,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -1424,7 +1423,7 @@ export default function ManagedProductList({
         headerName: '管理対象終了月',
         field: 'targetEndMonth',
         ...GRID_MONTH_TEXT_FILTER,
-        width: 150,
+        width: 120,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -1433,7 +1432,7 @@ export default function ManagedProductList({
       {
         headerName: '管理対象エリア',
         field: 'targetArea',
-        width: 150,
+        width: 120,
         filter: true,
         cellStyle: {
           justifyContent: 'flex-start',
@@ -1442,20 +1441,15 @@ export default function ManagedProductList({
       },
       {
         headerName: '',
-        field: 'actions',
-        width: 80,
+        colId: 'actions',
+        width: 64,
         pinned: 'right',
         lockPinned: true,
         cellRenderer: ActionsCellRenderer,
         sortable: false,
         filter: false,
         resizable: false,
-        cellStyle: {
-          textAlign: 'center',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
+        cellClass: 'cell-center',
       },
     ],
     []
@@ -1470,12 +1464,10 @@ export default function ManagedProductList({
   const defaultColDef = useMemo(() => ({ ...GRID_DEFAULT_COL_DEF }), []);
 
   // 列状態（列幅・並び順・ソート等）を localStorage へ保存／復元する（共通フック）。
-  // flex 列のレイアウトを初回に保持するため autoSize は false。
   // 列を flex 化した際にキーを更新している。旧キーのまま流用すると、保存済みの
   // 固定幅が applyColumnState で復元され flex レイアウトが無効化されるため。
   const gridColumnStateProps = useGridColumnState(
-    'ManagedProductList.targetGrid.columnState.v2',
-    { autoSize: false }
+    'ManagedProductList.targetGrid.columnState.v2'
   );
 
   // ヘッダーのツールチップ（列幅で省略された見出しの全文表示）を付与した列定義。
@@ -1710,7 +1702,7 @@ export default function ManagedProductList({
   };
 
   return (
-    <div className="min-w-[75rem] relative overflow-hidden h-full">
+    <div className="min-w-300 relative overflow-hidden h-full">
       {/* メインコンテンツエリア（右ペインは RightPane のオーバーレイ表示のため
           グリッドは押し出さず全幅のまま。販売計画表(商流紐づけなし)と同一挙動） */}
       {/* ページ自体はスクロールさせず、下端の一覧カード内のグリッドだけをスクロールさせる。
@@ -1718,7 +1710,7 @@ export default function ManagedProductList({
           横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
           画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけこの領域がスクロールする。 */}
       <div className="overflow-x-auto overflow-y-auto h-full flex flex-col">
-        <div className="px-6 pt-3 pb-3 min-w-[75rem] flex-1 min-h-0 flex flex-col">
+        <div className="px-6 pt-3 pb-3 min-w-300 flex-1 min-h-0 flex flex-col">
           {/* 画面名はヘッダー（システム名の右）に表示する */}
           <ScreenTitle title="管理対象商品一覧" />
 
@@ -1740,15 +1732,20 @@ export default function ManagedProductList({
               collapsedSummary={searchSummary}
             >
               <div className="px-4 py-1.5">
-                {/* 1行目: 商品区分、サマリ商品、管理対象エリア */}
-                <div className="flex items-center flex-wrap gap-2 mb-[10px]">
+                {/* 一覧画面の検索条件は全画面共通の5列（→ 05 一覧画面の検索条件）。
+                    1行目: 商品区分、サマリ商品、管理対象エリア／2行目: 管理対象開始月、管理対象終了月 */}
+                <div className={SEARCH_GRID_CLASS}>
                   {/* 商品区分 */}
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-24 text-right">
+                    <label
+                      htmlFor="search-product-category"
+                      className={SEARCH_LABEL_CLASS}
+                    >
                       商品区分
                     </label>
                     <SingleCombobox
-                      className="w-[160px]"
+                      id="search-product-category"
+                      className="min-w-0 flex-1"
                       options={[
                         { value: '新商品', label: '新商品' },
                         { value: '重点商品', label: '重点商品' },
@@ -1764,14 +1761,14 @@ export default function ManagedProductList({
                   </div>
 
                   {/* サマリ商品（検索付き単一選択コンボボックス。任意条件のため clearable） */}
-                  <div className="flex items-center gap-2 ml-5">
+                  <div className="flex items-center gap-2">
                     <label
                       htmlFor="search-summary-product"
-                      className="text-sm text-blue-900 whitespace-nowrap font-bold w-24 text-right"
+                      className={SEARCH_LABEL_CLASS}
                     >
                       サマリ商品
                     </label>
-                    <div className="w-[15rem]">
+                    <div className="min-w-0 flex-1">
                       <SingleCombobox
                         id="search-summary-product"
                         options={summaryProductOptions}
@@ -1784,12 +1781,16 @@ export default function ManagedProductList({
                   </div>
 
                   {/* 管理対象エリア */}
-                  <div className="flex items-center gap-2 ml-5">
-                    <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-24 text-right">
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="search-target-area"
+                      className={SEARCH_LABEL_CLASS}
+                    >
                       管理対象エリア
                     </label>
                     <SingleCombobox
-                      className="w-[160px]"
+                      id="search-target-area"
+                      className="min-w-0 flex-1"
                       options={[
                         { value: '全国', label: '全国' },
                         { value: '首都圏本部', label: '首都圏本部' },
@@ -1808,34 +1809,34 @@ export default function ManagedProductList({
                       searchable={false}
                     />
                   </div>
-                </div>
 
-                {/* 2行目: 管理対象月 */}
-                <div className="flex items-center flex-wrap gap-2">
-                  {/* 管理対象開始月 */}
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-24 text-right">
-                      管理対象開始月
-                    </label>
-                    <MonthYearPicker
-                      value={startMonth}
-                      onChange={setStartMonth}
-                      required={false}
-                      clearable
-                    />
+                  {/* 2行目: 管理対象開始月（行の先頭は col-start-1） */}
+                  <div className="flex items-center gap-2 col-start-1">
+                    <label className={SEARCH_LABEL_CLASS}>管理対象開始月</label>
+                    {/* 検索条件の年月も入力欄の幅いっぱいにする（全項目一律の幅 → 05） */}
+                    <div className="flex min-w-0 flex-1">
+                      <MonthYearPicker
+                        className="w-full"
+                        value={startMonth}
+                        onChange={setStartMonth}
+                        required={false}
+                        clearable
+                      />
+                    </div>
                   </div>
 
                   {/* 管理対象終了月 */}
-                  <div className="flex items-center gap-2 ml-5">
-                    <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-24 text-right">
-                      管理対象終了月
-                    </label>
-                    <MonthYearPicker
-                      value={endMonth}
-                      onChange={setEndMonth}
-                      required={false}
-                      clearable
-                    />
+                  <div className="flex items-center gap-2">
+                    <label className={SEARCH_LABEL_CLASS}>管理対象終了月</label>
+                    <div className="flex min-w-0 flex-1">
+                      <MonthYearPicker
+                        className="w-full"
+                        value={endMonth}
+                        onChange={setEndMonth}
+                        required={false}
+                        clearable
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1851,7 +1852,7 @@ export default function ManagedProductList({
             headerActions={
               <>
                 <button
-                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
                   onClick={handleAddRow}
                   aria-label="+管理対象商品登録"
                 >
@@ -1859,7 +1860,7 @@ export default function ManagedProductList({
                 </button>
               </>
             }
-            className="mb-0 data-[state=open]:min-h-[23.75rem]"
+            className="mb-0 data-[state=open]:min-h-95"
             contentClassName="p-2 flex flex-col flex-1 min-h-0"
           >
             {/* グリッドはカード内の残り高さを埋める（min-h-0 が無いと flex 子要素が縮まない） */}
@@ -1907,7 +1908,7 @@ export default function ManagedProductList({
           paneMode === 'create' ? '登録' : '更新'
         }を行います`}
         footer={
-          <div className="flex items-center justify-end gap-[0.75rem]">
+          <div className="flex items-center justify-end gap-3">
             {/* 連続追加：新規登録時のみ表示。押下してもペインは閉じない */}
             {paneMode === 'create' && (
               <Button
@@ -1934,6 +1935,7 @@ export default function ManagedProductList({
               <RequiredBadge />
             </Label>
             <SingleCombobox
+              ariaRequired
               id="productCategory"
               className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
               options={[
@@ -2008,6 +2010,8 @@ export default function ManagedProductList({
                 <RequiredBadge />
               </Label>
               <MonthYearPicker
+                id="targetStartMonth"
+                required
                 value={formData.targetStartMonth}
                 onChange={(value) =>
                   setFormData({
@@ -2015,7 +2019,7 @@ export default function ManagedProductList({
                     targetStartMonth: value,
                   })
                 }
-                className="w-[10rem]"
+                className="w-40"
               />
             </div>
 
@@ -2026,6 +2030,8 @@ export default function ManagedProductList({
                 <RequiredBadge />
               </Label>
               <MonthYearPicker
+                id="targetEndMonth"
+                required
                 value={formData.targetEndMonth}
                 onChange={(value) =>
                   setFormData({
@@ -2033,7 +2039,7 @@ export default function ManagedProductList({
                     targetEndMonth: value,
                   })
                 }
-                className="w-[10rem]"
+                className="w-40"
               />
             </div>
           </div>
@@ -2264,48 +2270,27 @@ export default function ManagedProductList({
       </Dialog>
 
       {/* 登録確認ダイアログ */}
-      <AlertDialog
+      <ConfirmDialog
         open={isRegisterDialogOpen}
         onOpenChange={setIsRegisterDialogOpen}
-      >
-        <AlertDialogContent className="sm:max-w-3xl">
-          {/* ×ボタン */}
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setIsRegisterDialogOpen(false)}
-            aria-label="閉じる"
-          >
-            <XIcon className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold text-gray-900">
-              登録の確認
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              以下の管理対象商品を登録してもよろしいですか？
-              <div className="mt-4 text-gray-900 space-y-1">
-                {rowData.slice(0, 3).map((row) => (
-                  <div key={row.id}>
-                    サマリ商品名：{row.summaryProduct}
-                    {'　'}&emsp;管理対象期間：{row.targetStartMonth}~
-                    {row.targetEndMonth}
-                  </div>
-                ))}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              onClick={handleRegisterConfirm}
-              className="bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-lg"
-            >
-              登録
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="登録の確認"
+        description={
+          <>
+            以下の管理対象商品を登録してもよろしいですか？
+            <div className="mt-4 text-gray-900 space-y-1">
+              {rowData.slice(0, 3).map((row) => (
+                <div key={row.id}>
+                  サマリ商品名：{row.summaryProduct}
+                  {'　'}&emsp;管理対象期間：{row.targetStartMonth}~
+                  {row.targetEndMonth}
+                </div>
+              ))}
+            </div>
+          </>
+        }
+        confirmLabel="登録"
+        onConfirm={handleRegisterConfirm}
+      />
     </div>
   );
 }

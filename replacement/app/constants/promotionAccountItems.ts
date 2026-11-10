@@ -3,7 +3,7 @@
 // コード体系：5桁の 5xxxx。51000番台＝売上連動拡売費／52000番台＝拡売費(固定費)および
 // その他の直接固定費（ロケ補填・コラム料・リース料・販売器具費）。
 // 下2桁が 00 の 51000／52000 が区分計、下3桁目で口（A口＝x100／B口＝x200／本社口＝x300）を表す。
-// キーは集計エンジン（utils/aggregationCalc の AggAmounts）の項目キーと一致させ、
+// キーは集計エンジン（utils/sales-plan/common/aggregationCalc の AggAmounts）の項目キーと一致させ、
 // 集計値と勘定科目の対応がずれないようにする。
 
 export interface PromotionAccountItem {

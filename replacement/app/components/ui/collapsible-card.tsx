@@ -5,6 +5,7 @@ import {
   CollapsibleTrigger,
 } from './collapsible';
 import { cn } from './utils';
+import { CARD_CLASS, CARD_TITLE_CLASS } from '../../../styles/commonStyles';
 
 interface CollapsibleCardProps {
   // ヘッダーに表示するタイトル（文字列・任意要素どちらも可）
@@ -39,8 +40,9 @@ interface CollapsibleCardProps {
 }
 
 // シェブロン（開閉状態で回転）。Radix の data-state を使うため制御／非制御どちらでも動作する。
+// 色は紺系（brand-navy-700、ホバーで brand-navy-900。UI/UX UX-031 → 01「画面の配色」）
 const Chevron = () => (
-  <ChevronDown className="h-5 w-5 text-gray-500 transition-transform group-data-[state=open]:rotate-180" />
+  <ChevronDown className="h-5 w-5 text-brand-navy-700 transition-transform group-hover:text-brand-navy-900 group-data-[state=open]:rotate-180" />
 );
 
 // 折り畳んでいる間だけ出す要約。開閉トリガー（group）の data-state で出し分ける。
@@ -70,13 +72,18 @@ export function CollapsibleCard({
   collapsedSummary,
   children,
 }: CollapsibleCardProps) {
+  // 右端のシェブロン（アイコンだけのボタン）の名前。タイトルが文字列ならそれを含める（→ 06）
+  const toggleLabel =
+    typeof title === 'string' ? `${title}の表示を切り替え` : '表示を切り替え';
   return (
     <Collapsible
       open={open}
       onOpenChange={onOpenChange}
       defaultOpen={open === undefined ? defaultOpen : undefined}
       className={cn(
-        'bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md mb-3',
+        // 白地・枠・影は共通のカード（CARD_CLASS。UI/UX UX-031）
+        CARD_CLASS,
+        'overflow-hidden mb-3',
         // 開いている間だけ余り高さを取る（折り畳み時に空のカードが伸びないようにする）
         fillParent && 'flex flex-col min-h-0 data-[state=open]:flex-1',
         className,
@@ -86,7 +93,7 @@ export function CollapsibleCard({
         // 操作要素がある場合：トリガーを「タイトル」と「シェブロン」に分け、
         // 操作要素はトリガーの外側に置く。シェブロンは常にバー右端。
         // titleActions はタイトルのすぐ右、headerActions はシェブロンの左（右寄せ）。
-        <div className="card-header-accent bg-white flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
+        <div className="card-header-accent bg-white flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-50 transition-colors">
           {/* 開閉トリガーは画面ロック（screen-locked）下でも操作可能に保つ。
               data-keep-active でグレーアウト対象から除外し、pointer-events-auto で
               クリックを有効化する（ロック外では無害）。 */}
@@ -99,7 +106,7 @@ export function CollapsibleCard({
           >
             <span
             className={cn(
-              'text-gray-900 font-bold text-base',
+              CARD_TITLE_CLASS,
               // 要約を出すカードはタイトルを縮めず、要約の側を省略する
               collapsedSummary && 'shrink-0',
             )}
@@ -128,7 +135,9 @@ export function CollapsibleCard({
           )}
           <CollapsibleTrigger
             data-keep-active
-            className="group shrink-0 hover:text-blue-700 transition-colors outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
+            aria-label={toggleLabel}
+            title={toggleLabel}
+            className="group shrink-0 transition-colors outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
           >
             <Chevron />
           </CollapsibleTrigger>
@@ -137,11 +146,11 @@ export function CollapsibleCard({
         // 操作要素が無い場合：バー全体が開閉トリガー
         <CollapsibleTrigger
           data-keep-active
-          className="group bg-white px-3 py-2 card-header-accent flex w-full items-center justify-between gap-4 hover:bg-gray-50 transition-colors outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
+          className="group bg-white px-3 py-2 card-header-accent flex w-full items-center justify-between gap-4 hover:bg-slate-50 transition-colors outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
         >
           <span
             className={cn(
-              'text-gray-900 font-bold text-base',
+              CARD_TITLE_CLASS,
               // 要約を出すカードはタイトルを縮めず、要約の側を省略する
               collapsedSummary && 'shrink-0',
             )}

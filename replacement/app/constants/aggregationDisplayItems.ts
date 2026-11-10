@@ -58,7 +58,7 @@ const v = (
 //   annual        ← 計画詳細_年間集計タブ
 // ※ シミュレーション集計表（パターン①/②）の表示項目・補助項目は計画詳細（詳細タブ）と
 //   揃えるため、simulation 列は monthlyDetail 列と常に同一の表示区分にする。
-//   集計値は詳細グリッドの実集計（utils/simulationDetailAggregate）が供給し、詳細グリッドが
+//   集計値は詳細グリッドの実集計（utils/sales-plan/simulation/simulationDetailAggregate）が供給し、詳細グリッドが
 //   保持しない項目（量経追加口・売上原価・売買差益 等）は空欄表示となる。
 export const AGGREGATION_DISPLAY_ITEMS: AggregationDisplayItem[] = [
   {

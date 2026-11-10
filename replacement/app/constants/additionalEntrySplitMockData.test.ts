@@ -9,7 +9,7 @@ import {
   alertLineNos,
   calcSplitAmount,
   effectiveAllocations,
-} from '../utils/additionalEntrySplit';
+} from '../utils/payment/payment-detail/additionalEntrySplit';
 
 // 自部署（基本情報の部署）。分割先候補に含めてはならない。
 const SELF_DEPT_CODE = '10002990';

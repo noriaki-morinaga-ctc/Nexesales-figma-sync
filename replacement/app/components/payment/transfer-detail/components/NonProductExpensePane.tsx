@@ -19,6 +19,15 @@ import {
   GetRowIdParams,
 } from 'ag-grid-community';
 import {
+  Trash2,
+  ArrowLeftRight,
+  Upload,
+  Copy,
+  ChevronDown,
+  Undo2,
+} from 'lucide-react';
+
+import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
@@ -75,17 +84,11 @@ import {
   applyStoreOrgCascade,
   type StoreOrgSelection,
 } from '../../../../constants/paymentOrgCascade';
-import {
-  Trash2,
-  ArrowLeftRight,
-  Upload,
-  Copy,
-  ChevronDown,
-  Undo2,
-} from 'lucide-react';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
 import type { TransferDetailBasicInfoValues } from './TransferInfo';
+import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 
+import { BUTTON_STYLES, BUTTON_BASE } from '../../../../../styles/commonStyles';
 // 拡売費明細データ（Excel「拡売費」表）
 export interface ExpenseRow {
   isGroup?: boolean; // グループ合計行
@@ -391,7 +394,7 @@ const branchInsertAt = (
 // 押下で枝番行を一括開閉する（全て展開中なら全て折りたたみ、それ以外は全て展開）。
 // セル側の折りたたみボタンと同じ幅（w-5）にして縦位置を揃える。
 // 枝番行が1件もないときは非活性（灰）にする。
-const BranchCollapseHeader = (props: IHeaderParams) => {
+const TransferBranchCollapseHeader = (props: IHeaderParams) => {
   // ヘッダーは生成時の params を保持し続けるため、params.context では古い関数を
   // 参照することがある。AG Grid 公式の getGridOption で常に最新の context を読む。
   const { hasAnyBranch, isAllBranchExpanded, onToggleAllCollapse } =
@@ -400,7 +403,7 @@ const BranchCollapseHeader = (props: IHeaderParams) => {
   const expanded = enabled && isAllBranchExpanded();
   const action = `振替先の枝番行を全て${expanded ? '折りたたむ' : '展開'}`;
   return (
-    <div className="flex h-full w-full items-center justify-center">
+    <div className="flex h-full w-full items-center justify-start">
       <button
         type="button"
         disabled={!enabled}
@@ -424,7 +427,7 @@ const BranchCollapseHeader = (props: IHeaderParams) => {
 // アイコンはカードの折りたたみ（CollapsibleCard）と揃えて ChevronDown を使い、
 // 「∨」＝折りたたみ中（枝番行を隠している）、「∧」（180度回転）＝展開中とする。
 // 親行以外（枝番行・合計行）と、枝番行を持たない親行では表示しない。
-const BranchCollapseCellRenderer = (props: ICellRendererParams) => {
+const TransferBranchCollapseCellRenderer = (props: ICellRendererParams) => {
   const row = props.data as ExpenseRow | undefined;
   if (!row || row.isGroup || row.isTotal || isBranchData(row)) return null;
   const { hasBranch, isCollapsed, onToggleCollapse } = props.context;
@@ -988,29 +991,12 @@ export const NonProductExpensePane = forwardRef<
   const GRID_MIN_HEIGHT = 240; // 縮めすぎ防止の下限
   // 既定の高さは 支払詳細(追加口請求書有) の「拡売費」と同じ算出式で揃える
   //（grid/ の detailGridInitialHeight）。
-  const [gridHeight, setGridHeight] = useState(detailGridInitialHeight);
-
-  // リサイズハンドルのドラッグ開始。マウス移動量に応じてグリッド縦幅を更新する。
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = gridHeight;
-    const onMove = (ev: MouseEvent) => {
-      const next = Math.max(
-        GRID_MIN_HEIGHT,
-        startHeight + (ev.clientY - startY)
-      );
-      setGridHeight(next);
-    };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.userSelect = '';
-    };
-    document.body.style.userSelect = 'none'; // ドラッグ中のテキスト選択を抑止
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
+  const gridResize = useResizableHeight({
+    defaultHeight: detailGridInitialHeight,
+    minHeight: GRID_MIN_HEIGHT,
+    maxHeight: Infinity,
+  });
+  const gridHeight = gridResize.height;
 
   // タイトル下の合計サマリーバーの表示値（総合計＋グループ別の支払金額・計画金額）。
   // 数式の一括適用（applyExpenseFormulas）で再集計するたびに更新する。
@@ -1221,7 +1207,6 @@ export const NonProductExpensePane = forwardRef<
   const gridColumnStateProps = useGridColumnState(
     'allocateDetail.expense.columnState.v7',
     {
-      autoSize: false,
       onGridReady: (event: any) => {
         gridApiRef.current = event.api;
         reveal.captureApi(event.api);
@@ -1465,14 +1450,14 @@ export const NonProductExpensePane = forwardRef<
       {
         headerName: '支払No',
         field: 'paymentNo',
-        width: 130,
+        width: 104,
         cellStyle: groupStyle,
       },
       {
         headerName: '支払回数',
         field: 'paymentCount',
         ...GRID_NUMBER_TEXT_FILTER,
-        width: 100,
+        width: 80,
         cellClass: RIGHT_CELL_CLASS,
         cellStyle: groupStyle,
       },
@@ -1480,7 +1465,7 @@ export const NonProductExpensePane = forwardRef<
         headerName: '明細No',
         field: 'detailNo',
         ...GRID_NUMBER_FILTER,
-        width: 100,
+        width: 80,
         cellClass: RIGHT_CELL_CLASS,
         cellStyle: groupStyle,
       },
@@ -1488,20 +1473,20 @@ export const NonProductExpensePane = forwardRef<
         // メタブランド：検印済み明細（振替元）・支払詳細の拡売費一覧と同じく、サマリ商品の左に置く。
         headerName: 'メタブランド',
         field: 'metaBrand',
-        width: 140,
+        width: 112,
         cellStyle: groupStyle,
       },
       {
         headerName: 'サマリ商品',
         field: 'product',
-        width: 220,
+        width: 176,
         cellStyle: groupStyle,
       },
       {
         headerName: '支払金額',
         field: 'payAmount',
         ...GRID_NUMBER_TEXT_FILTER,
-        width: 120,
+        width: 96,
         valueFormatter: intFmt,
         cellClass: RIGHT_CELL_CLASS,
         cellStyle: groupStyle,
@@ -1516,7 +1501,7 @@ export const NonProductExpensePane = forwardRef<
         // 販売店：当該行の一次店・三次店の配下に絞り込む。選択すると一次店・三次店を自動設定する。
         headerName: '販売店',
         colId: 'store',
-        width: 200,
+        width: 160,
         valueGetter: storeOrgValueGetter('store'),
         valueSetter: storeOrgValueSetter('store'),
         cellStyle: branchCellStyle(storeOrgEditable),
@@ -1536,7 +1521,7 @@ export const NonProductExpensePane = forwardRef<
         // 三次店：当該行の一次店の配下に絞り込む。選択すると一次店を自動設定する。
         headerName: '三次店',
         colId: 'tertiaryStore',
-        width: 200,
+        width: 160,
         valueGetter: storeOrgValueGetter('tertiaryStore'),
         valueSetter: storeOrgValueSetter('tertiaryStore'),
         cellStyle: branchCellStyle(storeOrgEditable),
@@ -1555,7 +1540,7 @@ export const NonProductExpensePane = forwardRef<
         // 一次店：全件から選択。選択すると配下でなくなった三次店・販売店をクリアする。
         headerName: '一次店',
         colId: 'primaryStore',
-        width: 220,
+        width: 176,
         valueGetter: storeOrgValueGetter('primaryStore'),
         valueSetter: storeOrgValueSetter('primaryStore'),
         cellStyle: branchCellStyle(storeOrgEditable),
@@ -1572,7 +1557,7 @@ export const NonProductExpensePane = forwardRef<
         // 費用負担部署：当該行の販売店・担当者との組合せが支払として存在するものだけに絞り込む。
         headerName: '費用負担部署',
         colId: 'dept',
-        width: 200,
+        width: 160,
         valueGetter: storeOrgValueGetter('dept'),
         valueSetter: storeOrgValueSetter('dept'),
         cellStyle: branchCellStyle(storeOrgEditable),
@@ -1593,7 +1578,7 @@ export const NonProductExpensePane = forwardRef<
         // 担当者：当該行の販売店・費用負担部署との組合せが支払として存在するものだけに絞り込む。
         headerName: '担当者',
         colId: 'staff',
-        width: 150,
+        width: 120,
         valueGetter: storeOrgValueGetter('staff'),
         valueSetter: storeOrgValueSetter('staff'),
         cellStyle: branchCellStyle(storeOrgEditable),
@@ -1615,7 +1600,7 @@ export const NonProductExpensePane = forwardRef<
         // 名称＋区分値の2行コンボで選択する（表示はコード）。
         headerName: '管理区分',
         colId: 'mgmtClassCode',
-        width: 130,
+        width: 104,
         valueGetter: (p: any) => p.data?.mgmtClass ?? '',
         valueSetter: (p: any) => {
           setMgmtClassName(p.data, String(p.newValue ?? ''));
@@ -1635,7 +1620,7 @@ export const NonProductExpensePane = forwardRef<
         // 管理区分名称：名称（mgmtClassName）を表示・選択する。管理区分（コード）列と相互連動する。
         headerName: '管理区分名称',
         colId: 'mgmtClassName',
-        width: 200,
+        width: 160,
         valueGetter: (p: any) => p.data?.mgmtClassName ?? '',
         valueSetter: (p: any) => {
           setMgmtClassName(p.data, String(p.newValue ?? ''));
@@ -1656,7 +1641,7 @@ export const NonProductExpensePane = forwardRef<
         // 選択で管理区分を自動設定する。
         headerName: '管理コード',
         colId: 'mgmtCodeCode',
-        width: 130,
+        width: 104,
         valueGetter: (p: any) => p.data?.mgmtCode ?? '',
         valueSetter: (p: any) => {
           setMgmtCode(p.data, String(p.newValue ?? ''));
@@ -1682,7 +1667,7 @@ export const NonProductExpensePane = forwardRef<
         // 管理コード名称：名称を選択できる列。名称→コードへ一意に逆引きして mgmtCode に保持する。
         headerName: '管理コード名称',
         colId: 'mgmtCodeName',
-        width: 200,
+        width: 160,
         valueGetter: (p: any) => managementCodeNameOf(p.data?.mgmtCode ?? ''),
         valueSetter: (p: any) => {
           setMgmtCode(p.data, managementCodeOfName(String(p.newValue ?? '')));
@@ -1708,7 +1693,7 @@ export const NonProductExpensePane = forwardRef<
         // 施策区分（コード＝区分値）。行は名称（measureClass）を保持し、表示は区分値。
         headerName: '施策区分',
         colId: 'measureClassCode',
-        width: 110,
+        width: 88,
         valueGetter: (p: any) => p.data?.measureClass ?? '',
         valueFormatter: (p: any) =>
           campaignClassCode(p.value) || GRID_EMPTY_TEXT,
@@ -1730,7 +1715,7 @@ export const NonProductExpensePane = forwardRef<
         // 施策区分名称：名称（measureClass）を表示・選択する。施策区分（区分値）列と相互連動する。
         headerName: '施策区分名称',
         colId: 'measureClassName',
-        width: 150,
+        width: 120,
         valueGetter: (p: any) => p.data?.measureClass ?? '',
         valueSetter: (p: any) => {
           setMeasureClass(p.data, String(p.newValue ?? ''));
@@ -1751,7 +1736,7 @@ export const NonProductExpensePane = forwardRef<
         // 選択で施策区分を自動設定する。
         headerName: '施策コード',
         colId: 'measureCodeCode',
-        width: 130,
+        width: 104,
         valueGetter: (p: any) => p.data?.measureCode ?? '',
         valueSetter: (p: any) => {
           setMeasureCode(p.data, String(p.newValue ?? ''));
@@ -1777,7 +1762,7 @@ export const NonProductExpensePane = forwardRef<
         // 施策コード名称：名称を選択できる列。名称→コードへ一意に逆引きして measureCode に保持する。
         headerName: '施策コード名称',
         colId: 'measureCodeName',
-        width: 190,
+        width: 152,
         valueGetter: (p: any) => campaignCodeNameOf(p.data?.measureCode ?? ''),
         valueSetter: (p: any) => {
           setMeasureCode(p.data, campaignCodeOfName(String(p.newValue ?? '')));
@@ -1802,14 +1787,14 @@ export const NonProductExpensePane = forwardRef<
       {
         headerName: '摘要1（社内用）',
         field: 'summary1',
-        width: 200,
+        width: 160,
         cellStyle: branchCellStyle(branchEditable),
         editable: branchEditable,
       },
       {
         headerName: '摘要2（社外用）',
         field: 'summary2',
-        width: 200,
+        width: 160,
         cellStyle: branchCellStyle(branchEditable),
         editable: branchEditable,
       },
@@ -1820,24 +1805,24 @@ export const NonProductExpensePane = forwardRef<
         // 枝番行（振替先行）の折りたたみボタン。No. 列の左に置き、
         // 枝番行を持つ親行にのみ表示する。ヘッダーのアイコンで一括開閉する。
         headerName: '',
-        headerComponent: BranchCollapseHeader,
+        headerComponent: TransferBranchCollapseHeader,
         colId: 'branchCollapse',
         lockPinned: true,
         sortable: false,
         filter: false,
         resizable: false,
         editable: false,
-        width: 40,
-        minWidth: 40,
-        maxWidth: 40,
+        width: 32,
+        minWidth: 32,
+        maxWidth: 32,
         suppressAutoSize: true,
-        cellRenderer: BranchCollapseCellRenderer,
+        cellRenderer: TransferBranchCollapseCellRenderer,
         cellStyle: widgetStyle,
       },
       {
         headerName: 'No.',
         field: 'lineNo',
-        width: 70,
+        width: 56,
         cellClass: 'cell-left',
         cellStyle: groupStyle,
       },
@@ -1854,7 +1839,7 @@ export const NonProductExpensePane = forwardRef<
         headerName: '負担金額',
         colId: 'shareAmount',
         ...GRID_NUMBER_TEXT_FILTER,
-        width: 120,
+        width: 96,
         valueGetter: (p: any) => {
           if (isSplitDestRow(p)) return p.data?.payAmount;
           if (p.data?.isGroup || p.data?.isTotal) return '';
@@ -1911,16 +1896,15 @@ export const NonProductExpensePane = forwardRef<
         // アイコン3個ぶんの幅（ボタン24px×3＋間隔4px×2＋左右余白）を確保する。
         headerName: '',
         colId: 'rowMenu',
-        field: 'rowMenu',
         pinned: 'right',
         lockPinned: true,
         sortable: false,
         filter: false,
         resizable: false,
         editable: false,
-        width: 116,
-        minWidth: 116,
-        maxWidth: 116,
+        width: 93,
+        minWidth: 93,
+        maxWidth: 93,
         suppressAutoSize: true,
         cellRenderer: RowMenuCellRenderer,
         cellStyle: widgetStyle,
@@ -2070,10 +2054,10 @@ export const NonProductExpensePane = forwardRef<
         <button
           type="button"
           onClick={() => onOpenAttachment?.()}
-          className="flex items-center gap-2 rounded-lg border-2 border-blue-600 bg-white px-3 py-1 text-sm whitespace-nowrap text-blue-600 transition-colors hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-2 px-3 py-1 text-sm whitespace-nowrap`}
           aria-label="根拠資料格納"
         >
-          <Upload className="h-[1rem] w-[1rem]" />
+          <Upload className="h-4 w-4" />
           根拠資料格納
         </button>
       }
@@ -2091,7 +2075,7 @@ export const NonProductExpensePane = forwardRef<
             {summaryTotals.map((item) => (
               <div
                 key={item.label}
-                className="flex flex-col items-end justify-center border-r border-gray-200 px-3 py-1 min-w-[10.5rem]"
+                className="flex flex-col items-end justify-center border-r border-gray-200 px-3 py-1 min-w-42"
               >
                 <span className="text-xs text-gray-500 whitespace-nowrap">
                   {item.label}
@@ -2154,14 +2138,11 @@ export const NonProductExpensePane = forwardRef<
 
         {/* リサイズハンドル：上下ドラッグでグリッドの縦幅を手動調整する。
             カードの p-4 を相殺してカード下端いっぱいに帯を表示する。 */}
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label="拡売費一覧の高さを変更"
-          onMouseDown={handleResizeStart}
-          className="-mx-4 -mb-4 mt-4 flex items-center justify-center h-3 cursor-ns-resize bg-gray-100 hover:bg-gray-200 border-t border-gray-200 transition-colors"
-        >
-          <div className="w-10 h-1 rounded-full bg-gray-400" />
+        <div className="relative h-2">
+          <ResizeHandle
+            onMouseDown={gridResize.handleMouseDown}
+            ariaLabel="拡売費一覧の高さを変更"
+          />
         </div>
       </>
     </CollapsibleCard>

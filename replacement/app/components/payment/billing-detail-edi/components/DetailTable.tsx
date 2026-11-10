@@ -56,14 +56,14 @@ import { parseFormulaNumber } from '../../../grid/gridCommon';
 import {
   formatBillingUnitPrice,
   roundBillingNumber,
-} from '../../../../utils/billingNumberFormat';
+} from '../../../../utils/payment/billing/billingNumberFormat';
 import {
   billingCalcAmountOf,
   billingDiffOf,
   billingFormulaTooltipOf,
   billingUnitPriceOf,
   isBillingAmountMismatch,
-} from '../../../../utils/billingDetailFormula';
+} from '../../../../utils/payment/billing/billingDetailFormula';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
@@ -128,6 +128,7 @@ const formatNumber = (value: unknown, fractionDigits = 0): string =>
 const isLockedRow = (row: BillingDetailRow | undefined): boolean =>
   isBillingDetailStatusLocked(row?.status);
 
+// 規約例外（画面ごとの部品）：AIC入力は明細を編集でき、請求EDIは参照専用で扱いが違うため、中身が似ていても今は画面ごとに持つ。後で共通化する可能性あり（→ 02 §12.2）
 export function DetailTable({
   rows,
   onRowsChange,
@@ -149,7 +150,13 @@ export function DetailTable({
   const addedSeqRef = useRef(0);
 
   const changed = useChangedCells();
-  const { makeHandler } = useLinkedCellUndo<BillingDetailRow>();
+  const { makeHandler, clearCache: clearLinkedCache } =
+    useLinkedCellUndo<BillingDetailRow>();
+  // 行の作り直し（行の追加・複製・削除）で行の値が入れ替わるため、連動セルのキャッシュも破棄する（→ 02 §7.3）
+  const rowIdSignature = rows.map((row) => row.id).join(',');
+  useEffect(() => {
+    clearLinkedCache();
+  }, [rowIdSignature, clearLinkedCache]);
   // 列構成の変更（操作列を右端固定へ移動・合計行/拡売費コード/摘要の削除、
   // v4：サマリ商品名をサマリ商品コード／サマリ商品名の2列へ分割、
   // v5：データ元列をステータス列の左に追加、
@@ -369,8 +376,8 @@ export function DetailTable({
         // 明細行の連番
         valueGetter: (params) =>
           params.context?.rowNoById?.get(params.data?.id ?? '') ?? '',
-        width: 70,
-        minWidth: 70,
+        width: 56,
+        minWidth: 56,
         sortable: false,
         filter: false,
         resizable: false,
@@ -432,7 +439,7 @@ export function DetailTable({
             ? { ...base, color: GRID_COLORS.overText }
             : base;
         },
-        width: 130,
+        width: 104,
       },
       {
         headerName: '請求金額',
@@ -524,7 +531,7 @@ export function DetailTable({
         onCellValueChanged: handleProductChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 140,
+        width: 112,
       },
       {
         headerName: 'サマリ商品名',
@@ -540,7 +547,7 @@ export function DetailTable({
         onCellValueChanged: handleProductChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 260,
+        width: 208,
       },
       {
         // 請求書に記載された商品名（→ 20260821_第31回 決定事項8）。
@@ -551,7 +558,7 @@ export function DetailTable({
         headerTooltip: '請求書に記載された商品名（サマリ商品名とは別）',
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 260,
+        width: 208,
       },
       {
         headerName: '入数',
@@ -655,7 +662,7 @@ export function DetailTable({
         onCellValueChanged: handleCustomerChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 240,
+        width: 192,
       },
       {
         headerName: '担当者',
@@ -684,7 +691,7 @@ export function DetailTable({
         onCellValueChanged: handleStoreChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 180,
+        width: 144,
       },
       {
         headerName: '三次店',
@@ -702,7 +709,7 @@ export function DetailTable({
         onCellValueChanged: handleStoreChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 260,
+        width: 208,
       },
       {
         headerName: '一次店',
@@ -720,7 +727,7 @@ export function DetailTable({
         onCellValueChanged: handleStoreChanged,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 180,
+        width: 144,
       },
       {
         // 備考（→ 20260821_第31回 決定事項8）。明細のどの項目とも対応しないため、
@@ -730,7 +737,7 @@ export function DetailTable({
         editable: isEditable,
         cellClass: 'cell-left',
         cellStyle: inputStyle,
-        width: 260,
+        width: 208,
       },
       // 支払画面へ反映した明細の反映先。卸から差異の問い合わせがあった際に
       // どの支払へ反映したかを追えるようにする。場所は明細の一番右
@@ -742,7 +749,7 @@ export function DetailTable({
         valueFormatter: (params) => params.value || '-',
         cellClass: 'cell-left',
         cellStyle: readonlyStyle,
-        width: 150,
+        width: 120,
       },
       {
         headerName: '支払回数',
@@ -752,15 +759,15 @@ export function DetailTable({
           params.value == null ? GRID_EMPTY_TEXT : `${params.value}回目`,
         cellClass: 'cell-right',
         cellStyle: readonlyStyle,
-        width: 110,
+        width: 88,
       },
       {
         // 行操作（三点リーダー）は右端に右固定する（登録系グリッドの共通方針。→ 02 §8）
         headerName: '操作',
         colId: 'rowAction',
         cellRenderer: 'billingRowActionRenderer',
-        width: 70,
-        minWidth: 70,
+        width: 56,
+        minWidth: 56,
         sortable: false,
         filter: false,
         resizable: false,
@@ -867,13 +874,11 @@ export function DetailTable({
       //（新規作成時の初期空行には帯を付けないため、追加操作の側で付ける）
       _copySource: 'new',
     };
+    // 追加した行は最下行に増えるため、押下後は最終行まで自動でスクロールし、行をフラッシュする
+    // （→ 20260821_第31回 決定事項16＝決定事項一覧 No.469。強調は共通の useRevealNewRows）
+    reveal.markRows([added]);
     onRowsChange([...currentRows, added]);
-    // 追加した行は最下行に増えるため、押下後は最終行まで自動でスクロールする
-    // （→ 20260821_第31回 決定事項16＝決定事項一覧 No.469）
-    requestAnimationFrame(() => {
-      gridRef.current?.api?.ensureIndexVisible(currentRows.length, 'bottom');
-    });
-  }, [onRowsChange]);
+  }, [onRowsChange, reveal]);
 
   // コピー直後だけ、閉じた操作メニューの既定のフォーカス復帰（＝コピー元行の
   // 三点リーダー）を止めるための目印。復帰させるとブラウザがコピー元行を可視域へ
@@ -892,19 +897,15 @@ export function DetailTable({
         // 左端に緑の帯を出し、コピーで増えた行だと後から分かるようにする
         _copySource: 'detail',
       };
-      // コピーした行を強調対象にする（行が反映された後にフラッシュされる）
+      // コピーした行を強調対象にする。最下行に増えるため、行が反映された後に最終行まで
+      // スクロールしてフラッシュされる（明細追加と同じ挙動。→ 20260821_第31回 決定事項16）
       reveal.markRows([copied]);
       onRowsChange([...currentRows, copied]);
       // フォーカスの復帰先をコピー元行から最下行へ移す（操作メニューを閉じたあとに
       // DropdownMenuContent の onCloseAutoFocus で実施する）
       focusCopiedRowRef.current = true;
-      // コピーした行は最下行に増えるため、押下後は最終行まで自動でスクロールする
-      // （明細追加と同じ挙動。→ 20260821_第31回 決定事項16）
-      requestAnimationFrame(() => {
-        gridRef.current?.api?.ensureIndexVisible(currentRows.length, 'bottom');
-      });
     },
-    [onRowsChange]
+    [onRowsChange, reveal]
   );
 
   // 請求単価の逆算メニューは持たない。正式な請求単価は常に請求金額 ÷ 数量で算出し、
@@ -963,9 +964,8 @@ export function DetailTable({
                 requestAnimationFrame(() => {
                   const api = gridRef.current?.api;
                   if (!api) return;
-                  const lastIndex = rowsRef.current.length - 1;
-                  api.ensureIndexVisible(lastIndex, 'bottom');
-                  api.setFocusedCell(lastIndex, 'rowAction');
+                  // 最下行へのスクロールは共通の useRevealNewRows が済ませている
+                  api.setFocusedCell(rowsRef.current.length - 1, 'rowAction');
                 });
               }}
             >
@@ -1069,7 +1069,10 @@ export function DetailTable({
       title={<span className={CARD_TITLE_CLASS}>請求明細</span>}
       open={isOpen}
       onOpenChange={setIsOpen}
-      contentClassName="p-2 flex flex-col h-[calc(100vh-9.5rem)] min-h-[25rem]"
+      // 画面の残りの高さいっぱいに広げる（固定の calc(100vh-…) にしない → 05）。開いている間だけ下限 25rem
+      fillParent
+      className="data-[state=open]:min-h-100"
+      contentClassName="p-2 flex flex-col flex-1 min-h-0"
     >
       {/* 合計サマリーバー（支払詳細(追加口請求書有)の追加口合計と同一フォーマット）。
           「合計」ラベル＋グループ見出し（請求／支払／確定（検印）後）の下に各項目を表示する。

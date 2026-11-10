@@ -1,42 +1,36 @@
 import { Eye } from 'lucide-react';
-import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
+import {
+  CARD_TITLE_CLASS,
+  CARD_CLASS,
+} from '../../../../../styles/commonStyles';
 import {
   type NoticeDraft,
   bodyPreviewText,
   renderNoticeBody,
 } from '../noticeStore';
-import { TYPE_CONFIG } from '../noticeUi';
+import { NOTICE_TYPE_BADGE_CLASS, TYPE_CONFIG } from '../NoticeUi';
+import { Badge } from '../../../ui/badge';
 
 // ===== 編集画面プレビュー =====
 // 一般画面（TOP）での見え方を、折りたたみ（一覧）と展開（詳細）の2形態で表示。
 
 // お知らせタイトルの文字色（TOP画面のお知らせカードと同色）
-const NOTICE_TITLE_COLOR_CLASS = 'text-[#385799]';
-
-interface TypeBadgeProps {
-  type: NoticeDraft['type'];
-}
-
-// バッジは「重要」のみ（badge 未定義の種別は非表示＝日時が左詰めになる）
-function TypeBadge({ type }: TypeBadgeProps) {
-  const cfg = TYPE_CONFIG[type];
-  if (!cfg.badge) return null;
-  return (
-    <span
-      className={`px-3 py-1 rounded-full text-xs font-bold text-white ${cfg.badge}`}
-    >
-      {cfg.label}
-    </span>
-  );
-}
+const NOTICE_TITLE_COLOR_CLASS = 'text-blue-900';
 
 interface NoticePreviewProps {
   draft: NoticeDraft;
 }
 
 export function NoticePreview({ draft }: NoticePreviewProps) {
+  // バッジは「重要」のみ（badge 未定義の種別は非表示＝日時が左詰めになる）
+  const typeConfig = TYPE_CONFIG[draft.type];
+  const typeBadge = typeConfig.badge ? (
+    <Badge className={`${NOTICE_TYPE_BADGE_CLASS} ${typeConfig.badge}`}>
+      {typeConfig.label}
+    </Badge>
+  ) : null;
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-md self-start">
+    <div className={`${CARD_CLASS} self-start`}>
       <div className="px-3 py-1.5 flex items-center gap-2">
         <Eye className="h-5 w-5 text-gray-700" aria-hidden="true" />
         <h2 className={CARD_TITLE_CLASS}>プレビュー</h2>
@@ -47,7 +41,7 @@ export function NoticePreview({ draft }: NoticePreviewProps) {
           <p className="text-xs text-gray-500 mb-1">■ 一覧（折りたたみ）</p>
           <div className="border border-gray-200 rounded-lg p-3 shadow-sm bg-white mb-3">
             <div className="flex items-center gap-2 mb-1">
-              <TypeBadge type={draft.type} />
+              {typeBadge}
               <span className="text-xs text-gray-500">
                 {draft.startAt || '（掲載日時未設定）'}
               </span>
@@ -66,7 +60,7 @@ export function NoticePreview({ draft }: NoticePreviewProps) {
           <p className="text-xs text-gray-500 mb-1">■ 展開（詳細）</p>
           <div className="border border-blue-400 bg-blue-50 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
-              <TypeBadge type={draft.type} />
+              {typeBadge}
               <span className="text-xs text-gray-500">{draft.startAt}</span>
             </div>
             <h3

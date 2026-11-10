@@ -1,7 +1,12 @@
 // ===== ファイルアップロード画面の型定義 =====
 
-// アップロードの処理ステータス
-export type UploadStatusType = 'PROCESSING' | 'COMPLETED' | 'ERROR';
+import type {
+  UploadErrorItem,
+  UploadStatusType,
+} from '../../shared/upload/uploadTypes';
+
+// アップロードの処理ステータス・エラー明細は共通（→ shared/upload/uploadTypes.ts）
+export type { UploadErrorItem, UploadStatusType };
 
 // アップロード・ダウンロード対象（テンプレートファイルのシートと1対1）
 export type UploadTargetType =
@@ -10,12 +15,6 @@ export type UploadTargetType =
   | 'sales_equipment_lease'
   | 'partner_machine'
   | 'alliance_product';
-
-// アップロードエラー明細（1行ごとのエラー内容）
-export interface UploadErrorItem {
-  rowNumber: number; // 行番号
-  errorMessage: string; // エラー内容
-}
 
 // アップロード履歴の1件分
 export interface UploadHistoryItem {

@@ -4,7 +4,7 @@
 // マージン率固定・NET入力／NET固定／拡売費計画(紐づき無し)の3画面で同じ並びを使う。
 
 import type { DeleteConfirmItem } from '../components/ui/delete-confirm-pane';
-import type { NonProductExpenseData } from './nonProductExpenseTypes';
+import type { NonProductExpenseData } from '../types/nonProductExpense';
 import {
   campaignClassCodeOf,
   campaignCodeNameOf,
@@ -14,8 +14,8 @@ import {
   promotionCodeName,
   summaryProductCodeName,
 } from './comboFieldOptions';
-import { GIFT_PERIODS } from '../utils/productCategoryChange';
-import { toMonthLabel } from '../utils/yearMonth';
+import { GIFT_PERIODS } from '../utils/sales-plan/common/productCategoryChange';
+import { toMonthLabel } from '../utils/common/yearMonth';
 
 // 値なしの表示（グリッドの空欄表示に合わせる）
 const DASH = '-';

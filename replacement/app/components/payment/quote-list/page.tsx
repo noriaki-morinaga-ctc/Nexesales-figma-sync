@@ -21,7 +21,7 @@ import {
   useOrgCascadeSearch,
   toOrgComboOptions,
 } from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/orgCascade';
+import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
 import type { OrgLevel } from '../../../constants/orgHierarchy';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
 import {
@@ -39,6 +39,7 @@ import { MonthYearPicker } from '../../ui/month-year-picker';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
+  CARD_CLASS,
 } from '../../../../styles/commonStyles';
 import { ScreenTitle } from '../../ui/screen-title';
 
@@ -56,11 +57,10 @@ const INITIAL_ORG: Partial<Record<OrgLevel, string[]>> = {
 };
 
 // 事業場・部署・営業担当者は複数選択で、上位・下位の選択肢を連動させる
-// （→ utils/orgCascade.ts。末端組織は持たない）。選択肢は組織階層マスタから「コード:名称」で表示する
+// （→ utils/common/orgCascade.ts。末端組織は持たない）。選択肢は組織階層マスタから「コード:名称」で表示する
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '営業担当者' },
-  units: { salesRep: '名' },
 };
 
 // ステータスごとのアイコン・色設定
@@ -338,9 +338,9 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
         suppressMovable: true,
         resizable: false,
         // 引用ボタンが最低限収まる幅に固定する（セルの余白を詰める）
-        width: 56,
-        minWidth: 56,
-        maxWidth: 56,
+        width: 45,
+        minWidth: 45,
+        maxWidth: 45,
         suppressSizeToFit: true,
         cellStyle: {
           display: 'flex',
@@ -489,7 +489,7 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
         <ScreenTitle title="引用一覧" />
 
         {/* 検索条件カード */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-3 shadow-md">
+        <div className={`${CARD_CLASS} overflow-hidden mb-3`}>
           {/* 検索条件ヘッダー（クリアボタンはヘッダー右端に置き、専用の行を使わない。計画一覧と同一体裁） */}
           <div className="px-3 py-1.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -679,7 +679,7 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
         </div>
 
         {/* 引用一覧テーブル */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-md p-2">
+        <div className={`${CARD_CLASS} p-2`}>
           {/* グリッド上部ボタン群 */}
           <div className="flex items-center gap-2 mb-2">
             <button

@@ -9,7 +9,7 @@ import { Undo2, Save, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BUTTON_STYLES } from '../../../../styles/commonStyles';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { BasicInfoPane } from './components/BasicInfoPane';
+import { BillingBasicInfoPane } from '../../shared/payment/billing/BillingBasicInfoPane';
 import { DetailTable } from './components/DetailTable';
 import {
   BILLING_DETAIL_BY_DATA_SOURCE,
@@ -99,14 +99,14 @@ export default function BillingDetailAic({
   };
 
   return (
-    <div className="min-w-[75rem]">
-      <div className="px-6 pt-3 pb-3">
+    <div className="min-w-300 h-full flex flex-col">
+      <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する（データ種別は基本情報で示すため、画面名には付けない。
             ヘッダーメニューのみ「請求詳細(AIC入力)」と区別して表記する） */}
         <ScreenTitle title="請求詳細" />
 
         {/* 基本情報（新規作成時のみ入力可） */}
-        <BasicInfoPane
+        <BillingBasicInfoPane
           entry={entryDraft}
           editable={isNewEntry}
           onChange={(patch) => setEntryDraft((prev) => ({ ...prev, ...patch }))}
@@ -127,7 +127,7 @@ export default function BillingDetailAic({
       {/* フッターエリア（固定） */}
       <div
         data-screen-footer
-        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
       >
         <div className="flex flex-wrap gap-3 justify-between">
           <div className="flex flex-wrap gap-3">

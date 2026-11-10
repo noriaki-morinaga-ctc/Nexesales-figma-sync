@@ -18,10 +18,12 @@ import {
   GridReadyEvent,
   RowClassParams,
 } from 'ag-grid-community';
+import { ChevronDown, Calendar, TrendingUp, CalendarRange } from 'lucide-react';
+
 import { RadioGroup } from '../../../ui/radio-group';
+import { NumericInput } from '../../../ui/numeric-input';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
-import { ChevronDown, Calendar, TrendingUp, CalendarRange } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/tabs';
 import {
   GRID_BASE_PROPS,
@@ -31,7 +33,10 @@ import {
   useGridColumnState,
   GRID_NO_FILTER_COLUMN_TYPES,
 } from '../../../grid';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import {
+  FORM_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+} from '../../../../../styles/commonStyles';
 
 // 集計表（売上サマリ数値・詳細）の初期の高さ（px）。表の下端のリサイズハンドルの
 // ドラッグで拡縮する（計画詳細(NET固定)＝ PlanAggregationPane と同じ共通フック
@@ -54,7 +59,7 @@ const DETAIL_GROUP_STATE_KEY =
 // 「初期表示は既定幅・以降はユーザーの調整を保持」を成立させるため、列定義と
 // 下の適用済み幅の判定で同じ値を参照する。
 const ROW_TITLE_COLUMN_ID = 'item1';
-const ROW_TITLE_COLUMN_WIDTH = 248;
+const ROW_TITLE_COLUMN_WIDTH = 198;
 // 既定幅を最後に適用したときの値の記録先。
 // 列状態（列幅）は利用者の調整を保持するため localStorage に残るが、それだけだと
 // 上の既定幅をコード側で変更しても保存済みの旧幅が優先され、いつまでも反映されない。
@@ -194,7 +199,7 @@ export function AggregationPane({
   const [selectedMonth] = useState('7'); // 対象月（販売計画条件から取得想定）
   const [aggregationUnit, setAggregationUnit] = useState('all');
   const [selectedFilter, setSelectedFilter] = useState('');
-  const [showAnnualPlan, setShowAnnualPlan] = useState(false);
+  const [isAnnualPlanShown, setIsAnnualPlanShown] = useState(false);
   // 表示単位（円／千円）。金額の桁が大きいため既定は千円
   // （計画詳細(マージン率固定・NET入力)＝ PlanAggregationPane と同じ）。
   const [displayUnit, setDisplayUnit] = useState<'yen' | 'thousand'>(
@@ -634,6 +639,7 @@ export function AggregationPane({
             // 幅を変えるときは ROW_TITLE_COLUMN_WIDTH のみを直せばよい
             // （初期表示への反映は applyRowTitleDefaultWidth が担保する）。
             width: ROW_TITLE_COLUMN_WIDTH,
+            suppressAutoSize: true, // 幅を決めてある列のため自動調整から外す
             // 行タイトル列は左詰め（実際の左寄せは下の <style> の
             // .sales-summary-grid 側の規則と合わせて効かせる）。
             cellClass: 'ag-cell-left',
@@ -643,7 +649,7 @@ export function AggregationPane({
           {
             headerName: '',
             field: 'item4',
-            width: 85,
+            width: 68,
             cellClass: 'cell-right',
             suppressMenu: true,
             // 金額行の単位表記は表示単位に追従させる（(円) ⇔ (千円)）
@@ -659,7 +665,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'feb_actual',
-            width: 150,
+            width: 120,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -668,7 +674,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'feb_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -681,7 +687,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'mar_actual',
-            width: 150,
+            width: 120,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -690,7 +696,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'mar_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -703,7 +709,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'apr_actual',
-            width: 150,
+            width: 120,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -712,7 +718,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'apr_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -725,7 +731,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'may_actual',
-            width: 150,
+            width: 120,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -734,7 +740,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'may_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -746,7 +752,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'period_actual',
-            width: 150,
+            width: 120,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -755,7 +761,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'period_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -767,7 +773,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'annual_actual',
-            width: 160,
+            width: 128,
             cellClass: 'cell-right',
             // 金額行（単位が (円) の行）のみ表示単位へ換算する
             valueFormatter: (params: any) =>
@@ -776,7 +782,7 @@ export function AggregationPane({
           {
             headerName: '前年比',
             field: 'annual_ratio',
-            width: 100,
+            width: 80,
             cellClass: 'cell-right',
             valueFormatter: (params) => formatRatioDecimal1(params.value),
           },
@@ -1136,11 +1142,11 @@ export function AggregationPane({
       {
         headerName: '項目',
         field: 'label',
-        width: 240,
+        width: 192,
         lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
-        cellStyle: { textAlign: 'left', justifyContent: 'flex-start' },
         flex: 0,
+        suppressAutoSize: true, // 幅を決めてある列のため自動調整から外す
       },
       {
         headerName: '🗓️ 7月合計',
@@ -1148,7 +1154,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'monthly_plan',
-            width: 110,
+            width: 88,
             cellClass: 'cell-right',
             valueFormatter: unifiedAmountFormatter,
           },
@@ -1159,7 +1165,7 @@ export function AggregationPane({
               {
                 headerName: '予算',
                 field: 'monthly_budget',
-                width: 110,
+                width: 88,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1167,7 +1173,7 @@ export function AggregationPane({
                 headerName: '予算比',
                 field: 'monthly_budgetRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1175,7 +1181,7 @@ export function AggregationPane({
                 headerName: '予算差',
                 colId: 'monthly_budgetDiff',
                 columnGroupShow: 'open',
-                width: 110,
+                width: 88,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'monthly_plan',
@@ -1192,7 +1198,7 @@ export function AggregationPane({
               {
                 headerName: '前年',
                 field: 'monthly_previousYear',
-                width: 110,
+                width: 88,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1200,7 +1206,7 @@ export function AggregationPane({
                 headerName: '前年比',
                 field: 'monthly_previousYearRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1208,7 +1214,7 @@ export function AggregationPane({
                 headerName: '前年差',
                 colId: 'monthly_previousYearDiff',
                 columnGroupShow: 'open',
-                width: 110,
+                width: 88,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'monthly_plan',
@@ -1226,7 +1232,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'cumulative_plan',
-            width: 120,
+            width: 96,
             cellClass: 'cell-right',
             valueFormatter: unifiedAmountFormatter,
           },
@@ -1237,7 +1243,7 @@ export function AggregationPane({
               {
                 headerName: '予算',
                 field: 'cumulative_budget',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1245,7 +1251,7 @@ export function AggregationPane({
                 headerName: '予算比',
                 field: 'cumulative_budgetRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1253,7 +1259,7 @@ export function AggregationPane({
                 headerName: '予算差',
                 colId: 'cumulative_budgetDiff',
                 columnGroupShow: 'open',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'cumulative_plan',
@@ -1270,7 +1276,7 @@ export function AggregationPane({
               {
                 headerName: '前年',
                 field: 'cumulative_previousYear',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1278,7 +1284,7 @@ export function AggregationPane({
                 headerName: '前年比',
                 field: 'cumulative_previousYearRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1286,7 +1292,7 @@ export function AggregationPane({
                 headerName: '前年差',
                 colId: 'cumulative_previousYearDiff',
                 columnGroupShow: 'open',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'cumulative_plan',
@@ -1304,7 +1310,7 @@ export function AggregationPane({
           {
             headerName: '計画/実績',
             field: 'yearly_plan',
-            width: 120,
+            width: 96,
             cellClass: 'cell-right',
             valueFormatter: unifiedAmountFormatter,
           },
@@ -1315,7 +1321,7 @@ export function AggregationPane({
               {
                 headerName: '予算',
                 field: 'yearly_budget',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1323,7 +1329,7 @@ export function AggregationPane({
                 headerName: '予算比',
                 field: 'yearly_budgetRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1331,7 +1337,7 @@ export function AggregationPane({
                 headerName: '予算差',
                 colId: 'yearly_budgetDiff',
                 columnGroupShow: 'open',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'yearly_plan',
@@ -1348,7 +1354,7 @@ export function AggregationPane({
               {
                 headerName: '前年',
                 field: 'yearly_previousYear',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueFormatter: unifiedAmountFormatter,
               },
@@ -1356,7 +1362,7 @@ export function AggregationPane({
                 headerName: '前年比',
                 field: 'yearly_previousYearRate',
                 columnGroupShow: 'open',
-                width: 85,
+                width: 68,
                 cellClass: 'cell-right',
               },
               {
@@ -1364,7 +1370,7 @@ export function AggregationPane({
                 headerName: '前年差',
                 colId: 'yearly_previousYearDiff',
                 columnGroupShow: 'open',
-                width: 120,
+                width: 96,
                 cellClass: 'cell-right',
                 valueGetter: unifiedDiffValueGetter(
                   'yearly_plan',
@@ -1411,31 +1417,33 @@ export function AggregationPane({
   }, []);
 
   // 列状態（列幅・列の表示/非表示）の保存／復元（共通フック）。
-  // 両グリッドとも列定義に明示幅を持つため、初回の自動フィットは行わない。
+  // 行タイトル列（項目）は幅を決めてあるため自動調整から外す（suppressAutoSize）。
   const salesSummaryColumnStateProps = useGridColumnState(
     SALES_SUMMARY_COLUMN_STATE_KEY,
-    { autoSize: false, onGridReady: applyRowTitleDefaultWidth }
+    { onGridReady: applyRowTitleDefaultWidth }
   );
   // 保存済みの列グループ（予算・前年）の開閉状態を適用する。
-  const restoreDetailGroupState = useCallback((event: { api: GridApi }) => {
-    try {
-      const saved = localStorage.getItem(DETAIL_GROUP_STATE_KEY);
-      if (saved) event.api.setColumnGroupState(JSON.parse(saved));
-    } catch {
-      // 保存値が壊れている場合は列定義どおりの開閉状態のままにする
-    }
-  }, []);
+  const handleRestoreDetailGroupState = useCallback(
+    (event: { api: GridApi }) => {
+      try {
+        const saved = localStorage.getItem(DETAIL_GROUP_STATE_KEY);
+        if (saved) event.api.setColumnGroupState(JSON.parse(saved));
+      } catch {
+        // 保存値が壊れている場合は列定義どおりの開閉状態のままにする
+      }
+    },
+    []
+  );
 
   const detailColumnStateProps = useGridColumnState(DETAIL_COLUMN_STATE_KEY, {
-    autoSize: false,
     // 列状態の復元に続けて、列グループの開閉状態も復元する。
-    onGridReady: restoreDetailGroupState,
+    onGridReady: handleRestoreDetailGroupState,
   });
 
   // 「列設定をリセット」時は、列グループも列定義どおり＝全て閉じた状態へ戻す。
   // 保存済みの開閉状態も消し、以降の復元で開いた状態が戻らないようにする
   // （初回アクセス時と同じ状態にそろえる）。
-  const resetDetailGroupState = useCallback((event: { api: GridApi }) => {
+  const handleResetDetailGroupState = useCallback((event: { api: GridApi }) => {
     event.api.resetColumnGroupState();
     try {
       localStorage.removeItem(DETAIL_GROUP_STATE_KEY);
@@ -1445,7 +1453,7 @@ export function AggregationPane({
   }, []);
 
   // 列グループを開閉するたびに状態を保存する（次回アクセス時に復元する）。
-  const saveDetailGroupState = useCallback((event: { api: GridApi }) => {
+  const handleSaveDetailGroupState = useCallback((event: { api: GridApi }) => {
     try {
       localStorage.setItem(
         DETAIL_GROUP_STATE_KEY,
@@ -1579,7 +1587,7 @@ export function AggregationPane({
     return (
       <div
         key={index}
-        className="bg-gradient-to-br from-white to-blue-50 rounded-xl border-2 border-gray-300 shadow-md hover:shadow-lg transition-shadow px-[14px] py-[16px]"
+        className="bg-gradient-to-br from-white to-blue-50 rounded-xl border-2 border-gray-300 shadow-md hover:shadow-lg transition-shadow px-3.5 py-4"
       >
         <div className="text-sm font-bold text-gray-800 mb-3 pb-2 border-b-2 border-blue-200">
           {data.name}
@@ -1660,8 +1668,7 @@ export function AggregationPane({
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-[200px] h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ fontSize: '0.875rem' }}
+                className="w-50 h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">すべて</option>
                 {metaBrandList.map((brand, index) => (
@@ -1678,8 +1685,7 @@ export function AggregationPane({
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-[200px] h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ fontSize: '0.875rem' }}
+                className="w-50 h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">すべて</option>
                 {containerCapacityList.map((capacity, index) => (
@@ -1696,8 +1702,7 @@ export function AggregationPane({
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-[280px] h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ fontSize: '0.875rem' }}
+                className="w-70 h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">すべて</option>
                 {wholesaleMeshList.map((mesh, index) => (
@@ -1714,8 +1719,7 @@ export function AggregationPane({
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-[300px] h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ fontSize: '0.875rem' }}
+                className="w-75 h-8 px-3 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">すべて</option>
                 {summaryProductList.map((product, index) => (
@@ -1746,22 +1750,24 @@ export function AggregationPane({
             <span className="text-sm font-bold text-gray-700 whitespace-nowrap">
               累計期間指定
             </span>
-            <input
-              type="number"
+            <NumericInput
               min="1"
               max="12"
-              value={periodStart}
+              maxFractionDigits={0}
+              value={String(periodStart)}
+              aria-label="累計期間の開始月"
               onChange={(e) => setPeriodStart(Number(e.target.value))}
-              className="w-20 h-8 border border-gray-300 rounded px-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`${TEXT_INPUT_CLASS} w-20 text-right`}
             />
             <span className="text-sm">～</span>
-            <input
-              type="number"
+            <NumericInput
               min="1"
               max="12"
-              value={periodEnd}
+              maxFractionDigits={0}
+              value={String(periodEnd)}
+              aria-label="累計期間の終了月"
               onChange={(e) => setPeriodEnd(Number(e.target.value))}
-              className="w-20 h-8 border border-gray-300 rounded px-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`${TEXT_INPUT_CLASS} w-20 text-right`}
             />
             <span className="text-sm text-gray-700">月</span>
           </div>
@@ -1779,7 +1785,7 @@ export function AggregationPane({
                 onClick={() => setDisplayUnit('yen')}
                 className={`px-4 text-sm font-medium transition-colors ${
                   displayUnit === 'yen'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -1789,7 +1795,7 @@ export function AggregationPane({
                 onClick={() => setDisplayUnit('thousand')}
                 className={`px-4 text-sm font-medium transition-colors ${
                   displayUnit === 'thousand'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -1938,7 +1944,7 @@ export function AggregationPane({
               className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg"
             >
               <div className="grid grid-cols-5 gap-2">
-                {(showAnnualPlan
+                {(isAnnualPlanShown
                   ? prepareAnnualPlanData()
                   : prepareMonthlyChartData()
                 ).map((data, idx) => renderMiniBarChart(data, idx))}
@@ -1950,7 +1956,7 @@ export function AggregationPane({
               className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg"
             >
               <div className="grid grid-cols-5 gap-2">
-                {(showAnnualPlan
+                {(isAnnualPlanShown
                   ? prepareAnnualPlanData()
                   : prepareCumulativeChartData()
                 ).map((data, idx) => renderMiniBarChart(data, idx))}
@@ -1962,7 +1968,7 @@ export function AggregationPane({
               className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg"
             >
               <div className="grid grid-cols-5 gap-2">
-                {(showAnnualPlan
+                {(isAnnualPlanShown
                   ? prepareAnnualPlanData()
                   : prepareYearlyChartData()
                 ).map((data, idx) => renderMiniBarChart(data, idx))}
@@ -1981,11 +1987,11 @@ export function AggregationPane({
               ref={detailGridRef}
               {...GRID_BASE_PROPS}
               {...detailColumnStateProps}
-              onColumnGroupOpened={saveDetailGroupState}
-              onColumnsReset={resetDetailGroupState}
+              onColumnGroupOpened={handleSaveDetailGroupState}
+              onColumnsReset={handleResetDetailGroupState}
               // 集計期間・金額単位の変更で列定義が作り直されると開閉状態が
               // 既定へ戻るため、そのたびに保存済みの状態を適用し直す。
-              onColumnEverythingChanged={restoreDetailGroupState}
+              onColumnEverythingChanged={handleRestoreDetailGroupState}
               rowData={unifiedData}
               columnDefs={columnDefsWithTooltips}
               defaultColDef={defaultColDef}

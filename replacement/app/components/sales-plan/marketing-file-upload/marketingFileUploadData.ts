@@ -5,10 +5,16 @@ import type {
   TemplateRow,
   UploadErrorItem,
   UploadHistoryItem,
-  UploadStatusType,
   UploadTargetOption,
   UploadTargetType,
 } from './marketingFileUploadTypes';
+
+// ファイルの拡張子・accept 値・ステータスの表示名は共通（→ shared/upload/uploadConstants.ts）
+export {
+  ALLOWED_EXTENSIONS,
+  FILE_ACCEPT,
+  STATUS_NAME_MAP,
+} from '../../shared/upload/uploadConstants';
 
 // ===== ファイルアップロード画面の定数・モックデータ =====
 
@@ -43,21 +49,10 @@ export const INITIAL_STORE_FILTER: StoreFilter = {
 export const MOCK_LOGIN_USER_NAME = 'アサヒ 太郎';
 
 // 許可するファイル拡張子
-export const ALLOWED_EXTENSIONS = ['.xlsx', '.xls'];
-
-// ファイル選択ダイアログに渡す accept 値
-export const FILE_ACCEPT = ALLOWED_EXTENSIONS.join(',');
 
 // 進捗トーストのID（同一IDで再描画して進捗を更新する）
 export const UPLOAD_PROGRESS_TOAST_ID = 'marketing-upload-progress';
 export const DOWNLOAD_PROGRESS_TOAST_ID = 'marketing-download-progress';
-
-// ステータス表示名
-export const STATUS_NAME_MAP: Record<UploadStatusType, string> = {
-  PROCESSING: '処理中',
-  COMPLETED: '完了',
-  ERROR: 'エラー',
-};
 
 // ───────────────────────────────────────────────
 // テンプレート（Excel）の定義

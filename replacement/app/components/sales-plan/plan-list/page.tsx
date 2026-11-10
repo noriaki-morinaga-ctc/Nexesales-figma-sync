@@ -8,11 +8,20 @@ import {
   CheckCircle2,
   AlertTriangle,
   Undo2,
-  XIcon,
   Plus,
   Search,
 } from 'lucide-react';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import type {
+  ColDef,
+  GetRowIdParams,
+  RowDoubleClickedEvent,
+  GridReadyEvent,
+} from 'ag-grid-community';
+
+import { SearchRangeField } from '../../ui/search-range-field';
+import { Badge } from '../../ui/badge';
 import { CopyableArea } from '../../ui/copyable-area';
 import { valueOrEmpty } from '../../ui/empty-value';
 import {
@@ -23,22 +32,15 @@ import {
   useOrgCascadeSearch,
   toOrgComboOptions,
 } from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/orgCascade';
+import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
 import type { OrgLevel } from '../../../constants/orgHierarchy';
-import { Button } from '../../ui/button';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
+  OVERDUE_BADGE_CLASS,
 } from '../../../../styles/commonStyles';
-import { AgGridReact } from 'ag-grid-react';
-import type {
-  ColDef,
-  GetRowIdParams,
-  RowDoubleClickedEvent,
-  GridReadyEvent,
-} from 'ag-grid-community';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import { CollapsibleCard } from '../../ui/collapsible-card';
 import { SearchClearButton } from '../../ui/search-clear-button';
@@ -54,29 +56,12 @@ import {
   GRID_MASTER_DETAIL_ICONS,
   GRID_BASE_PROPS,
   GRID_EMPTY_TEXT,
-  GRID_COLORS,
   withHeaderTooltips,
   gridFilterContextMenuItems,
   GRID_MONTH_TEXT_FILTER,
 } from '../../grid';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../ui/alert-dialog';
 import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
 
 // 検索条件のステータス・チャネルの選択肢（未選択＝条件なし。「全て」は持たない）
 const STATUS_OPTIONS: MultiComboboxOption[] = [
@@ -104,7 +89,6 @@ const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     terminalOrg: '末端組織',
     salesRep: '作成者',
   },
-  units: { salesRep: '名' },
 };
 
 interface StoreDetail {
@@ -135,27 +119,10 @@ interface SalesPlanData {
   isNoLink?: boolean; // 商流紐づけなし計画（計画表ボタンで商流紐づけなし画面へ遷移）
 }
 
-interface ProductPlanData {
-  id: string;
-  productCategory: string;
-  summaryProduct: string;
-  externalSales: number;
-  caseUnitPrice: number;
-  bottleUnitPrice: number;
-  referenceProduct: string;
-  referenceCases: number;
-  targetCases: number;
-  plannedCases: number;
-  monthlyProgressRate: number;
-  monthlyActual: number;
-}
-
 // 行ID（→ 画面設計標準 4.7）。いずれも一意かつ編集しない値を使う。
 //  ・計画一覧／商品販売計画登録：行データの id
 //  ・計画一覧の展開行（三次店・一次店の組み合わせ）：同じ計画内で重複しない三次店
 const getPlanRowId = (params: GetRowIdParams<SalesPlanData>) => params.data.id;
-const getProductPlanRowId = (params: GetRowIdParams<ProductPlanData>) =>
-  params.data.id;
 const getStoreDetailRowId = (params: GetRowIdParams<StoreDetail>) =>
   params.data.tertiaryStore;
 
@@ -203,6 +170,21 @@ const resolveOpeActualStatus = (targetMonth: string): string => {
   if (targetMonth === '202606') return '未登録(一部)';
   return '未登録';
 };
+
+// 実績登録の期限超過（モックの判定）。自販機行で、未登録のまま期限を過ぎた対象年月。
+// 赤背景にはせず、セル内に「期限超過」のラベルを出す（UX-028）。
+const HQ_ACTUAL_OVERDUE_MONTH = '202605';
+const OPE_ACTUAL_OVERDUE_MONTH = '202604';
+// 実績登録が期限超過か（未登録・一部未の自販機行で、対象年月が期限を過ぎた月）。
+// セルの背景（cell-overdue）とラベル（期限超過）の両方で使う
+const isActualOverdue = (
+  data: { tradeSystem?: string; targetMonth?: string } | undefined,
+  value: unknown,
+  overdueMonth: string
+): boolean =>
+  (value === '未登録' || value === '未登録(一部)') &&
+  data?.tradeSystem === VENDING_PATTERN &&
+  data?.targetMonth === overdueMonth;
 
 export default function PlanList({
   onMenuChange,
@@ -264,7 +246,7 @@ export default function PlanList({
   // ステータス・チャネルは複数選択（未選択＝条件なし）
   const [status, setStatus] = useState<string[]>([]);
   const [channel, setChannel] = useState<string[]>([]);
-  // 組織項目（事業場→部署→末端組織→作成者）は連動フィルタリングする（→ utils/orgCascade.ts）。
+  // 組織項目（事業場→部署→末端組織→作成者）は連動フィルタリングする（→ utils/common/orgCascade.ts）。
   // 末端組織＝採算組織第6階層。初期値はログインユーザーの所属・本人
   const org = useOrgCascadeSearch(ORG_CASCADE_CONFIG, {
     office: ['hokkaido'],
@@ -306,11 +288,6 @@ export default function PlanList({
       (v) => org.change(level, v),
       ORG_CASCADE_CONFIG.units?.[level]
     );
-
-  // 商品販売計画登録モーダルの状態管理
-  const [isProductPlanModalOpen, setIsProductPlanModalOpen] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [productPlanData, setProductPlanData] = useState<ProductPlanData[]>([]);
 
   // 一括承認機能の状態管理
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
@@ -705,16 +682,6 @@ export default function PlanList({
     }
   };
 
-  // 商品販売計画登録の登録処理
-  const handleProductPlanRegister = () => {
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmRegister = () => {
-    setIsConfirmDialogOpen(false);
-    setIsProductPlanModalOpen(false);
-  };
-
   // 一括承認ボタンクリック処理
   const handleBulkApproval = () => {
     setIsBulkApprovalDialogOpen(true);
@@ -732,147 +699,6 @@ export default function PlanList({
     setSelectedRows(new Set());
     toast.success(`${approvedCount}件の一括承認が完了しました。`);
   };
-
-  // 商品販売計画のカラム定義
-  const productPlanColumnDefs: ColDef<ProductPlanData>[] = useMemo(
-    () => [
-      {
-        headerName: '商品区分',
-        field: 'productCategory',
-        width: 120,
-        cellClass: 'cell-left',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: 'サマリ商品',
-        field: 'summaryProduct',
-        width: 350,
-        cellClass: 'cell-left',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: '社外売上高(千円)',
-        field: 'externalSales',
-        width: 150,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '函単価(円)',
-        field: 'caseUnitPrice',
-        width: 130,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '1本あたり単価(円)',
-        field: 'bottleUnitPrice',
-        width: 160,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '参考商品',
-        field: 'referenceProduct',
-        width: 300,
-        cellClass: 'cell-left',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-      },
-      {
-        headerName: '参考函数',
-        field: 'referenceCases',
-        width: 120,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '目標函数',
-        field: 'targetCases',
-        width: 120,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '計画函数',
-        field: 'plannedCases',
-        width: 120,
-        editable: true,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: 'white',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-        valueParser: (params) =>
-          parseInt(params.newValue.replace(/,/g, '')) || 0,
-        onCellValueChanged: (params) => {
-          const updatedData = productPlanData.map((item) =>
-            item.id === params.data.id
-              ? { ...item, plannedCases: params.newValue }
-              : item
-          );
-          setProductPlanData(updatedData);
-        },
-      },
-      {
-        headerName: '当月進捗率',
-        field: 'monthlyProgressRate',
-        width: 130,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value != null
-            ? `${params.value.toFixed(1)}%`
-            : GRID_EMPTY_TEXT,
-      },
-      {
-        headerName: '当月実績',
-        field: 'monthlyActual',
-        width: 120,
-        cellClass: 'cell-right',
-        cellStyle: {
-          backgroundColor: '#f7f7f7',
-        },
-        valueFormatter: (params) =>
-          params.value?.toLocaleString() || GRID_EMPTY_TEXT,
-      },
-    ],
-    [productPlanData]
-  );
 
   // 計画書番号のリンク。ステータスに関わらず常にリンクとする（決定事項No.785）。
   // 詳細ボタンの列は設けず、このリンクで計画詳細へ遷移する（決定事項No.768）。
@@ -921,13 +747,21 @@ export default function PlanList({
   // 実績登録状況セルレンダラー（アイコン＋文言）
   // 「未登録」「一部未」は AlertCircle、「登録済」は CheckCircle。
   // 対象外（「-」など）はアイコンなしで文言のみ表示（「-」はグレー）。
+  // 期限超過（cellRendererParams.overdueMonth と対象年月が一致する自販機行）は、
+  // 文言の右に「期限超過」のラベルを出す。
   const ActualStatusRenderer = (props: any) => {
     const value = props.value;
     if (value === '未登録' || value === '未登録(一部)') {
+      const isOverdue = isActualOverdue(props.data, value, props.overdueMonth);
       return (
         <div className="flex items-center gap-1">
           <AlertCircle className="h-5 w-5 text-orange-500" />
           <span className="text-gray-900">{value}</span>
+          {isOverdue && (
+            <Badge variant="outline" className={OVERDUE_BADGE_CLASS}>
+              期限超過
+            </Badge>
+          )}
         </div>
       );
     }
@@ -1017,8 +851,8 @@ export default function PlanList({
         headerName: 'ステータス',
         field: 'status',
         cellRenderer: StatusRenderer,
-        // ステータスバッジ（アイコン）は中央寄せ
-        cellClass: 'cell-center',
+        // ステータスはアイコン＋文言のため左寄せ（→ 02 §7）
+        cellClass: 'cell-left',
       },
       {
         headerName: 'チャネル',
@@ -1134,15 +968,16 @@ export default function PlanList({
           params.data?.tradeSystem === VENDING_PATTERN
             ? resolveHqActualStatus(params.data?.targetMonth ?? '')
             : GRID_EMPTY_TEXT,
-        // 自販機行かつ対象年月202605のセルは背景をアラート色にする
-        cellStyle: (params) =>
-          params.data?.tradeSystem === VENDING_PATTERN &&
-          params.data?.targetMonth === '202605'
-            ? { backgroundColor: GRID_COLORS.alertRowBg }
-            : null,
         cellRenderer: ActualStatusRenderer,
+        // 期限超過の対象年月（ラベルの表示判定に使う）
+        cellRendererParams: { overdueMonth: HQ_ACTUAL_OVERDUE_MONTH },
         // ステータスバッジ（アイコン）は中央寄せ
         cellClass: 'cell-center',
+        // 期限超過のセルは背景を薄い赤にする（→ 02 §7「期限超過の表示」）
+        cellClassRules: {
+          'cell-overdue': (params) =>
+            isActualOverdue(params.data, params.value, HQ_ACTUAL_OVERDUE_MONTH),
+        },
       },
       {
         headerName: '実績登録\n(アライアンス品以外)',
@@ -1155,15 +990,20 @@ export default function PlanList({
           params.data?.tradeSystem === VENDING_PATTERN
             ? resolveOpeActualStatus(params.data?.targetMonth ?? '')
             : GRID_EMPTY_TEXT,
-        // 自販機行かつ対象年月202604のセルは背景をアラート色にする
-        cellStyle: (params) =>
-          params.data?.tradeSystem === VENDING_PATTERN &&
-          params.data?.targetMonth === '202604'
-            ? { backgroundColor: GRID_COLORS.alertRowBg }
-            : null,
         cellRenderer: ActualStatusRenderer,
+        // 期限超過の対象年月（ラベルの表示判定に使う）
+        cellRendererParams: { overdueMonth: OPE_ACTUAL_OVERDUE_MONTH },
         // ステータスバッジ（アイコン）は中央寄せ
         cellClass: 'cell-center',
+        // 期限超過のセルは背景を薄い赤にする（→ 02 §7「期限超過の表示」）
+        cellClassRules: {
+          'cell-overdue': (params) =>
+            isActualOverdue(
+              params.data,
+              params.value,
+              OPE_ACTUAL_OVERDUE_MONTH
+            ),
+        },
       },
     ],
     // リンクのレンダラーは onMenuChange を閉じ込めるため依存に含める。
@@ -1184,7 +1024,7 @@ export default function PlanList({
     // 高さの固定値をやめて「タイトル・検索条件を引いた残り」をグリッドへ割り当て、
     // 横スクロールバーが画面外へ押し出されないようにする（支払一覧と同じ構成）。
     // 画面が低く下限 23.75rem を割り込む場合は、はみ出した分だけメイン領域側がスクロールする。
-    <div className="min-w-[75rem] h-full flex flex-col">
+    <div className="min-w-300 h-full flex flex-col">
       <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title={jihanki ? '実績一覧' : '計画一覧'} />
@@ -1208,29 +1048,31 @@ export default function PlanList({
             <div className="px-4 py-1.5">
               {/* 1行目: 対象年月(開始～終了)、ステータス（5列グリッドで整列） */}
               <div className={`${SEARCH_GRID_CLASS} mb-2.5`}>
-                {/* 対象年月（開始～終了）: 2列分。終了月が2列目の縦の線をまたがないよう、
-                    開始は1列目・終了は2列目の入力欄の左の線にそろえ、「～」は開始と終了の真ん中に置く。
-                    終了側の幅＝2列分の半分－（列の間隔の半分 0.625rem＋ラベル幅 5.625rem＋間隔 0.5rem） */}
-                <div className="col-span-2 flex items-center gap-2">
-                  <label className={SEARCH_LABEL_CLASS}>対象年月</label>
-                  <MonthYearPicker
-                    value={targetYearMonthStart}
-                    onChange={setTargetYearMonthStart}
-                    required={false}
-                    clearable
-                  />
-                  <span className="flex-1 text-center text-sm text-gray-700">
-                    ～
-                  </span>
-                  <div className="flex shrink-0 w-[calc(50%-6.75rem)]">
+                {/* 対象年月（開始～終了）: 2列分。開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05） */}
+                <SearchRangeField
+                  label="対象年月"
+                  groupLabel="検索対象年月の範囲"
+                  start={
                     <MonthYearPicker
+                      className="w-full"
+                      value={targetYearMonthStart}
+                      onChange={setTargetYearMonthStart}
+                      required={false}
+                      max={targetYearMonthEnd || undefined}
+                      clearable
+                    />
+                  }
+                  end={
+                    <MonthYearPicker
+                      className="w-full"
                       value={targetYearMonthEnd}
                       onChange={setTargetYearMonthEnd}
                       required={false}
+                      min={targetYearMonthStart || undefined}
                       clearable
                     />
-                  </div>
-                </div>
+                  }
+                />
 
                 {renderMultiField(
                   'salesPlanStatus',
@@ -1261,28 +1103,28 @@ export default function PlanList({
         </CopyableArea>
 
         {/* 計画一覧テーブル（計画詳細と同じ折り畳みカード）。
-            計画追加・一括承認ボタンはヘッダーバー（headerActions）へ配置。
+            計画追加ボタンはヘッダーバー（headerActions）、一括承認はタイトルのすぐ右（titleActions）へ配置。
             jihanki（実績登録モード）ではボタンを出さず、ヘッダー全体が開閉トリガーになる。
             タイトルも jihanki=true では「販売実績一覧」を表示する。
             fillParent でページの余り高さいっぱいまで広げ、折り畳み時は下限を外してヘッダーのみの高さへ戻す。 */}
         <CollapsibleCard
           title={jihanki ? '実績一覧' : '計画一覧'}
           fillParent
-          className="data-[state=open]:min-h-[23.75rem]"
+          className="data-[state=open]:min-h-95"
           // 一括承認はグリッドのチェックボックスと連動するため、タイトルのすぐ右に置く
           titleActions={
             !jihanki && (
               <button
                 onClick={handleBulkApproval}
                 disabled={selectedRows.size === 0}
-                className={`px-2 py-1 whitespace-nowrap text-sm ${BUTTON_BASE} ${
+                className={`flex items-center gap-1 px-2 py-1 whitespace-nowrap text-sm ${BUTTON_BASE} ${
                   selectedRows.size === 0
                     ? BUTTON_STYLES.disabled
                     : BUTTON_STYLES.approve
                 }`}
                 aria-label="一括承認"
               >
-                <Check className="h-4 w-4 inline-block mr-1" />
+                <Check className="h-4 w-4" />
                 一括承認
               </button>
             )
@@ -1335,7 +1177,6 @@ export default function PlanList({
             .sales-plan-list-grid .header-wrap-pre-line .ag-header-cell-text {
               white-space: pre-line;
               line-height: 1.3;
-              text-align: center;
             }
           `}</style>
           {/* グリッドはカード内の残り高さを埋める（min-h-0 が無いと flex 子要素が縮まない） */}
@@ -1363,7 +1204,7 @@ export default function PlanList({
               }}
               // 列の固定はシステム側でしない（ユーザーに委ねる。10/20手売りセッション）
               selectionColumnDef={{
-                width: 50,
+                width: 40,
                 resizable: false,
                 suppressMovable: true,
                 suppressHeaderMenuButton: true,
@@ -1395,169 +1236,20 @@ export default function PlanList({
         </CollapsibleCard>
       </div>
 
-      {/* 商品販売計画登録モーダル */}
-      <Dialog
-        open={isProductPlanModalOpen}
-        onOpenChange={setIsProductPlanModalOpen}
-      >
-        <DialogContent className="w-[80vw] max-w-[80vw] sm:max-w-[80vw] md:max-w-[80vw] lg:max-w-[80vw] xl:max-w-[80vw] max-h-[90vh] overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xl font-bold">
-              商品販売計画登録
-            </DialogTitle>
-            <DialogDescription></DialogDescription>
-          </DialogHeader>
-
-          <div className="px-6 pb-6">
-            {/* ヘッダー部 */}
-            <div className="space-y-2 border-b pb-4">
-              {/* 1行目 */}
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">販売計画書No</span>
-                  <span>B26906490</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">対象年度</span>
-                  <span>2026年</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">対象月</span>
-                  <span>5月</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">ステータス</span>
-                  <span>未登録</span>
-                </div>
-              </div>
-
-              {/* 2行目 */}
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">事業場</span>
-                  <span>首都圏支社</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">部署</span>
-                  <span>首都圏営業一部</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">営業担当者</span>
-                  <span>鈴木 一郎</span>
-                </div>
-                <div></div>
-              </div>
-
-              {/* 3行目 */}
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">販売店</span>
-                  <span>ジャパンビバレッジ東日本</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">三次店</span>
-                  <span>国分北海道株式会社経営FC</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-bold text-gray-700">一次店</span>
-                  <span>国分6社通販</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ボディー部（テーブル） */}
-            <div className="border rounded mt-4">
-              <div className="h-[23rem] w-full">
-                <AgGridReact<ProductPlanData>
-                  rowData={productPlanData}
-                  columnDefs={withHeaderTooltips(productPlanColumnDefs)}
-                  defaultColDef={GRID_DEFAULT_COL_DEF}
-                  getRowId={getProductPlanRowId}
-                  getContextMenuItems={gridFilterContextMenuItems}
-                  domLayout="normal"
-                  animateRows={true}
-                  {...GRID_BASE_PROPS}
-                  statusBar={GRID_STATUS_BAR}
-                />
-              </div>
-            </div>
-
-            {/* フッター部 */}
-            <DialogFooter className="flex justify-end mt-4">
-              <Button
-                onClick={handleProductPlanRegister}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                登録
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* 登録確認ダイアログ */}
-      <AlertDialog
-        open={isConfirmDialogOpen}
-        onOpenChange={setIsConfirmDialogOpen}
-      >
-        <AlertDialogContent>
-          {/* ×ボタン */}
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setIsConfirmDialogOpen(false)}
-            aria-label="閉じる"
-          >
-            <XIcon className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-
-          <AlertDialogHeader>
-            <AlertDialogTitle>登録確認</AlertDialogTitle>
-            <AlertDialogDescription>
-              商品販売計画を登録してもよろしいですか？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={handleConfirmRegister}>
-              登録
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* 一括承認確認ダイアログ */}
-      <AlertDialog
+      <ConfirmDialog
         open={isBulkApprovalDialogOpen}
         onOpenChange={setIsBulkApprovalDialogOpen}
-      >
-        <AlertDialogContent>
-          {/* ×ボタン */}
-          <button
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-            onClick={() => setIsBulkApprovalDialogOpen(false)}
-            aria-label="閉じる"
-          >
-            <XIcon className="size-6" />
-            <span className="sr-only">Close</span>
-          </button>
-
-          <AlertDialogHeader>
-            <AlertDialogTitle>確認</AlertDialogTitle>
-            <AlertDialogDescription>
-              選択された{selectedRows.size}
-              件の販売計画を一括承認しますか？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              className="bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-lg"
-              onClick={handleConfirmBulkApproval}
-            >
-              一括承認
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="確認"
+        description={
+          <>
+            選択された{selectedRows.size}
+            件の販売計画を一括承認しますか？
+          </>
+        }
+        confirmLabel="一括承認"
+        onConfirm={handleConfirmBulkApproval}
+      />
     </div>
   );
 }

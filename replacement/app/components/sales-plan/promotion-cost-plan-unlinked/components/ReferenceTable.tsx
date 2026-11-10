@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { ColDef, GetRowIdParams } from 'ag-grid-community';
+
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -8,12 +10,11 @@ import {
   withHeaderTooltips,
   useGridColumnState,
   GRID_MONTH_TEXT_FILTER,
+  CopyRowCellRenderer,
 } from '../../../grid';
-import { ColDef, GetRowIdParams, ICellRendererParams } from 'ag-grid-community';
-import { Copy } from 'lucide-react';
 import { MonthYearPicker } from '../../../ui/month-year-picker';
 import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { addMonths } from '../../../../utils/yearMonth';
+import { addMonths } from '../../../../utils/common/yearMonth';
 import type { NonProductExpenseData } from './NonProductExpensePane';
 import {
   managementClassFromCode,
@@ -42,23 +43,6 @@ interface ReferenceTableProps {
   /** 基本情報の対象年月（YYYY/MM）。対象年月ピッカーの初期値 */
   targetMonth?: string;
 }
-
-// 参照表の行を拡売費計画へコピーするボタン（左端アクション列）
-const ReferenceActionCellRenderer = (props: ICellRendererParams) => {
-  const { onCopyRow } = props.context;
-  return (
-    <div className="flex items-center justify-center h-full">
-      <button
-        className="text-green-600 hover:text-green-800 p-1"
-        onClick={() => onCopyRow(props.data)}
-        title="拡売費計画へコピー"
-        aria-label="拡売費計画へコピー"
-      >
-        <Copy className="w-4 h-4" />
-      </button>
-    </div>
-  );
-};
 
 // 自計画ダミーの素データ（拡売費）。
 const BASE_REFERENCE = [
@@ -378,7 +362,7 @@ export function ReferenceTable({
     {
       headerName: '計画金額',
       field: `${prefix}PlannedAmount`,
-      width: 120,
+      width: 96,
       // 金額は整数表示だが、小数を持つ値が来ても3桁以上出さないよう小数点以下2桁で丸める。
       valueFormatter: (params) =>
         params.value?.toLocaleString('ja-JP', { maximumFractionDigits: 2 }) ||
@@ -389,47 +373,55 @@ export function ReferenceTable({
       headerName: '計上年月',
       field: `${prefix}PostingMonth`,
       ...GRID_MONTH_TEXT_FILTER,
-      width: 110,
+      width: 88,
       // カレンダー（日付）は左寄せ
       cellClass: 'cell-left',
     },
     {
       headerName: '管理区分',
       colId: `${prefix}ManagementClassCode`,
-      width: 110,
+      width: 88,
       valueGetter: (params) =>
         managementClassCodeOf(params.data?.[`${prefix}ManagementClass`] ?? ''),
     },
     {
       headerName: '管理区分名称',
       field: `${prefix}ManagementClass`,
-      width: 170,
+      width: 136,
     },
     {
       headerName: '管理コード',
       field: `${prefix}ManagementCode`,
-      width: 130,
+      width: 104,
     },
     {
       headerName: '管理コード名称',
       colId: `${prefix}ManagementCodeName`,
-      width: 170,
+      width: 136,
       valueGetter: (params) =>
         managementCodeNameOf(params.data?.[`${prefix}ManagementCode`] ?? ''),
     },
     {
       headerName: '施策区分',
       colId: `${prefix}CampaignClassCode`,
-      width: 110,
+      width: 88,
       valueGetter: (params) =>
         campaignClassCodeOf(params.data?.[`${prefix}CampaignClass`] ?? ''),
     },
-    { headerName: '施策区分名称', field: `${prefix}CampaignClass`, width: 150 },
-    { headerName: '施策コード', field: `${prefix}CampaignCode`, width: 130 },
+    {
+      headerName: '施策区分名称',
+      field: `${prefix}CampaignClass`,
+      width: 120,
+    },
+    {
+      headerName: '施策コード',
+      field: `${prefix}CampaignCode`,
+      width: 104,
+    },
     {
       headerName: '施策コード名称',
       colId: `${prefix}CampaignCodeName`,
-      width: 190,
+      width: 152,
       valueGetter: (params) =>
         campaignCodeNameOf(params.data?.[`${prefix}CampaignCode`] ?? ''),
     },
@@ -438,9 +430,10 @@ export function ReferenceTable({
       headerName: '摘要1(社内用)',
       field: `${prefix}Description`,
       flex: 1,
-      minWidth: 200,
+      suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+      minWidth: 160,
     },
-    { headerName: '作成者', field: `${prefix}Creator`, width: 140 },
+    { headerName: '作成者', field: `${prefix}Creator`, width: 112 },
   ];
 
   // 列順は拡売費計画表に合わせる（アクション列のみ左端）
@@ -449,24 +442,25 @@ export function ReferenceTable({
       {
         headerName: '',
         colId: 'actions',
-        width: 90,
+        width: 72,
         sortable: false,
         filter: false,
         suppressHeaderMenuButton: true,
         // アイコンは中央寄せ
         cellClass: 'cell-center',
-        cellRenderer: ReferenceActionCellRenderer,
+        cellRenderer: CopyRowCellRenderer,
+        cellRendererParams: { label: '拡売費計画へコピー' },
       },
       {
         headerName: 'メタブランド',
         field: 'metaBrand',
-        width: 150,
+        width: 120,
         cellClass: 'cell-left',
       },
       {
         headerName: 'サマリ商品',
         field: 'summaryProduct',
-        width: 240,
+        width: 192,
       },
       ...makeRefExpenseColumns('exp1'),
     ],
@@ -483,10 +477,9 @@ export function ReferenceTable({
     []
   );
 
-  // 列状態（幅・並び順・ソート・固定）を localStorage に永続化（明示幅のため autoSize 無効）
+  // 列状態（幅・並び順・ソート・固定）を localStorage に永続化
   const gridColumnStateProps = useGridColumnState(
-    '拡売費計画NoLink.参照.columnState.v2',
-    { autoSize: false }
+    '拡売費計画NoLink.参照.columnState.v2'
   );
 
   // 表示行を対象年月の12か月前〜対象年月で絞り込む（拡売費の計上年月で判定）。

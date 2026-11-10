@@ -16,15 +16,20 @@ import type {
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef } from 'ag-grid-community';
+import { Redo2 } from 'lucide-react';
+
 import {
   SingleComboboxCellEditor,
   toComboOptions,
 } from '../../../ui/single-combobox-cell-editor';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { Redo2 } from 'lucide-react';
 import { DropdownMenuItem } from '../../../ui/dropdown-menu';
-import { SplitPresenceBadge } from '../../../shared/PaymentStatusIcons';
-import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
+import { SplitPresenceBadge } from '../../../shared/payment/payment-detail/PaymentStatusIcons';
+import {
+  CARD_TITLE_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+} from '../../../../../styles/commonStyles';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -57,7 +62,7 @@ import {
 import {
   netUnapprovedLinkOf,
   type NetUnapprovedLink,
-} from '../../../../utils/netUnapprovedLink';
+} from '../../../../utils/payment/payment-detail/netUnapprovedLink';
 import {
   applyEntryCellEdit,
   calcEntryAmount,
@@ -69,13 +74,14 @@ import {
   recalcEntryRow,
   toEntryNumber as toNum,
   type PlanType,
-} from '../../../../utils/additionalEntryRules';
-import { computeEntryBreakdown } from '../../../../utils/paymentBreakdownItems';
+} from '../../../../utils/payment/payment-detail/additionalEntryRules';
+import { computeEntryBreakdown } from '../../../../utils/payment/payment-detail/paymentBreakdownItems';
 import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../../constants/matchPaymentType';
 import { SUMMARY_PRODUCT_OPTIONS } from '../../../../constants/productMasters';
-import { deriveExternalUnitPrice } from '../../../../utils/externalUnitPrice';
-import type { AmountBreakdown } from '../../../../utils/paymentAmountBreakdown';
-import { PaymentAmountBreakdownTable } from '../../../shared/PaymentAmountBreakdownTable';
+import { deriveExternalUnitPrice } from '../../../../utils/common/externalUnitPrice';
+import type { AmountBreakdown } from '../../../../utils/payment/payment-detail/paymentAmountBreakdown';
+import { PaymentAmountBreakdownTable } from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
+import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 
 // 追加口明細データ（請求情報・支払情報・請求-支払・NET）
 // 支払回数ごとのデータセットを親（PaymentDetailWithInvoice）が保持するため export する。
@@ -83,12 +89,12 @@ export interface AdditionalEntryData {
   isTotal?: boolean;
   lineNo: number | string;
   // データ元（請求EDI／AIC入力／手入力）。合計行は持たない（空白表示）。
-  // 請求EDI・AIC入力の明細は、項目を手で直すと手入力に変わる（→ utils/paymentDataSource）。
+  // 請求EDI・AIC入力の明細は、項目を手で直すと手入力に変わる（→ utils/payment/payment-detail/paymentDataSource）。
   dataSource?: DataSource;
   // 手で直す前の元のデータ元。活性は元のデータ元で決める（表示・集計は dataSource）。
   originDataSource?: DataSource;
   // 紐づく計画行を作った方法（一般卸メッシュ／サマリ商品）。計画に無いサマリ商品は持たない。
-  // 赤表示と一般卸メッシュの自動振替の判定に使う（→ utils/additionalEntryRules）。
+  // 赤表示と一般卸メッシュの自動振替の判定に使う（→ utils/payment/payment-detail/additionalEntryRules）。
   planType?: PlanType;
   // 手入力の明細でバラ単価・金額を手で直したか（直した値を計算で上書きしない → applyEntryCellEdit）。
   unitPriceManual?: boolean;
@@ -208,7 +214,7 @@ interface DetailTableProps {
   // 当該支払回のデータとして保持される。
   initialRows?: AdditionalEntryData[];
   // 拡売費一覧へ連動する「未承認NET拡売費」データ（O列合計・商品名別O列）の変更通知
-  // 支払回数は親が付ける（→ utils/netUnapprovedLink）。
+  // 支払回数は親が付ける（→ utils/payment/payment-detail/netUnapprovedLink）。
   onNetUnapprovedChange?: (payload: NetUnapprovedLink) => void;
   // 「拡売費処理」列の値が変わった時の通知（拡売費一覧（その他）への行追加／削除に使用）
   onExpProcessChange?: (row: AdditionalEntryData, value: string) => void;
@@ -232,7 +238,7 @@ const ENTRY_COLOR_LEGEND: CellColorLegendItem[] = [
   { color: GRID_COLORS.readonly, label: '入力できないセル' },
 ];
 
-// 行を赤く表示する明細か（→ utils/additionalEntryRules の isEntryAlertRow）。
+// 行を赤く表示する明細か（→ utils/payment/payment-detail/additionalEntryRules の isEntryAlertRow）。
 //   ・サマリ商品で作った計画に紐づき、請求NET＜計画NET の明細
 //   ・計画に無いサマリ商品の明細（計画NETは空欄）
 // 一般卸メッシュで作った計画に紐づく明細は、取込・反映の時点で自動で振り替えるため赤くしない。
@@ -610,7 +616,7 @@ const fmtN = (v: unknown): string => {
 // 計算式が設定された列（派生項目）の定義。
 //   refs    : ハイライト対象の参照元フィールド（当該行内）。入力値により分岐する。
 //   tooltip : 当該行データから計算式テキスト（式＋実値）を生成する。
-// Excel「追加口」表の数式（utils/additionalEntryRules の recalcEntryRow）に対応する。
+// Excel「追加口」表の数式（utils/payment/payment-detail/additionalEntryRules の recalcEntryRow）に対応する。
 const FORMULA_DEFS: Record<
   string,
   {
@@ -722,7 +728,7 @@ const computeEntryTotal = (
   };
 };
 
-// 拡売費一覧へ連動する「未承認NET拡売費」データ（→ utils/netUnapprovedLink）。
+// 拡売費一覧へ連動する「未承認NET拡売費」データ（→ utils/payment/payment-detail/netUnapprovedLink）。
 //   total          = 拡売費金額(NET未承認) O列の合計（Excel O19）
 //   byProduct      = 商品名ごとの O列合計（拡売費明細は商品名で参照する）
 //   manualProducts = 差を出した手入力の明細を持つ商品（未承認NETの明細も手入力にする）
@@ -791,7 +797,12 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
     // グリッドの縦幅（リサイズハンドルのドラッグで手動調整可能。初期480px）。
     const GRID_MIN_HEIGHT = 240; // 縮めすぎ防止の下限
-    const [gridHeight, setGridHeight] = useState(480);
+    const gridResize = useResizableHeight({
+      defaultHeight: 480,
+      minHeight: GRID_MIN_HEIGHT,
+      maxHeight: Infinity,
+    });
+    const gridHeight = gridResize.height;
 
     // 合計行のデータ。セル編集・行の増減のたびに再集計し、
     // その更新を合図にタイトル下の合計表（entryBreakdown）も集計し直す。
@@ -814,28 +825,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     useEffect(() => {
       onBreakdownChange?.(breakdowns);
     }, [breakdowns, onBreakdownChange]);
-
-    // リサイズハンドルのドラッグ開始。マウス移動量に応じてグリッド縦幅を更新する。
-    const handleResizeStart = (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startY = e.clientY;
-      const startHeight = gridHeight;
-      const onMove = (ev: MouseEvent) => {
-        const next = Math.max(
-          GRID_MIN_HEIGHT,
-          startHeight + (ev.clientY - startY)
-        );
-        setGridHeight(next);
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.body.style.userSelect = '';
-      };
-      document.body.style.userSelect = 'none'; // ドラッグ中のテキスト選択を抑止
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    };
 
     // 初回マウント時と枝番構成の変更時に、合計と拡売費一覧へ連動する未承認NET拡売費を更新する。
     useEffect(() => {
@@ -1137,7 +1126,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: 'No.',
           field: 'lineNo',
           ...GRID_NUMBER_FILTER,
-          width: 70,
+          width: 56,
           // 先頭列（aria-colindex=1）は grid.css で display:flex・中央寄せが強制されるため、
           // text-align では左寄せにできない。左寄せ用クラス（justify-content:flex-start）を付与する。
           cellClass: 'ag-cell-left-pinned',
@@ -1148,7 +1137,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 表示のみの非活性列（灰背景）。合計行は持たないため空白。
           headerName: 'データ元',
           field: 'dataSource',
-          width: 100,
+          width: 80,
           cellStyle: totalStyle,
           editable: false,
         },
@@ -1156,20 +1145,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 項目名は拡売費明細・請求詳細に合わせる（→ 20260821_第31回 決定事項7）。
           headerName: 'サマリ商品コード',
           field: 'productCode',
-          width: 110,
+          width: 88,
           cellStyle: totalStyle,
         },
         {
           headerName: 'サマリ商品名',
           field: 'productName',
-          width: 240,
+          width: 192,
           cellStyle: totalStyle,
         },
         {
           headerName: '入数',
           field: 'capacity',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 70,
+          width: 56,
           cellStyle: rightStyle,
         },
         {
@@ -1181,7 +1170,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '社外売上高単価',
               field: 'seihan',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 130,
+              width: 104,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1189,7 +1178,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '計画NET',
               field: 'planNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 90,
+              width: 72,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1205,7 +1194,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '請求NET',
               field: 'billNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 90,
+              width: 72,
               valueFormatter: numFmt,
               cellStyle: manualOnlyNumberStyle,
               editable: manualOnlyEditable,
@@ -1217,7 +1206,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'ケース',
               field: 'cases',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 80,
+              width: 64,
               valueFormatter: numFmt,
               cellStyle: manualOnlyNumberStyle,
               editable: manualOnlyEditable,
@@ -1229,7 +1218,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'バラ',
               field: 'loose',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 70,
+              width: 56,
               valueFormatter: numFmt,
               cellStyle: manualOnlyNumberStyle,
               editable: manualOnlyEditable,
@@ -1242,7 +1231,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'バラ単価',
               field: 'unitPrice',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 90,
+              width: 72,
               valueFormatter: numFmt,
               cellStyle: manualOnlyNumberStyle,
               editable: manualOnlyEditable,
@@ -1255,7 +1244,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '金額',
               field: 'amount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               valueFormatter: numFmt,
               cellStyle: manualOnlyNumberStyle,
               editable: manualOnlyEditable,
@@ -1273,7 +1262,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '支払NET（追加口分）',
               field: 'addNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 160,
+              width: 128,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
               editable: (p) => !p.data?.isTotal,
@@ -1286,7 +1275,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '支払NET（全体）',
               field: 'payNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 130,
+              width: 104,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
               editable: (p) => !p.data?.isTotal,
@@ -1299,7 +1288,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'ケース',
               field: 'payCases',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 80,
+              width: 64,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
               editable: (p) => !p.data?.isTotal,
@@ -1312,7 +1301,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'バラ',
               field: 'payLoose',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 70,
+              width: 56,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
               editable: (p) => !p.data?.isTotal,
@@ -1325,7 +1314,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '追加口バラ単価',
               field: 'addUnit',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 140,
+              width: 112,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1333,7 +1322,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '拡売費バラ単価\n（NET未承認）',
               field: 'expUnit',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 140,
+              width: 112,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1341,7 +1330,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '追加口金額',
               field: 'addAmount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1349,7 +1338,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '拡売費金額\n（NET未承認）',
               field: 'expAmount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 120,
+              width: 96,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1357,7 +1346,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '支払金額',
               field: 'payAmount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1371,7 +1360,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '差額',
               field: 'diff',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 90,
+              width: 72,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -1385,7 +1374,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             {
               headerName: '※差がある場合のみ',
               field: 'matchType',
-              width: 150,
+              width: 120,
               cellStyle: inputTextStyle,
               editable: (p) => !p.data?.isTotal,
               cellEditor: SingleComboboxCellEditor,
@@ -1400,7 +1389,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '摘要2（社外用）',
           field: 'summary',
-          width: 200,
+          width: 160,
           cellStyle: inputTextStyle,
           editable: (p) => !p.data?.isTotal,
         },
@@ -1409,7 +1398,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '最終NET',
           field: 'finalNet',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           valueFormatter: numFmt,
           cellStyle: inputCellStyle,
           editable: (p) => !p.data?.isTotal,
@@ -1421,7 +1410,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '摘要1（社内用）',
           field: 'summary1',
-          width: 240,
+          width: 192,
           cellStyle: inputTextStyle,
           editable: (p) => !p.data?.isTotal,
         },
@@ -1435,21 +1424,21 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             {
               headerName: '請求書ページ',
               field: 'billPage',
-              width: 110,
+              width: 88,
               cellStyle: manualOnlyTextStyle,
               editable: manualOnlyEditable,
             },
             {
               headerName: '請求明細番号',
               field: 'billDetailNo',
-              width: 120,
+              width: 96,
               cellStyle: manualOnlyTextStyle,
               editable: manualOnlyEditable,
             },
             {
               headerName: '販売店名',
               field: 'retailerName',
-              width: 160,
+              width: 128,
               cellStyle: manualOnlyTextStyle,
               editable: manualOnlyEditable,
             },
@@ -1464,7 +1453,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 合計行はチェックボックスを出さず、編集もさせない。
           headerName: '函数無効チェック',
           field: 'funcCheck',
-          width: 150,
+          width: 120,
           cellRendererSelector: (p) =>
             p.data?.isTotal
               ? undefined
@@ -1485,9 +1474,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           filter: false,
           resizable: false,
           editable: false,
-          width: 56,
-          minWidth: 56,
-          maxWidth: 56,
+          width: 45,
+          minWidth: 45,
+          maxWidth: 45,
           suppressAutoSize: true,
           cellRenderer: EntryRowMenuCellRenderer,
           cellStyle: widgetCenterStyle,
@@ -1554,7 +1543,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             {/* 明細追加ボタン（販売計画表（NET固定）の販売計画（詳細）と同様） */}
             <button
               onClick={() => onOpenAddDetail?.()}
-              className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+              className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
               aria-label="＋明細追加"
             >
               ＋明細追加
@@ -1617,14 +1606,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           </div>
 
           {/* リサイズハンドル：上下ドラッグでグリッドの縦幅を手動調整する。 */}
-          <div
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="追加口一覧の高さを変更"
-            onMouseDown={handleResizeStart}
-            className="flex items-center justify-center h-3 cursor-ns-resize bg-gray-100 hover:bg-gray-200 border-t border-gray-200 transition-colors"
-          >
-            <div className="w-10 h-1 rounded-full bg-gray-400" />
+          <div className="relative h-2">
+            <ResizeHandle
+              onMouseDown={gridResize.handleMouseDown}
+              ariaLabel="追加口一覧の高さを変更"
+            />
           </div>
         </>
       </CollapsibleCard>

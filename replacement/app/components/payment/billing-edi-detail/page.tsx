@@ -18,7 +18,7 @@ import type {
   BillingEdiErrorSummary,
   BillingEdiImportRow,
 } from '../../../constants/billingEdiMockData';
-import { targetCountOf } from '../../../utils/billingEdiImport';
+import { targetCountOf } from '../../../utils/payment/billing/billingEdiImport';
 import { ScreenTitle } from '../../ui/screen-title';
 
 interface BillingEdiDetailProps {
@@ -92,17 +92,17 @@ export default function BillingEdiDetail({
 
   // 「未実施・未解消のみ表示」。対応が要るエラーに絞って見られるよう初期値はON。
   // 解消済みは履歴としてデータに残し、OFFにすれば表示する
-  const [hideResolved, setHideResolved] = useState(true);
+  const [isResolvedHidden, setIsResolvedHidden] = useState(true);
 
   // 絞り込み中のエラーが非表示になった場合（解消済みを隠したとき）は、
   // 見えない行で請求EDI明細が絞られたままにならないよう絞り込みを外して扱う
   const visibleSelectedSummary = useMemo(() => {
-    if (!selectedSummary || !hideResolved) return selectedSummary;
+    if (!selectedSummary || !isResolvedHidden) return selectedSummary;
     const current = source.errorSummaries.find(
       (e) => e.id === selectedSummary.id
     );
     return current?.resolveState === '解消' ? null : selectedSummary;
-  }, [selectedSummary, hideResolved, source.errorSummaries]);
+  }, [selectedSummary, isResolvedHidden, source.errorSummaries]);
 
   // 「エラーサマリ」「請求EDI明細」カードの高さ（ドラッグで拡縮。集計ペインと同じ構成）
   const errorSummaryResize = useResizableHeight({
@@ -173,7 +173,7 @@ export default function BillingEdiDetail({
   };
 
   return (
-    <div className="min-w-[75rem]">
+    <div className="min-w-300">
       <div className="px-6 pt-3 pb-3">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="請求EDI取込結果詳細" />
@@ -202,8 +202,10 @@ export default function BillingEdiDetail({
             <div className="flex items-center gap-2">
               <Checkbox
                 id="error-summary-hide-resolved"
-                checked={hideResolved}
-                onCheckedChange={(checked) => setHideResolved(checked === true)}
+                checked={isResolvedHidden}
+                onCheckedChange={(checked) =>
+                  setIsResolvedHidden(checked === true)
+                }
               />
               <Label
                 htmlFor="error-summary-hide-resolved"
@@ -226,7 +228,7 @@ export default function BillingEdiDetail({
                 onAssign={handleAssign}
                 onSelect={setSelectedSummary}
                 selectedId={visibleSelectedSummary?.id ?? null}
-                hideResolved={hideResolved}
+                hideResolved={isResolvedHidden}
               />
             </div>
             {/* リサイズハンドルはAG Gridの外（表の下端）に配置し、集計ペインと統一する */}
@@ -261,7 +263,7 @@ export default function BillingEdiDetail({
       {/* フッター（他画面と同じ sticky。画面から抜ける操作と実行操作を置く） */}
       <div
         data-screen-footer
-        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-[75rem]"
+        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10 mt-4 min-w-300"
       >
         {/* 「一覧へ戻る」は左端、実行操作は右端（振替詳細のフッターと同じ配置）。
             再取込はエラーサマリ（変換後の値）と請求EDI明細（値の修正）の両方の修正を反映し、

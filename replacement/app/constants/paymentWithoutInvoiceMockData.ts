@@ -15,9 +15,9 @@ import type { EntryRow } from '../components/payment/payment-detail-without-invo
 import {
   createBlankExpenseRow,
   type ExpenseRow,
-} from '../components/shared/PaymentNonProductExpensePane';
-import { deriveWithoutInvoiceEntryRow } from '../utils/additionalEntryRules';
-import type { SummaryFixedValues } from '../utils/paymentSummaryAggregate';
+} from '../components/shared/payment/payment-detail/PaymentNonProductExpensePane';
+import { deriveWithoutInvoiceEntryRow } from '../utils/payment/payment-detail/additionalEntryRules';
+import type { SummaryFixedValues } from '../utils/payment/payment-detail/paymentSummaryAggregate';
 
 // 支払回数の選択肢（プルダウンの表示順）。
 export const WITHOUT_INVOICE_PAYMENT_ROUNDS = ['1', '2', '3'];

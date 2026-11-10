@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
+
+// AG Grid Enterprise モジュールをグローバルに登録（全コンポーネントで利用可能にする）
+import {
+  ModuleRegistry,
+  AllCommunityModule,
+  provideGlobalGridOptions,
+} from 'ag-grid-community';
+import { AllEnterpriseModule, LicenseManager } from 'ag-grid-enterprise';
+
 import { ConfirmDialogHost } from './components/ui/confirm-dialog';
 import { useInitialFocus } from './components/ui/use-initial-focus';
 
-import { Header } from './components/shared/Header';
+import { Header } from './components/shared/layout/Header';
 import { ScreenTitleProvider } from './components/ui/screen-title';
 import {
   ROUTES,
@@ -11,12 +20,15 @@ import {
   type RouteContext,
   type MenuChangePayload,
 } from './routes';
-import type { QuoteBasicInfo } from './utils/quoteBasicInfo';
+import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
 import {
   createEmptyBilling,
   type BillingRow,
 } from './constants/billingMockData';
-import { matchesErrorSummary, originalValueOf } from './utils/billingEdiImport';
+import {
+  matchesErrorSummary,
+  originalValueOf,
+} from './utils/payment/billing/billingEdiImport';
 import {
   ASSIGN_OPTIONS,
   ASSIGN_TARGET_BY_FIELD,
@@ -28,14 +40,6 @@ import {
   type BillingEdiDetailRow,
   type BillingEdiImportRow,
 } from './constants/billingEdiMockData';
-
-// AG Grid Enterprise モジュールをグローバルに登録（全コンポーネントで利用可能にする）
-import {
-  ModuleRegistry,
-  AllCommunityModule,
-  provideGlobalGridOptions,
-} from 'ag-grid-community';
-import { AllEnterpriseModule, LicenseManager } from 'ag-grid-enterprise';
 import {
   AG_GRID_LOCALE_JA,
   GRID_THEME,
@@ -46,7 +50,6 @@ import {
   installNumberInputWheelGuard,
 } from './components/grid';
 
-// 公開用のため AG Grid のライセンスキーは伏せている。取り込み後に本物のキーへ置き換えること。
 LicenseManager.setLicenseKey('AG_GRID_LICENSE_KEY');
 
 ModuleRegistry.registerModules([AllCommunityModule, AllEnterpriseModule]);
@@ -471,7 +474,7 @@ export default function App() {
   return (
     // 画面名は各画面の ScreenTitle からヘッダーへ渡す（本文には画面名の見出しを置かない）
     <ScreenTitleProvider>
-      <div className="flex flex-col h-screen bg-gray-100">
+      <div className="flex flex-col h-screen bg-app-background">
         <Toaster position="top-right" richColors />
         {/* React の外（グリッドの共通処理）から出す確認ダイアログの表示役（→ ui/confirm-dialog の requestConfirm） */}
         <ConfirmDialogHost />
@@ -481,7 +484,7 @@ export default function App() {
         {/* Scrollable Content */}
         <main
           ref={mainRef}
-          className="flex-1 overflow-x-auto overflow-y-auto bg-gray-100"
+          className="flex-1 overflow-x-auto overflow-y-auto bg-app-background"
         >
           {route.render(routeContext)}
         </main>

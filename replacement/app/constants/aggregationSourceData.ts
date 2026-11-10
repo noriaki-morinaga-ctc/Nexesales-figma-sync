@@ -1,7 +1,7 @@
 // 販売計画(集計)の集計ソースの型定義。
 //
 // 集計値は販売計画(詳細)グリッドと拡売費計画グリッドの行から算出する
-// （utils/planGridToAggregation・utils/expenseGridToAggregation が変換を担う）。
+// （utils/sales-plan/plan-detail/planGridToAggregation・utils/sales-plan/plan-detail/expenseGridToAggregation が変換を担う）。
 // グリッドに列が無い項目（社外売単価・条件口単価・原価単価・量経追加口率）は
 // 補足2-2／2-3／4-2 の導出ロジックとダミーマスタ（constants/aggregationMasterDummy）が供給する。
 
@@ -61,7 +61,7 @@ export const EMPTY_AGGREGATION_SOURCE: AggregationSource = {
 // ── 率・係数の設定 ─────────────────────────
 // budgetFactor/prevYearFactor は、予算設定画面・前年同月実績の代替として用いる暫定値（モック）。
 // centerFeeRate は補足4-1 のセンターフィ算出（constants/commonRateSettings）へ移したが、
-// シミュレーション集計（utils/simulationDetailAggregate）が参照しているため残す。
+// シミュレーション集計（utils/sales-plan/simulation/simulationDetailAggregate）が参照しているため残す。
 export const RATE_SETTINGS = {
   centerFeeRate: 0.1, // センターフィ率（シミュレーション集計の簡易算出用）
   budgetFactor: 0.98, // 予算 ＝ 計画 × 係数（暫定）

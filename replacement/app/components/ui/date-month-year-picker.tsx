@@ -19,7 +19,7 @@ interface DateMonthYearPickerProps {
   value: string; // YYYY/MM/DD 形式
   onChange: (value: string) => void;
   className?: string;
-  required?: boolean; // 必須フラグ（テキスト入力廃止に伴い内部未使用。API互換のため保持）
+  required?: boolean; // 必須フラグ（トリガーへ aria-required を付与）
   disabled?: boolean; // 非活性フラグ
   min?: string; // 選択可能な下限（YYYY/MM/DD、これより前は選択不可）
   max?: string; // 選択可能な上限（YYYY/MM/DD、これより後は選択不可）
@@ -64,6 +64,7 @@ export function DateMonthYearPicker({
   value,
   onChange,
   className,
+  required = false,
   disabled = false,
   min,
   max,
@@ -187,6 +188,7 @@ export function DateMonthYearPicker({
             disabled={disabled}
             id={id}
             aria-label={ariaLabel ?? '年月日を選択'}
+            aria-required={required || undefined}
             className={cn(
               'relative flex h-9.5 items-center justify-between rounded-md border border-gray-400 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm transition-colors',
               // clearable のときは×の分だけ幅を常に広げる（値の有無で幅が変わると隣の項目がずれ、
@@ -198,7 +200,7 @@ export function DateMonthYearPicker({
               className
             )}
           >
-            <span className={cn('truncate', !value && 'text-gray-400')}>
+            <span className={cn('truncate', !value && 'text-gray-500')}>
               {value || 'YYYY/MM/DD'}
             </span>
             <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
@@ -208,11 +210,12 @@ export function DateMonthYearPicker({
           <button
             type="button"
             aria-label="年月日をクリア"
+            title="年月日をクリア"
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -242,7 +245,7 @@ export function DateMonthYearPicker({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="font-semibold text-sm">{selectedYear}年</div>
+                <div className="font-bold text-sm">{selectedYear}年</div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -284,7 +287,7 @@ export function DateMonthYearPicker({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="font-semibold text-sm">
+                <div className="font-bold text-sm">
                   {selectedYear}年{selectedMonth}月
                 </div>
                 <span className="w-7" />

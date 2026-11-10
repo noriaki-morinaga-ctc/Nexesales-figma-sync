@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { toast } from 'sonner';
 import {
   findOrgItem,
   type OrgItem,
@@ -10,12 +9,12 @@ import {
   orgCandidates,
   type OrgCascadeConfig,
   type OrgCascadeState,
-} from '../../utils/orgCascade';
+} from '../../utils/common/orgCascade';
 import type { MultiComboboxOption } from './multi-combobox';
 import { formatSummaryValues, type SearchSummaryItem } from './search-summary';
 
 // 検索条件の組織項目（事業場 → 部署 → 末端組織 → 担当者）を連動させるフック（画面共通）。
-// 連動のルールは utils/orgCascade.ts。自動で追加・解除したときは画面右上に通知する（ルール⑦）。
+// 連動のルールは utils/common/orgCascade.ts。自動で追加・解除・選択しても通知しない（ルール⑦）。
 // 使い方：
 //   const org = useOrgCascadeSearch(CONFIG, { office: ['hokkaido'] });
 //   <MultiCombobox options={toOrgComboOptions(org.options('office'))}
@@ -41,19 +40,7 @@ export function useOrgCascadeSearch(
 
   // 利用者が項目の選択値を変えた
   const change = (level: OrgLevel, next: string[]) => {
-    const r = applyOrgSelection(config, state, level, next);
-    setState(r.state);
-    // 自動追加・自動選択・自動解除を項目ごとの行にして通知する（選択肢の増減は通知しない）
-    [[...r.addedMessages, ...r.selectedMessages], r.removedMessages].forEach((lines) => {
-      if (lines.length === 0) return;
-      toast.info(
-        <div>
-          {lines.map((line) => (
-            <div key={line}>{line}</div>
-          ))}
-        </div>
-      );
-    });
+    setState(applyOrgSelection(config, state, level, next).state);
   };
 
   // 選択値を入れ直す（クリア等。自動追加の状態も解除する）

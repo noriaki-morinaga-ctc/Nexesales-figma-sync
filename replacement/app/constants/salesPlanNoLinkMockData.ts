@@ -2,10 +2,8 @@
 
 // PromotionCostPlanUnlinked.tsx で使用するモックデータ。
 
-import type {
-  MarginRate,
-  NetRate,
-} from '../components/shared/MarginNetRatePane';
+import type { NetRate } from '../components/shared/sales-plan/plan-detail/MarginNetRatePane';
+import type { MarginRate } from '../types/planDetail';
 
 export interface ProductData {
   section: string;

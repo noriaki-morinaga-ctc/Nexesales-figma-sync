@@ -32,8 +32,8 @@ import {
   WHOLESALE_MESH_OPTIONS,
 } from './productMasters';
 import { PROMOTION_LABELS_BY_CATEGORY } from './promotionCategories';
-import { joinCodeName } from '../utils/nameCode';
-import { expenseSummaryProductOptionCode } from '../utils/summaryProductSearch';
+import { joinCodeName } from '../utils/common/nameCode';
+import { expenseSummaryProductOptionCode } from '../utils/common/summaryProductSearch';
 
 // 2桁ゼロ詰め（区分値: 10,20,30…）
 const seq2 = (i: number): string => String((i + 1) * 10).padStart(2, '0');

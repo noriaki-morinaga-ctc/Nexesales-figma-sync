@@ -5,7 +5,7 @@ import {
   summaryProductComboOptions,
 } from './comboFieldOptions';
 import { EXPENSE_SUMMARY_PRODUCT_OPTIONS } from './productMasters';
-import { matchesSearchQuery } from '../utils/searchNormalize';
+import { matchesSearchQuery } from '../utils/common/searchNormalize';
 
 // SingleCombobox と同じ条件（名称・コード・値のいずれかに部分一致）で候補を絞り込む。
 const search = (

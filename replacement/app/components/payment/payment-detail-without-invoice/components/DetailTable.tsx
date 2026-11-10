@@ -25,7 +25,6 @@ import type {
   GridReadyEvent,
   GridApi,
 } from 'ag-grid-community';
-import { ChevronDown } from 'lucide-react';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -37,18 +36,15 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
 } from '../../../grid';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../../ui/collapsible';
+import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
 import { WITHOUT_INVOICE_DATA_SOURCE_COLUMNS } from '../../../../constants/dataSource';
 import { createWithoutInvoiceEntryRows } from '../../../../constants/paymentWithoutInvoiceMockData';
-import { toEntryNumber as toNum } from '../../../../utils/additionalEntryRules';
-import { computeWithoutInvoiceEntryBreakdown as computeEntryBreakdown } from '../../../../utils/paymentBreakdownItems';
-import type { AmountBreakdown } from '../../../../utils/paymentAmountBreakdown';
-import { PaymentAmountBreakdownTable } from '../../../shared/PaymentAmountBreakdownTable';
+import { toEntryNumber as toNum } from '../../../../utils/payment/payment-detail/additionalEntryRules';
+import { computeWithoutInvoiceEntryBreakdown as computeEntryBreakdown } from '../../../../utils/payment/payment-detail/paymentBreakdownItems';
+import type { AmountBreakdown } from '../../../../utils/payment/payment-detail/paymentAmountBreakdown';
+import { PaymentAmountBreakdownTable } from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
+import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 
 // 追加口明細データ（本グリッドの1行）。項目名・フィールド名は請求書有の追加口明細
 // （AdditionalEntryData）に合わせる。親行・子行（枝行）は持たず、1行ずつが明細番号（No.）を持つ。
@@ -128,7 +124,7 @@ const leftStyle = () => ({
 
 // 支払回数1の追加口明細を新規生成する（モックデータ → constants/paymentWithoutInvoiceMockData）。
 // 画面は支払回数ごとのデータセットを initialRows で渡す。派生項目（追加口バラ単価・追加口金額・
-// 支払金額）は utils/additionalEntryRules の deriveWithoutInvoiceEntryRow で導く。
+// 支払金額）は utils/payment/payment-detail/additionalEntryRules の deriveWithoutInvoiceEntryRow で導く。
 export const createEntryRows = (): EntryRow[] =>
   createWithoutInvoiceEntryRows('1');
 
@@ -188,29 +184,12 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const GRID_MIN_HEIGHT = 240; // 縮めすぎ防止の下限
     // 既定の高さは 支払詳細(自販機) の「支払明細情報」と同じ算出式で揃える
     //（grid/ の detailGridInitialHeight）。
-    const [gridHeight, setGridHeight] = useState(detailGridInitialHeight);
-
-    // リサイズハンドルのドラッグ開始。マウス移動量に応じてグリッド縦幅を更新する。
-    const handleResizeStart = (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startY = e.clientY;
-      const startHeight = gridHeight;
-      const onMove = (ev: MouseEvent) => {
-        const next = Math.max(
-          GRID_MIN_HEIGHT,
-          startHeight + (ev.clientY - startY)
-        );
-        setGridHeight(next);
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.body.style.userSelect = '';
-      };
-      document.body.style.userSelect = 'none'; // ドラッグ中のテキスト選択を抑止
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    };
+    const gridResize = useResizableHeight({
+      defaultHeight: detailGridInitialHeight,
+      minHeight: GRID_MIN_HEIGHT,
+      maxHeight: Infinity,
+    });
+    const gridHeight = gridResize.height;
 
     // 計算式セルにマウスオーバー中、計算に使われる参照元セル（`field::rowId`）の集合。
     // ref で保持し cellClassRules から最新値を参照、変更時に refreshCells で枠線を反映する。
@@ -241,7 +220,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: 'No.',
           field: 'lineNo',
-          width: 70,
+          width: 56,
           // 先頭列（aria-colindex=1）は grid.css で display:flex・中央寄せが強制されるため、
           // text-align では左寄せにできない。左寄せ用クラス（justify-content:flex-start）を付与する。
           cellClass: 'ag-cell-left-pinned',
@@ -251,20 +230,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 項目名は拡売費明細・請求詳細に合わせる（→ 20260821_第31回 決定事項7）。
           headerName: 'サマリ商品コード',
           field: 'productCode',
-          width: 110,
+          width: 88,
           cellStyle: leftStyle,
         },
         {
           headerName: 'サマリ商品名',
           field: 'productName',
-          width: 300,
+          width: 240,
           cellStyle: leftStyle,
         },
         {
           headerName: '入数',
           field: 'capacity',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 70,
+          width: 56,
           valueFormatter: numFmt,
           cellStyle: rightStyle,
         },
@@ -276,7 +255,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '社外売上高単価',
               field: 'seihan',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 130,
+              width: 104,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -284,7 +263,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '計画NET',
               field: 'planNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 90,
+              width: 72,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -299,7 +278,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '支払NET（追加口分）',
               field: 'addNet',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 160,
+              width: 128,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -307,7 +286,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'ケース',
               field: 'payCases',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 80,
+              width: 64,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -315,7 +294,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: 'バラ',
               field: 'payLoose',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 70,
+              width: 56,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -323,7 +302,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '追加口バラ単価',
               field: 'addUnit',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 140,
+              width: 112,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -331,7 +310,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '追加口金額',
               field: 'addAmount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -339,7 +318,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerName: '支払金額',
               field: 'payAmount',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               valueFormatter: numFmt,
               cellStyle: rightStyle,
             },
@@ -348,13 +327,13 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '摘要2（社外用）',
           field: 'summary',
-          width: 200,
+          width: 160,
           cellStyle: leftStyle,
         },
         {
           headerName: '摘要1（社内用）',
           field: 'summary1',
-          width: 240,
+          width: 192,
           cellStyle: leftStyle,
         },
       ],
@@ -390,91 +369,69 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     );
 
     return (
-      <Collapsible
+      <CollapsibleCard
+        title="追加口"
         open={isCardOpen}
         onOpenChange={setIsCardOpen}
-        className="bg-white rounded-lg border border-gray-200 p-4 overflow-hidden"
+        contentClassName="p-4"
       >
-        {/* カードヘッダー（支払詳細(追加口請求書有)と同様に amber-400 の区切り線を引く）。
-          p-4 を相殺してカード幅いっぱいにボーダーを表示する。 */}
-        <div className="card-header-accent -mx-4 px-4 pb-2 flex items-center justify-between">
-          <CollapsibleTrigger
-            data-keep-active
-            className="group flex flex-1 items-center text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
-          >
-            <h2 className={CARD_TITLE_CLASS}>追加口</h2>
-          </CollapsibleTrigger>
-          <CollapsibleTrigger
-            data-keep-active
-            className="group shrink-0 hover:text-blue-700 transition-colors outline-none focus:outline-none focus-visible:outline-none focus:ring-0 pointer-events-auto"
-            aria-label="追加口の表示を切り替え"
-          >
-            <ChevronDown className="h-5 w-5 text-gray-500 transition-transform group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent className="mt-4">
-          {/* 合計表（請求／支払／差額 × 合計・税率別・データ元別。請求書有の追加口カードと同じ形）。
+        {/* 合計表（請求／支払／差額 × 合計・税率別・データ元別。請求書有の追加口カードと同じ形）。
               請求書を受領しないため請求・差額の行は「-」とする。 */}
-          <PaymentAmountBreakdownTable
-            className="mb-4"
-            ariaLabel="追加口の合計"
-            items={[
-              {
-                label: '合計',
-                breakdown,
-                isBillUnavailable: true,
-              },
-            ]}
-            dataSourceColumns={WITHOUT_INVOICE_DATA_SOURCE_COLUMNS}
-            negativeFormat="minus"
-          />
+        <PaymentAmountBreakdownTable
+          className="mb-4"
+          ariaLabel="追加口の合計"
+          items={[
+            {
+              label: '合計',
+              breakdown,
+              isBillUnavailable: true,
+            },
+          ]}
+          dataSourceColumns={WITHOUT_INVOICE_DATA_SOURCE_COLUMNS}
+          negativeFormat="minus"
+        />
 
-          {/* AG Grid（縦幅はリサイズハンドルで可変。JS動的値のため inline style 許容） */}
-          <div
-            className="additional-entry-grid"
-            style={{ height: gridHeight, width: '100%' }}
-          >
-            {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）に委譲。
+        {/* AG Grid（縦幅はリサイズハンドルで可変。JS動的値のため inline style 許容） */}
+        <div
+          className="additional-entry-grid"
+          style={{ height: gridHeight, width: '100%' }}
+        >
+          {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）に委譲。
             formula-ref-highlight：計算式セルのホバー時に計算元セルへ青枠（内側）を付与する。 */}
-            <style>{`
+          <style>{`
           .additional-entry-grid .ag-cell.formula-ref-highlight {
             box-shadow: inset 0 0 0 2px var(--grid-source-highlight-border);
           }
         `}</style>
-            <AgGridReact
-              rowData={entryRows}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
-              tooltipShowMode="standard"
-              getRowId={(p) => String((p.data as EntryRow).lineNo)}
-              getContextMenuItems={gridFilterContextMenuItems}
-              onCellMouseOver={handleCellMouseOver}
-              onCellMouseOut={handleCellMouseOut}
-              suppressMovableColumns={true}
-              ensureDomOrder={true}
-              // 横スクロールバーを常時表示し、左右スクロールの存在を分かりやすくする
-              alwaysShowHorizontalScroll={true}
-              tooltipShowDelay={300}
-              statusBar={GRID_STATUS_BAR}
-              {...GRID_BASE_PROPS}
-              {...gridColumnStateProps}
-            />
-          </div>
+          <AgGridReact
+            rowData={entryRows}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
+            tooltipShowMode="standard"
+            getRowId={(p) => String((p.data as EntryRow).lineNo)}
+            getContextMenuItems={gridFilterContextMenuItems}
+            onCellMouseOver={handleCellMouseOver}
+            onCellMouseOut={handleCellMouseOut}
+            suppressMovableColumns={true}
+            ensureDomOrder={true}
+            // 横スクロールバーを常時表示し、左右スクロールの存在を分かりやすくする
+            alwaysShowHorizontalScroll={true}
+            tooltipShowDelay={300}
+            statusBar={GRID_STATUS_BAR}
+            {...GRID_BASE_PROPS}
+            {...gridColumnStateProps}
+          />
+        </div>
 
-          {/* リサイズハンドル：上下ドラッグでグリッドの縦幅を手動調整する。 */}
-          <div
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="追加口一覧の高さを変更"
-            onMouseDown={handleResizeStart}
-            className="flex items-center justify-center h-3 cursor-ns-resize bg-gray-100 hover:bg-gray-200 border-t border-gray-200 transition-colors"
-          >
-            <div className="w-10 h-1 rounded-full bg-gray-400" />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+        {/* リサイズハンドル：上下ドラッグでグリッドの縦幅を手動調整する。 */}
+        <div className="relative h-2">
+          <ResizeHandle
+            onMouseDown={gridResize.handleMouseDown}
+            ariaLabel="追加口一覧の高さを変更"
+          />
+        </div>
+      </CollapsibleCard>
     );
   }
 );

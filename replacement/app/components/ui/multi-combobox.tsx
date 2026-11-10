@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
-import { matchesSearchQuery } from "../../utils/searchNormalize";
+import { matchesSearchQuery } from "../../utils/common/searchNormalize";
 import { cn } from "./utils";
 
 // 選択肢（value／label／code／badge で統一）
@@ -69,6 +69,7 @@ const CheckMark = ({ state }: { state: CheckState }) => (
         : "border-blue-500 bg-blue-500"
     }`}
   >
+    {/* 規約例外（重ね表示）：チェック枠（h-4）の中の記号のため w-3 h-3 */}
     {state === "on" && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
     {state === "ind" && <span className="h-0.5 w-2 bg-white" />}
   </span>
@@ -288,7 +289,7 @@ export function MultiCombobox({
         className="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-gray-400 bg-white px-3 py-2 text-left text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:opacity-70"
       >
         <span
-          className={`truncate ${summary ? "text-gray-900" : "text-gray-400"}`}
+          className={`truncate ${summary ? "text-gray-900" : "text-gray-500"}`}
         >
           {summary || placeholder}
         </span>

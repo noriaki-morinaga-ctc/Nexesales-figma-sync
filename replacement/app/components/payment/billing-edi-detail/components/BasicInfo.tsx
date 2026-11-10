@@ -13,7 +13,7 @@ import {
   formatSummaryCategories,
   latestReimportedAt,
   oldestReceivedAt,
-} from '../../../../utils/billingEdiImport';
+} from '../../../../utils/payment/billing/billingEdiImport';
 
 // ステータスごとのアイコン・色設定（一覧のステータス列と同じ表現に揃える）
 const STATUS_CONFIG: Record<

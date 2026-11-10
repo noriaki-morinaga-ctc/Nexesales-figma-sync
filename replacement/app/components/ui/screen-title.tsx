@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 // 画面名をヘッダー（システム名「NEXT SALES」の右）に出すための共通部品。
 // 各画面は本文に見出しを置かず <ScreenTitle title="〇〇" /> を置くだけにする。
-// 画面名の表示はヘッダー（shared/Header.tsx）が受け持つ。
+// 画面名の表示はヘッダー（shared/layout/Header.tsx）が受け持つ。
 
 interface ScreenTitleContextValue {
   title: string;

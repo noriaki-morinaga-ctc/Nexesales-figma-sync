@@ -81,6 +81,7 @@ export function Combobox({
     [options, onChange, onClear]
   );
 
+  // コピー用の表示値（data-copy-text）は中の SingleCombobox が付ける（→ 02 §15.1）
   return (
     <SingleCombobox
       options={options}

@@ -47,6 +47,21 @@ export const CURRENT_USER_NAME: string = BASIC_INFO_CREATOR.name;
 // モックでは申請前の初期状態＝「未申請」を全画面共通で表示する。
 export const BASIC_INFO_STATUS = '未申請';
 
+// 確定・未承認確定の月（ダミー）。実際は月次計画のステータスで判定する。
+// 詳細の初期値（当年1月）の扱いが未確定のため、初期値と重ならない月にしている。
+export const SIMULATION_CLOSED_MONTHS = [2, 3].map(
+  (month) => `${new Date().getFullYear()}/${String(month).padStart(2, '0')}`
+);
+
+// 年の途中で取引制度を変更した計画の、変更後の最初の対象年月（ダミー）。実際は計画単位マスタから導出する。
+const TRADING_SYSTEM_CHANGED_FROM = '2025/12';
+
+// 取引制度を変更した後の対象年月か。その年の変更後の月は、シミュレーション・年間計画作成を
+// 使用できない（10/27 第4回 決定事項28）。
+export const isAfterTradingSystemChange = (yearMonth: string): boolean =>
+  yearMonth.slice(0, 4) === TRADING_SYSTEM_CHANGED_FROM.slice(0, 4) &&
+  yearMonth >= TRADING_SYSTEM_CHANGED_FROM;
+
 // 販売店。NET固定は「その他販売店」、それ以外の取引制度は「イオンリテール」。
 export const BASIC_INFO_DEALER: NameCodeValue = {
   name: 'イオンリテール',
@@ -58,11 +73,19 @@ export const BASIC_INFO_DEALER_OTHER: NameCodeValue = {
   code: 'DLR006',
 };
 
-// 三次店企業。NET固定の基本情報にのみ表示する。
+// 三次店企業。販売店が「その他販売店」の計画だけ表示する（10/20 第2回 決定事項11）。
 export const BASIC_INFO_TERTIARY_COMPANY: NameCodeValue = {
   name: '三菱食品株式会社',
   code: 'TSC001',
 };
+
+// 販売店に対応する三次店企業。「その他販売店」以外の計画は値を持たない（画面は「-」）。
+export const tertiaryCompanyOf = (
+  dealer: NameCodeValue
+): NameCodeValue | null =>
+  dealer.code === BASIC_INFO_DEALER_OTHER.code
+    ? BASIC_INFO_TERTIARY_COMPANY
+    : null;
 
 // 取引先補足情報マスタ_単価取得区分（補足2-2）。
 // 社外売単価の導出で使う。'取得可能' なら納価をそのまま社外売単価とする（分岐No.5）。

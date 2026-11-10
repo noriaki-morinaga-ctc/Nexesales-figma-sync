@@ -41,7 +41,7 @@ import {
   validateStoreFilter,
   yearMonthToDate,
 } from './marketingFileUploadUtils';
-import { ProgressToast } from './components/ProgressToast';
+import { ProgressToast } from '../../shared/upload/ProgressToast';
 
 // ===== ファイルアップロード画面の状態管理（アップロード・ダウンロード・履歴選択） =====
 // jihanki（実績登録メニューから遷移）により、アップロード・ダウンロード対象と履歴の表示対象を切り替える。

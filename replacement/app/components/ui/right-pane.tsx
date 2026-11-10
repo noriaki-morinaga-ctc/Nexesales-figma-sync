@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
 import { XIcon, ChevronLeft, MoveHorizontal } from 'lucide-react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import {
@@ -80,17 +83,17 @@ export function RightPane({
   disableDiscardConfirm = false,
 }: RightPaneProps) {
   const [width, setWidth] = useState(initialWidth);
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [isInternalCollapsed, setIsInternalCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
   // collapsed/onCollapsedChange が渡された場合は親が状態を保持する（制御コンポーネント）
   const isControlled = collapsed !== undefined && onCollapsedChange !== undefined;
-  const isCollapsed = isControlled ? collapsed : internalCollapsed;
+  const isCollapsed = isControlled ? collapsed : isInternalCollapsed;
   const setIsCollapsed = (next: boolean) => {
     if (isControlled) {
       onCollapsedChange(next);
     } else {
-      setInternalCollapsed(next);
+      setIsInternalCollapsed(next);
     }
   };
   const resizing = useRef(false);
@@ -131,6 +134,22 @@ export function RightPane({
       markEdited();
     }
   };
+  // コンボボックスの候補をキー操作（Enter・Space）だけで選んだときも「入力あり」とする
+  //（候補一覧〔role="listbox"〕か、候補一覧を操作する絞り込み欄〔aria-controls〕でのキー操作）
+  const handleKeyDownCapture = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const target = e.target as HTMLElement;
+    // 開くボタンにも aria-controls が付くため、絞り込み欄（input）のときだけ見る
+    const controls =
+      target.tagName === 'INPUT' ? target.getAttribute('aria-controls') : null;
+    const controlled = controls ? document.getElementById(controls) : null;
+    if (
+      target.closest('[role="listbox"]') ||
+      controlled?.getAttribute('role') === 'listbox'
+    ) {
+      markEdited();
+    }
+  };
   const confirmClose = useCallback(async () => {
     const hasChanges = dirtyRef.current ?? userEditedRef.current;
     if (disableDiscardConfirm || !hasChanges) return true;
@@ -165,7 +184,8 @@ export function RightPane({
       // 一定以上動かしたらドラッグ（幅調整）とみなす
       if (Math.abs(e.clientX - startX.current) > 3) moved.current = true;
       // 横並び時はペインの右端が offsetRight ぶん内側にあるため、その分を差し引く
-      const newWidthRem = (window.innerWidth - e.clientX) / 16 - offsetRight;
+      // 1rem = 12.8px（画面全体を 80% にしている → 01「ルートフォントサイズ設定」）
+      const newWidthRem = (window.innerWidth - e.clientX) / 12.8 - offsetRight;
       if (newWidthRem >= minWidth && newWidthRem <= maxWidth) {
         setWidth(newWidthRem);
       }
@@ -308,6 +328,7 @@ export function RightPane({
                 onInputCapture={markEdited}
                 onChangeCapture={markEdited}
                 onClickCapture={handleClickCapture}
+                onKeyDownCapture={handleKeyDownCapture}
               >
                 {children}
               </div>

@@ -14,13 +14,14 @@ import type {
   MenuItemDef,
   DataTypeDefinitions,
   FilterOpenedEvent,
+  CellClassParams,
 } from 'ag-grid-community';
 import { themeBalham } from 'ag-grid-community';
 import { toast } from 'sonner';
 import {
   GridDisplayedRowsStatusPanel,
   YearMonthFilterInput,
-} from './gridComponents';
+} from './GridComponents';
 import { GRID_COLORS } from '../../../styles/gridStyles';
 import { AG_GRID_LOCALE_JA } from './gridLocale';
 import { exportGridAllRows } from './gridExportAll';
@@ -41,10 +42,19 @@ export const GRID_THEME = themeBalham.withParams({
   oddRowBackgroundColor: GRID_COLORS.background, // 明細の背景を全て白（奇数行の縞模様を無効化）
   backgroundColor: GRID_COLORS.background, // グリッド背景も白
   rowHoverColor: GRID_COLORS.rowHover, // 行ホバー色（gridStyles に集約）
-  // 罫線（全グリッド共通）。セル結合（rowSpan）時も列区切りを明示できるよう
-  // 縦罫線（columnBorder）を有効化し、罫線色を薄いグレーに統一する。
+  // ヘッダー（列見出し）の配色（UI/UX分科会 決定事項21＝宮澤案。UI/UX UX-031 → 02 §7「ヘッダーの配色」）
+  // 薄い青の背景・紺の太字。列の区切りは上下 0.375rem ずつ空けた薄いグレーの線。
+  // ヘッダーと明細の間は明細の横罫線と同じ薄いグレー（紺の線は引かない）。
+  headerBackgroundColor: GRID_COLORS.headerBackground,
+  headerTextColor: GRID_COLORS.headerText,
+  headerFontWeight: 600,
+  headerColumnBorder: { color: GRID_COLORS.headerColumnDivider },
+  headerColumnBorderHeight: 'calc(100% - 0.75rem)',
+  // 罫線（全グリッド共通）。明細の縦罫線は引かず、行間の横罫線だけを薄いグレーで引く（→ 02 §7「罫線」）。
+  // ヘッダーの列の区切り（headerColumnBorder）は上の「ヘッダーの配色」で指定する。
   borderColor: GRID_COLORS.gridLine,
-  columnBorder: true, // 列間の縦罫線
+  columnBorder: false, // 明細の列間の縦罫線は引かない
+  // 固定列（右端の操作ボタン列）の境目の線（pinnedColumnBorder）は Balham の既定のまま引く
   rowBorder: true, // 行間の横罫線
 });
 
@@ -328,6 +338,28 @@ export function isEmptyCellValue(params: {
   );
 }
 
+// 値が無いセル（「-」を出すセル）か。列が独自の valueFormatter を持つときは、その結果（表示する文字）で
+// 判定する。値が空でも valueFormatter で文字を出す列（例：値が無いときに区分名を出す列）を、
+// 値だけで判定してグレー（cell-empty）にしないため。cellRenderer で文字を作る列は判定できないので、
+// 画面の cellClassRules で 'cell-empty' を上書きする。
+export function isEmptyCellDisplay(params: CellClassParams): boolean {
+  // 値を持たない列（field も valueGetter も無い操作列など。中身は cellRenderer のボタン）は空にしない
+  if (!params.colDef?.field && !params.colDef?.valueGetter) return false;
+  const fmt = params.colDef?.valueFormatter;
+  if (typeof fmt === 'function' && fmt !== formatEmptyAsDash) {
+    try {
+      return isEmptyCellValue({
+        value: fmt(params as ValueFormatterParams),
+        data: params.data,
+      });
+    } catch {
+      // 書式の処理が判定用の引数で動かない列は、値で判定する
+      return isEmptyCellValue(params);
+    }
+  }
+  return isEmptyCellValue(params);
+}
+
 export function formatEmptyAsDash(params: ValueFormatterParams): string {
   if (params.data?._isHeader) return '';
   // 全角「－」で持つ値も半角「-」にそろえる
@@ -374,7 +406,8 @@ export const GRID_DEFAULT_COL_DEF: ColDef = {
   cellClassRules: {
     'ag-cell-changed': (p: any) => !!p.context?.isCellChanged?.(p),
     // 値が無いセルの「-」をグレーにする（画面設計標準 3.11・4.2 ⑥。色は grid.css .ag-cell.cell-empty）
-    'cell-empty': (p: any) => isEmptyCellValue(p),
+    // 判定は表示する文字で行う（値が空でも valueFormatter で文字を出す列をグレーにしない）
+    'cell-empty': (p: any) => isEmptyCellDisplay(p),
   },
   // 値が無いセルはグレーの半角「-」を表示する（列で独自の valueFormatter を持つ列はそちらが優先）
   valueFormatter: formatEmptyAsDash,
@@ -393,8 +426,8 @@ export const DETAIL_GRID_MIN_HEIGHT_REM = 18.75;
 // 上記の既定高さ（px）。inline style の height へ渡す JS 動的計算値として使う。
 export const detailGridInitialHeight = (): number =>
   Math.max(
-    DETAIL_GRID_MIN_HEIGHT_REM * 16,
-    (window.innerHeight - DETAIL_GRID_HEIGHT_OFFSET_REM * 16) *
+    DETAIL_GRID_MIN_HEIGHT_REM * 12.8,
+    (window.innerHeight - DETAIL_GRID_HEIGHT_OFFSET_REM * 12.8) *
       DETAIL_GRID_HEIGHT_RATIO
   );
 
@@ -413,11 +446,14 @@ export const GRID_MASTER_DETAIL_ICONS = {
 
 // 件数表示パネル（左下）の共通 statusBar 設定。
 // 「表示中：○-○件 / 全○件」と、行選択のあるグリッドでは「選択中：○件」を表示する（GridDisplayedRowsStatusPanel）。
+// 件数は横スクロールバーと同じ行の左に置き、スクロールバーは件数の右から始める（件数のために1行使わない。
+// 横スクロールバーは常に表示する。UI/UX UX-030 → 02 §7）。
 export const GRID_STATUS_BAR = {
   statusPanels: [
     {
       statusPanel: GridDisplayedRowsStatusPanel,
       align: 'left' as const,
+      statusPanelParams: { inHorizontalScroll: true },
     },
   ],
 };

@@ -1,15 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-  PLAN_DETAIL_DIGITS,
-  formatPlanRate,
-} from '../../../../utils/planDetailNumberFormat';
-import { rateCellStyle } from '../../../grid';
 import { ColDef, ColGroupDef } from 'ag-grid-community';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { Label } from '../../../ui/label';
-import { Checkbox } from '../../../ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
 import {
   Calendar,
   TrendingUp,
@@ -17,31 +7,47 @@ import {
   ClipboardList,
   SlidersHorizontal,
 } from 'lucide-react';
-import { RightPane } from '../../../ui/right-pane';
 import { RotateCcw } from 'lucide-react';
+
+import {
+  PLAN_DETAIL_DIGITS,
+  formatPlanRate,
+} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
+import { rateCellStyle } from '../../../grid';
+import {
+  CARD_TITLE_CLASS,
+  FORM_LABEL_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+} from '../../../../../styles/commonStyles';
+import { Label } from '../../../ui/label';
+import { Checkbox } from '../../../ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
+import { CollapsibleCard } from '../../../ui/collapsible-card';
+import { RightPane } from '../../../ui/right-pane';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/tabs';
 import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
 import { MultiCombobox } from '../../../ui/multi-combobox';
 import {
   AggregationFilter,
   type ExcludePair,
-} from '../../../shared/AggregationFilter';
+} from '../../../shared/sales-plan/common/AggregationFilter';
 import {
   META_BRAND_OPTIONS,
   CONTAINER_CAPACITY_OPTIONS,
 } from '../../../../constants/aggregationAxisMaster';
-import { makeSimulationTreeValueFor } from '../../../../utils/simulationDetailAggregate';
-import { SimulationCampaignSummaryTable } from '../../../shared/SimulationCampaignSummaryTable';
-import { AggregationItemTreeTable } from '../../../shared/AggregationItemTreeTable';
+import { makeSimulationTreeValueFor } from '../../../../utils/sales-plan/simulation/simulationDetailAggregate';
+import { SimulationCampaignSummaryTable } from '../../../shared/sales-plan/simulation/SimulationCampaignSummaryTable';
+import { AggregationItemTreeTable } from '../../../shared/sales-plan/common/AggregationItemTreeTable';
 import {
   AGGREGATION_PERIOD_FROM_ID,
   SimulationPeriodPicker,
-} from '../../../shared/SimulationPeriodPicker';
+} from '../../../shared/sales-plan/simulation/SimulationPeriodPicker';
 import {
   budgetRateColor,
   diffTextColor,
   previousYearRateColor,
-} from '../../../../utils/aggregationCardColors';
+} from '../../../../utils/sales-plan/common/aggregationCardColors';
 
 interface UnifiedAggregationData {
   label: string; // ユニークなキー
@@ -87,6 +93,7 @@ interface AggregationPaneProps {
   onToPeriodChange: (value: string) => void;
 }
 
+// 規約例外（画面ごとの部品）：計画の方式（マージン率固定／NET固定）ごとに別々に変わる見込みのため、中身が似ていても今は画面ごとに持つ。後で共通化する可能性あり（→ 02 §12.2）
 export function AggregationPane({
   campaignData = [],
   detailRows = [],
@@ -101,7 +108,7 @@ export function AggregationPane({
   const [isOpen, setIsOpen] = useState(true);
   // 「A口のみ集計」チェック状態（初期＝チェックなし）。true で拡売費A口2費目
   // （売上連動拡売費A口・拡売費(固定費)A口。計画詳細と同じ）のみ集計する。
-  const [aOnlyPromo, setAOnlyPromo] = useState(false);
+  const [isAOnlyPromo, setIsAOnlyPromo] = useState(false);
   // 表示単位（円／千円）。金額の桁が大きいため既定は千円。
   const [displayUnit, setDisplayUnit] = useState<'yen' | 'thousand'>(
     'thousand'
@@ -122,16 +129,16 @@ export function AggregationPane({
   // 集計対象設定の右ペイン（センターフィ率と同様のスライドイン）開閉。
   // 親から開閉を渡された場合はそちらに従い、他の右ペインと排他表示にする。
   // 集計単位①②・除外ペアの値は本コンポーネントで保持するため、開閉しても保持される。
-  const [internalAggFilterPaneOpen, setInternalAggFilterPaneOpen] =
+  const [isInternalAggFilterPaneOpen, setIsInternalAggFilterPaneOpen] =
     useState(false);
-  const showAggFilterPane = aggFilterPaneOpen ?? internalAggFilterPaneOpen;
+  const showAggFilterPane = aggFilterPaneOpen ?? isInternalAggFilterPaneOpen;
   const handleToggleAggFilterPane = () => {
     if (onToggleAggFilterPane) onToggleAggFilterPane();
-    else setInternalAggFilterPaneOpen((v) => !v);
+    else setIsInternalAggFilterPaneOpen((v) => !v);
   };
   const handleCloseAggFilterPane = () => {
     if (onCloseAggFilterPane) onCloseAggFilterPane();
-    else setInternalAggFilterPaneOpen(false);
+    else setIsInternalAggFilterPaneOpen(false);
   };
   // ペインを開いたときに編集値を確定値で初期化する。
   // 確定せずに閉じた場合は編集内容を破棄し、次に開くと確定値から編集し直す。
@@ -172,7 +179,15 @@ export function AggregationPane({
       pairs.filter((p) => !p.capacity || next.includes(p.capacity))
     );
   };
-  const [detailTableTab, setDetailTableTab] = useState('monthly'); // 詳細テーブルタブ
+  // 企画単位集計の確度フィルター（既定はチェックあり）。詳細／グラフを切り替えても保持する。
+  const [shouldExcludeCampaignReflected, setShouldExcludeCampaignReflected] =
+    useState(true);
+  const [shouldExcludeCampaignRejected, setShouldExcludeCampaignRejected] =
+    useState(true);
+  // 対象期間合計／企画単位集計のタブ（詳細・グラフで同じ選択を使う）
+  const [detailTableTab, setDetailTableTab] = useState('monthly');
+  // 企画単位集計を選んでいる間は「詳細」「グラフ」を両方とも非活性にする（10/27 第4回 決定事項6）
+  const isCampaignTabSelected = detailTableTab === 'campaign';
   const [activeTab, setActiveTab] = useState<
     'annual' | 'expense' | 'detail' | 'graph'
   >('graph'); // タブ管理
@@ -181,17 +196,17 @@ export function AggregationPane({
   const pattern2Resize = useResizableHeight({ defaultHeight: 360 });
   const campaignResize = useResizableHeight({ defaultHeight: 400 });
   // パターン①の集計確度選択（デフォルト：確定・A・B・Cをチェック、反映済は未チェック）
-  const [p1Fixed, setP1Fixed] = useState(true);
-  const [p1A, setP1A] = useState(true);
-  const [p1B, setP1B] = useState(true);
-  const [p1C, setP1C] = useState(true);
-  const [p1Reflected, setP1Reflected] = useState(false);
+  const [isP1Fixed, setIsP1Fixed] = useState(true);
+  const [isP1A, setIsP1A] = useState(true);
+  const [isP1B, setIsP1B] = useState(true);
+  const [isP1C, setIsP1C] = useState(true);
+  const [isP1Reflected, setIsP1Reflected] = useState(false);
   // パターン②の集計確度選択（デフォルト：確定のみチェック）
-  const [p2Fixed, setP2Fixed] = useState(true);
-  const [p2A, setP2A] = useState(false);
-  const [p2B, setP2B] = useState(false);
-  const [p2C, setP2C] = useState(false);
-  const [p2Reflected, setP2Reflected] = useState(false);
+  const [isP2Fixed, setIsP2Fixed] = useState(true);
+  const [isP2A, setIsP2A] = useState(false);
+  const [isP2B, setIsP2B] = useState(false);
+  const [isP2C, setIsP2C] = useState(false);
+  const [isP2Reflected, setIsP2Reflected] = useState(false);
 
   // ツリー階層の定義（トップレベル項目のみ）
   const topLevelItems = [
@@ -1296,7 +1311,7 @@ export function AggregationPane({
       {
         headerName: 'メタブランド',
         field: 'metaBrand',
-        width: 160,
+        width: 128,
         lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
@@ -1311,7 +1326,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'netSales_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1319,7 +1334,7 @@ export function AggregationPane({
             field: 'netSales_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1327,7 +1342,7 @@ export function AggregationPane({
             field: 'netSales_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1339,7 +1354,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'managementProfit_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1347,7 +1362,7 @@ export function AggregationPane({
             field: 'managementProfit_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1355,21 +1370,21 @@ export function AggregationPane({
             field: 'managementProfit_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率',
             field: 'managementProfit_rate',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率前年差',
             field: 'managementProfit_rateDiff',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1384,7 +1399,7 @@ export function AggregationPane({
       {
         headerName: 'メタブランド',
         field: 'metaBrand',
-        width: 160,
+        width: 128,
         lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
@@ -1399,7 +1414,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'netSales_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1407,7 +1422,7 @@ export function AggregationPane({
             field: 'netSales_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1415,7 +1430,7 @@ export function AggregationPane({
             field: 'netSales_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1427,7 +1442,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'managementProfit_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1435,7 +1450,7 @@ export function AggregationPane({
             field: 'managementProfit_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1443,21 +1458,21 @@ export function AggregationPane({
             field: 'managementProfit_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率',
             field: 'managementProfit_rate',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率前年差',
             field: 'managementProfit_rateDiff',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1472,7 +1487,7 @@ export function AggregationPane({
       {
         headerName: 'メタブランド',
         field: 'metaBrand',
-        width: 160,
+        width: 128,
         lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
@@ -1487,7 +1502,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'netSales_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1495,7 +1510,7 @@ export function AggregationPane({
             field: 'netSales_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1503,7 +1518,7 @@ export function AggregationPane({
             field: 'netSales_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1515,7 +1530,7 @@ export function AggregationPane({
             headerName: '構成比',
             field: 'managementProfit_composition',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1523,7 +1538,7 @@ export function AggregationPane({
             field: 'managementProfit_budgetRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
@@ -1531,21 +1546,21 @@ export function AggregationPane({
             field: 'managementProfit_previousYearRate',
             cellStyle: (params) => rateCellStyle(params.value),
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率',
             field: 'managementProfit_rate',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
           {
             headerName: '率前年差',
             field: 'managementProfit_rateDiff',
             flex: 1,
-            minWidth: 100,
+            minWidth: 80,
             cellClass: 'ag-cell-right',
           },
         ],
@@ -1563,8 +1578,9 @@ export function AggregationPane({
   // label は集計データとの突合キー、name はカードの表示名（両者が異なる項目のみ表記が変わる）。
   const CHART_TARGET_ITEMS = [
     { label: '函数', name: '函数', isRate: false, isQuantity: true },
-    { label: '売上高', name: '売上高', isRate: false },
+    // 社外売上高は売上高の左に表示する（10/30 第5回 決定事項22）
     { label: '社外売上高', name: '社外売上高', isRate: false },
+    { label: '売上高', name: '売上高', isRate: false },
     { label: '管理利益', name: '管理利益額', isRate: false },
     { label: '管理利益率', name: '管理利益率', isRate: true },
     {
@@ -1643,7 +1659,8 @@ export function AggregationPane({
     ];
     return (
       <div className="flex items-center gap-6 mb-2">
-        <span className={FORM_LABEL_CLASS}>{patternLabel}</span>
+        {/* パターン①②の見出しはカードのタイトルと同じ大きさにする */}
+        <span className={CARD_TITLE_CLASS}>{patternLabel}</span>
         <div className="flex items-center gap-2">
           <label className={`${FORM_LABEL_CLASS} whitespace-nowrap`}>
             集計確度選択
@@ -1671,32 +1688,32 @@ export function AggregationPane({
 
   // パターン①／②の確度選択値とハンドラ
   const p1Values = {
-    a: p1A,
-    b: p1B,
-    c: p1C,
-    fixed: p1Fixed,
-    reflected: p1Reflected,
+    a: isP1A,
+    b: isP1B,
+    c: isP1C,
+    fixed: isP1Fixed,
+    reflected: isP1Reflected,
   };
   const p1Handlers = {
-    onA: setP1A,
-    onB: setP1B,
-    onC: setP1C,
-    onFixed: setP1Fixed,
-    onReflected: setP1Reflected,
+    onA: setIsP1A,
+    onB: setIsP1B,
+    onC: setIsP1C,
+    onFixed: setIsP1Fixed,
+    onReflected: setIsP1Reflected,
   };
   const p2Values = {
-    a: p2A,
-    b: p2B,
-    c: p2C,
-    fixed: p2Fixed,
-    reflected: p2Reflected,
+    a: isP2A,
+    b: isP2B,
+    c: isP2C,
+    fixed: isP2Fixed,
+    reflected: isP2Reflected,
   };
   const p2Handlers = {
-    onA: setP2A,
-    onB: setP2B,
-    onC: setP2C,
-    onFixed: setP2Fixed,
-    onReflected: setP2Reflected,
+    onA: setIsP2A,
+    onB: setIsP2B,
+    onC: setIsP2C,
+    onFixed: setIsP2Fixed,
+    onReflected: setIsP2Reflected,
   };
 
   // パターン別グラフセクション（見出し＋グラフ群）
@@ -1758,7 +1775,7 @@ export function AggregationPane({
       { fixed: values.fixed, a: values.a, b: values.b, c: values.c },
       displayUnit,
       // 「A口のみ」チェック時は対象管理区分の拡売費だけを集計する（共通対応方針P31）
-      { aOnlyPromo }
+      { aOnlyPromo: isAOnlyPromo }
     );
     return (
       <div className={wrapperClass}>
@@ -1918,6 +1935,7 @@ export function AggregationPane({
           <SimulationPeriodPicker
             fromId={AGGREGATION_PERIOD_FROM_ID}
             ariaLabelPrefix="集計の対象期間"
+            shouldAllowPastMonths
             fromPeriod={fromPeriod}
             toPeriod={toPeriod}
             onFromPeriodChange={onFromPeriodChange}
@@ -1943,10 +1961,11 @@ export function AggregationPane({
             <div className="flex border-2 border-blue-600 rounded-lg overflow-hidden">
               <button
                 onClick={() => setActiveTab('detail')}
-                className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors ${
+                disabled={isCampaignTabSelected}
+                className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   activeTab === 'detail'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-600 hover:bg-blue-50'
+                    : 'bg-white text-blue-600 hover:bg-blue-50 disabled:hover:bg-white'
                 }`}
               >
                 詳細
@@ -1954,10 +1973,11 @@ export function AggregationPane({
               <div className="w-px bg-blue-600" />
               <button
                 onClick={() => setActiveTab('graph')}
-                className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors ${
+                disabled={isCampaignTabSelected}
+                className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   activeTab === 'graph'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-600 hover:bg-blue-50'
+                    : 'bg-white text-blue-600 hover:bg-blue-50 disabled:hover:bg-white'
                 }`}
               >
                 グラフ
@@ -1971,7 +1991,7 @@ export function AggregationPane({
           {/* 拡売費集計対象選択 */}
           <div className="flex items-center gap-2">
             <label
-              className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[8.75rem] px-2 py-1`}
+              className={`${FORM_LABEL_CLASS} whitespace-nowrap w-35 px-2 py-1`}
             >
               拡売費集計対象選択
             </label>
@@ -2007,8 +2027,8 @@ export function AggregationPane({
             </label>
             <Checkbox
               id="a-only-promo"
-              checked={aOnlyPromo}
-              onCheckedChange={(checked) => setAOnlyPromo(checked === true)}
+              checked={isAOnlyPromo}
+              onCheckedChange={(checked) => setIsAOnlyPromo(checked === true)}
             />
             <Label
               htmlFor="a-only-promo"
@@ -2028,7 +2048,7 @@ export function AggregationPane({
                 onClick={() => setDisplayUnit('yen')}
                 className={`px-4 text-sm font-medium transition-colors ${
                   displayUnit === 'yen'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -2038,7 +2058,7 @@ export function AggregationPane({
                 onClick={() => setDisplayUnit('thousand')}
                 className={`px-4 text-sm font-medium transition-colors ${
                   displayUnit === 'thousand'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -2054,7 +2074,11 @@ export function AggregationPane({
         {/* グラフ表示 */}
         {activeTab === 'graph' && (
           <div className="mb-4">
-            <Tabs defaultValue="monthly" className="w-full">
+            <Tabs
+              value={detailTableTab}
+              onValueChange={setDetailTableTab}
+              className="w-full"
+            >
               <TabsList
                 className={`grid w-full grid-cols-2 mb-4 bg-transparent p-0 h-auto gap-1`}
               >
@@ -2113,6 +2137,11 @@ export function AggregationPane({
               <TabsContent value="campaign">
                 <div className="mx-4 mt-2 mb-4">
                   <SimulationCampaignSummaryTable
+                    shouldExcludeReflected={shouldExcludeCampaignReflected}
+                    shouldExcludeRejected={shouldExcludeCampaignRejected}
+                    onExcludeReflectedChange={setShouldExcludeCampaignReflected}
+                    onExcludeRejectedChange={setShouldExcludeCampaignRejected}
+                    showWholesaleMesh
                     data={campaignData}
                     displayUnit={displayUnit}
                     height={campaignResize.height}
@@ -2394,6 +2423,11 @@ export function AggregationPane({
               <TabsContent value="campaign">
                 <div className="mx-4 mt-2 mb-4">
                   <SimulationCampaignSummaryTable
+                    shouldExcludeReflected={shouldExcludeCampaignReflected}
+                    shouldExcludeRejected={shouldExcludeCampaignRejected}
+                    onExcludeReflectedChange={setShouldExcludeCampaignReflected}
+                    onExcludeRejectedChange={setShouldExcludeCampaignRejected}
+                    showWholesaleMesh
                     data={campaignData}
                     displayUnit={displayUnit}
                     height={campaignResize.height}
@@ -2439,12 +2473,12 @@ export function AggregationPane({
         minWidth={22}
         maxWidth={40}
         footer={
-          <div className="flex items-center justify-end gap-[0.75rem]">
+          <div className="flex items-center justify-end gap-3">
             {/* 集計単位①②・除外ペアの編集値を即時リセット（確認ダイアログなし） */}
             <button
               type="button"
               onClick={handleResetAggFilter}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors"
+              className={`${BUTTON_STYLES.cancel} ${BUTTON_BASE} inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium`}
             >
               <RotateCcw className="w-4 h-4" />
               すべてリセット
@@ -2453,7 +2487,7 @@ export function AggregationPane({
             <button
               type="button"
               onClick={handleSubmitAggFilter}
-              className="inline-flex items-center h-8 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors"
+              className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} inline-flex items-center h-8 px-4 text-sm font-medium`}
             >
               確定
             </button>
@@ -2472,9 +2506,7 @@ export function AggregationPane({
               onChange={handleChangeMetaBrands}
               placeholder="メタブランド"
             />
-            <div className="text-center text-lg font-bold text-[rgb(19,80,218)]">
-              ×
-            </div>
+            <div className="text-center text-lg font-bold text-blue-700">×</div>
             <label className={FORM_LABEL_CLASS}>集計単位②（容器容量G）</label>
             <MultiCombobox
               options={CONTAINER_CAPACITY_OPTIONS}

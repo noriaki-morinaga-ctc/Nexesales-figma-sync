@@ -1,5 +1,6 @@
 import type { CustomCellRendererProps } from 'ag-grid-react';
 import { SquarePen, Copy } from 'lucide-react';
+import { Badge } from '../../ui/badge';
 import {
   type DisplayStatus,
   type NoticeItem,
@@ -17,9 +18,13 @@ export const TYPE_CONFIG: Record<
   NoticeItem['type'],
   { label: string; badge?: string }
 > = {
-  important: { label: '重要', badge: 'bg-orange-500' },
+  important: { label: '重要', badge: 'bg-orange-700' },
   notice: { label: 'お知らせ' },
 };
+
+// 種別バッジの見た目（ui/badge に重ねる）。グリッド・入力欄・プレビューで同じ形にする。色は TYPE_CONFIG の badge
+export const NOTICE_TYPE_BADGE_CLASS =
+  'rounded-full border-transparent font-bold text-white';
 
 // 状態（派生ステータス）のドット色
 export const STATUS_DOT: Record<DisplayStatus, string> = {
@@ -72,11 +77,9 @@ export function TypeBadgeRenderer(p: CustomCellRendererProps<NoticeItem>) {
   return (
     // バッジは flex 親の中で縦横中央に置き、行の高さに引き伸ばされないようにする
     <div className="flex items-center justify-center h-full">
-      <span
-        className={`inline-flex items-center h-5 leading-none whitespace-nowrap px-2 rounded-full text-xs font-bold text-white ${cfg.badge}`}
-      >
+      <Badge className={`${NOTICE_TYPE_BADGE_CLASS} ${cfg.badge}`}>
         {cfg.label}
-      </span>
+      </Badge>
     </div>
   );
 }

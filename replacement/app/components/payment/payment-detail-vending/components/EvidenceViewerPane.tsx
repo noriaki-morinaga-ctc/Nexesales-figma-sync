@@ -32,7 +32,7 @@ import {
 import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import { BUTTON_STYLES } from '../../../../../styles/commonStyles';
 import { PdfPreview } from './PdfPreview';
-import { EvidenceDateInput } from './EvidenceDateInput';
+import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
 import {
   downloadOriginal,
   isImageFileName,
@@ -209,7 +209,7 @@ export function EvidenceViewerContent({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   // ズーム画像ロード完了フラグ: false の間は opacity-0 で非表示にしてフラッシュを防ぐ
-  const [zoomImgReady, setZoomImgReady] = useState(false);
+  const [isZoomImgReady, setIsZoomImgReady] = useState(false);
   const zoomImgRef = useRef<HTMLImageElement>(null);
   const panStartRef = useRef<{
     x: number;
@@ -289,7 +289,7 @@ export function EvidenceViewerContent({
   // 原本を持たないモックデータは、表示中の内容から同じ拡張子のファイルを組み立ててDLさせる
   // （デモで原本DLの流れを見せるため。実装版ではS3の原本をそのまま配信する）。
   const canDownloadOriginal = !!selected?.originalUrl;
-  const [mockDownloading, setMockDownloading] = useState(false);
+  const [isMockDownloading, setIsMockDownloading] = useState(false);
 
   const pageUrls =
     selected?.pageUrls ??
@@ -376,27 +376,27 @@ export function EvidenceViewerContent({
       // ページ遷移: ↑/↓
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setZoomImgReady(false);
+        setIsZoomImgReady(false);
         setZoomPage((n) => Math.max(0, (n ?? 0) - 1));
         setPanOffset({ x: 0, y: 0 });
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setZoomImgReady(false);
+        setIsZoomImgReady(false);
         setZoomPage((n) => Math.min(pageUrls.length - 1, (n ?? 0) + 1));
         setPanOffset({ x: 0, y: 0 });
       }
       // ファイル遷移: ←/→
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setZoomImgReady(false);
+        setIsZoomImgReady(false);
         handlePrev();
         setZoomPage(0);
         setPanOffset({ x: 0, y: 0 });
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setZoomImgReady(false);
+        setIsZoomImgReady(false);
         handleNext();
         setZoomPage(0);
         setPanOffset({ x: 0, y: 0 });
@@ -418,7 +418,7 @@ export function EvidenceViewerContent({
     const urls =
       file.pageUrls ?? (file.thumbnailUrl ? [file.thumbnailUrl] : []);
     if (!canBuildMockOriginal(file.fileName, urls)) return;
-    setMockDownloading(true);
+    setIsMockDownloading(true);
     try {
       const url = await buildMockOriginalUrl(file.fileName, urls);
       if (!url) return;
@@ -426,7 +426,7 @@ export function EvidenceViewerContent({
       // DL開始後に解放する（即座に revoke すると保存が始まらない）
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } finally {
-      setMockDownloading(false);
+      setIsMockDownloading(false);
     }
   };
 
@@ -538,12 +538,12 @@ export function EvidenceViewerContent({
       setZoomScale(scale);
     }
     setPanOffset({ x: 0, y: 0 });
-    setZoomImgReady(true);
+    setIsZoomImgReady(true);
   }, []);
 
   // ファイルまたはページが切り替わったらロード完了フラグをリセット（スケール確定前の大表示フラッシュを防ぐ）
   useEffect(() => {
-    if (zoomPage !== null) setZoomImgReady(false);
+    if (zoomPage !== null) setIsZoomImgReady(false);
   }, [zoomPage, selectedIndex]);
 
   // 資料を送った先の画像が「既に読み込み済み」のときは onLoad が発火しない。
@@ -631,7 +631,7 @@ export function EvidenceViewerContent({
           {/* 選択中資料の情報行 */}
           <div className="px-4 py-2 border-b border-gray-300 shrink-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="shrink-0 text-xs font-bold text-white bg-[rgb(19,80,218)] px-2 py-0.5 rounded">
+              <span className="shrink-0 text-xs font-bold text-white bg-blue-700 px-2 py-0.5 rounded">
                 {selected.kind}
               </span>
               {selectedNotReceived && (
@@ -643,7 +643,7 @@ export function EvidenceViewerContent({
                 </span>
               )}
               {selected.afterSeal && (
-                <span className="shrink-0 text-xs font-bold text-white bg-orange-500 px-2 py-0.5 rounded">
+                <span className="shrink-0 text-xs font-bold text-white bg-orange-700 px-2 py-0.5 rounded">
                   検印後
                 </span>
               )}
@@ -682,13 +682,13 @@ export function EvidenceViewerContent({
                   >
                     回収予定日
                   </label>
-                  <EvidenceDateInput
+                  <DateMonthYearPicker
                     id="viewer-collection-date"
-                    size="xs"
                     value={editingSelected.collectionDate ?? ''}
                     onChange={(v) =>
                       setEditing((p) => (p ? { ...p, collectionDate: v } : p))
                     }
+                    clearable
                   />
                 </div>
               </div>
@@ -743,13 +743,13 @@ export function EvidenceViewerContent({
                   >
                     発行日
                   </label>
-                  <EvidenceDateInput
+                  <DateMonthYearPicker
                     id="viewer-issue-date"
-                    size="xs"
                     value={editingSelected.issueDate ?? ''}
                     onChange={(v) =>
                       setEditing((p) => (p ? { ...p, issueDate: v } : p))
                     }
+                    clearable
                   />
                 </div>
               </div>
@@ -758,7 +758,7 @@ export function EvidenceViewerContent({
             {showsConvertedPdf && (
               <p className="mt-1 flex items-start gap-1 text-xs text-gray-500">
                 <AlertCircle
-                  className="mt-0.5 h-3 w-3 shrink-0"
+                  className="mt-0.5 h-4 w-4 shrink-0"
                   aria-hidden="true"
                 />
                 プレビューはPDF変換後の内容です。原本と体裁が異なる場合があります。
@@ -767,7 +767,7 @@ export function EvidenceViewerContent({
             {/* 備考 */}
             <div className="mt-2 flex items-start gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
               <StickyNote
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-500"
+                className="mt-0.5 h-4 w-4 shrink-0 text-gray-500"
                 aria-hidden="true"
               />
               <div className="min-w-0 flex-1">
@@ -788,7 +788,7 @@ export function EvidenceViewerContent({
                   />
                 ) : (
                   <p
-                    className={`text-xs whitespace-pre-wrap break-words ${selected.memo ? 'text-gray-800' : 'text-gray-400'}`}
+                    className={`text-xs whitespace-pre-wrap break-words ${selected.memo ? 'text-gray-800' : 'text-gray-600'}`}
                   >
                     {selected.memo || '（未入力）'}
                   </p>
@@ -804,13 +804,13 @@ export function EvidenceViewerContent({
 
                 {selected.timestampStatus === '付与済' ? (
                   <span className="flex items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800">
-                    <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                     タイムスタンプ {selected.timestampedAt}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
                     <Clock
-                      className="h-3 w-3 animate-pulse"
+                      className="h-4 w-4 animate-pulse"
                       aria-hidden="true"
                     />
                     タイムスタンプ 付与待ち
@@ -880,7 +880,7 @@ export function EvidenceViewerContent({
                       type="button"
                       className="btn-toolbar-outline disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={() => handleDownload(selected)}
-                      disabled={!canDownload || mockDownloading}
+                      disabled={!canDownload || isMockDownloading}
                       aria-label="原本をダウンロード"
                       title={
                         canDownloadOriginal
@@ -890,7 +890,7 @@ export function EvidenceViewerContent({
                             : 'この形式はモックではダウンロードできません'
                       }
                     >
-                      {mockDownloading ? (
+                      {isMockDownloading ? (
                         <Loader2
                           className="h-4 w-4 animate-spin"
                           aria-hidden="true"
@@ -1009,7 +1009,9 @@ export function EvidenceViewerContent({
                       aria-label={`${selected.fileName} ${i + 1}ページ目を拡大表示`}
                       title="クリックで拡大"
                     >
+                      {/* 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める */}
                       <img
+                        loading="lazy"
                         src={url}
                         alt={`${selected.fileName} ${i + 1}ページ目`}
                         className="max-w-full max-h-full object-contain shadow-md bg-white transition-transform"
@@ -1020,7 +1022,7 @@ export function EvidenceViewerContent({
                       />
                     </button>
                     {pageUrls.length > 1 && (
-                      <span className="mt-1 text-xs text-gray-500">
+                      <span className="mt-1 text-xs text-gray-600">
                         {i + 1} / {pageUrls.length} ページ
                       </span>
                     )}
@@ -1039,7 +1041,7 @@ export function EvidenceViewerContent({
                   type="button"
                   className="btn-toolbar-outline disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => handleDownload(selected)}
-                  disabled={!canDownload || mockDownloading}
+                  disabled={!canDownload || isMockDownloading}
                   aria-label="原本をダウンロード"
                   title={
                     canDownloadOriginal
@@ -1049,7 +1051,7 @@ export function EvidenceViewerContent({
                         : 'この形式はモックではダウンロードできません'
                   }
                 >
-                  {mockDownloading ? (
+                  {isMockDownloading ? (
                     <Loader2
                       className="h-4 w-4 animate-spin"
                       aria-hidden="true"
@@ -1101,22 +1103,25 @@ export function EvidenceViewerContent({
                       onMouseLeave={() => setHoverInfo(null)}
                       className={`relative shrink-0 w-18 rounded border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isActiveThumb
-                          ? 'border-[rgb(19,80,218)]'
+                          ? 'border-blue-700'
                           : 'border-gray-300 hover:border-blue-400'
                       }`}
                       aria-label={`${file.no}. ${file.kind} ${file.fileName}`}
                       aria-current={isActiveThumb}
                     >
+                      {/* 規約例外（重ね表示）：サムネイルに重ねる番号のため、行間を詰める（leading-none） */}
                       <span className="absolute left-0 top-0 z-10 text-xs leading-none font-bold text-white bg-gray-700 px-1 py-0.5 rounded-br">
                         {file.no}
                       </span>
                       {file.afterSeal && (
-                        <span className="absolute right-0 top-0 z-10 text-xs leading-none font-bold text-white bg-orange-500 px-1 py-0.5 rounded-bl">
+                        // 規約例外（重ね表示）：サムネイルに重ねる「印」のバッジのため、行間を詰める（leading-none）
+                        <span className="absolute right-0 top-0 z-10 text-xs leading-none font-bold text-white bg-orange-700 px-1 py-0.5 rounded-bl">
                           印
                         </span>
                       )}
                       <div className="h-15 flex items-center justify-center bg-gray-100 overflow-hidden">
                         {file.thumbnailUrl ? (
+                          // 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める
                           <img
                             src={file.thumbnailUrl}
                             alt=""
@@ -1135,12 +1140,14 @@ export function EvidenceViewerContent({
                           className="absolute bottom-[1.1rem] left-0 z-10 flex items-center rounded-tr bg-gray-700/85 px-1 py-0.5 text-white"
                           title="タイムスタンプ付与待ち"
                         >
+                          {/* 規約例外（重ね表示）：サムネイルに重ねる小さいバッジの中のアイコンのため w-3 h-3 */}
                           <Clock
                             className="h-3 w-3 animate-pulse"
                             aria-hidden="true"
                           />
                         </span>
                       )}
+                      {/* 規約例外（重ね表示）：サムネイルの枠の中の小さい種類名のため、行間を詰める（leading-tight） */}
                       <div className="px-1 py-0.5 text-xs leading-tight text-gray-700 truncate">
                         {file.kind}
                       </div>
@@ -1164,7 +1171,7 @@ export function EvidenceViewerContent({
           {hoverInfo &&
             createPortal(
               <div
-                className="fixed z-[9999] pointer-events-none -translate-x-1/2 -translate-y-full rounded bg-gray-900 px-2 py-1.5 text-xs text-white shadow-lg"
+                className="fixed z-70 pointer-events-none -translate-x-1/2 -translate-y-full rounded bg-gray-900 px-2 py-1.5 text-xs text-white shadow-lg"
                 // 表示位置はホバーしたサムネの座標から JS で算出する（inline style 例外：JS動的計算値）
                 style={{ left: hoverInfo.x, top: hoverInfo.y }}
               >
@@ -1179,7 +1186,7 @@ export function EvidenceViewerContent({
       {/* 拡大表示（ライトボックス）。変換後PDF・PDF原本のときは PDF を全画面表示する */}
       {zoomPage !== null && (selectedPdfUrl || pageUrls[zoomPage]) && (
         <div
-          className="absolute inset-0 z-[60] bg-black/80 overflow-hidden"
+          className="absolute inset-0 z-60 bg-black/80 overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-label={`${selected.fileName} の拡大表示`}
@@ -1249,7 +1256,7 @@ export function EvidenceViewerContent({
               className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={(e) => {
                 e.stopPropagation();
-                setZoomImgReady(false);
+                setIsZoomImgReady(false);
                 handlePrev();
                 setZoomPage(0);
                 setPanOffset({ x: 0, y: 0 });
@@ -1268,7 +1275,7 @@ export function EvidenceViewerContent({
               className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={(e) => {
                 e.stopPropagation();
-                setZoomImgReady(false);
+                setIsZoomImgReady(false);
                 handleNext();
                 setZoomPage(0);
                 setPanOffset({ x: 0, y: 0 });
@@ -1288,7 +1295,7 @@ export function EvidenceViewerContent({
               className="absolute top-14 left-1/2 -translate-x-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={(e) => {
                 e.stopPropagation();
-                setZoomImgReady(false);
+                setIsZoomImgReady(false);
                 setZoomPage((n) => Math.max(0, (n ?? 0) - 1));
                 setPanOffset({ x: 0, y: 0 });
               }}
@@ -1310,7 +1317,7 @@ export function EvidenceViewerContent({
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setZoomImgReady(false);
+                  setIsZoomImgReady(false);
                   setZoomPage((n) =>
                     Math.min(pageUrls.length - 1, (n ?? 0) + 1)
                   );
@@ -1345,13 +1352,15 @@ export function EvidenceViewerContent({
               className={`absolute inset-0 pt-12 overflow-hidden ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
               onClick={() => setZoomPage(null)}
             >
+              {/* 規約例外（可変サイズの画像）：大きさが画像ごとに違うため width／height は付けず、枠の大きさを CSS で決める */}
               <img
                 // 資料・ページごとに要素を作り直す（同じ画像URLの資料へ送っても読み込みイベントが拾える）
                 key={`${selected.id}-${zoomPage}`}
                 ref={zoomImgRef}
+                loading="lazy"
                 src={pageUrls[zoomPage]}
                 alt={`${selected.fileName} ${zoomPage + 1}ページ目の拡大表示`}
-                className={`absolute max-h-none max-w-none origin-center select-none bg-white shadow-2xl transition-opacity duration-100 ${zoomImgReady ? 'opacity-100' : 'opacity-0'}`}
+                className={`absolute max-h-none max-w-none origin-center select-none bg-white shadow-2xl transition-opacity duration-100 ${isZoomImgReady ? 'opacity-100' : 'opacity-0'}`}
                 // 位置・倍率・回転はパン／ズーム操作から JS で算出する（inline style 例外：JS動的計算値）
                 style={{
                   top: `calc(50% + ${panOffset.y}px)`,

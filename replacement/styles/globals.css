@@ -10,7 +10,7 @@
    ============================================ */
 :root {
   /* shadcn/uiテーマ変数 */
-  --font-size: 16px;
+  --font-size: 1rem;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -18,6 +18,18 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: #4979f5;
+  /* 画面の配色（UI/UX分科会 決定事項21＝宮澤案。UI/UX UX-031 → 01「画面の配色」）
+     ヘッダーの濃紺＋金の下線、画面の背景グレー、カードの枠・見出しの紺。 */
+  --app-background: #e4e7ec; /* 画面の背景（カードの外） */
+  --brand-navy-950: #0f1f4d; /* ヘッダーのグラデーションの左端 */
+  --brand-navy-900: #14275e; /* ヘッダーの中間・カード見出しの文字・グリッドのヘッダーの文字 */
+  --brand-navy-700: #3159ad; /* カード見出しの開閉アイコン */
+  --brand-gold: #f5b301; /* ヘッダーの下線・画面名の区切り・メニューの選択中 */
+  --brand-gold-line: #f4c542; /* カード見出しの下線（右へ薄くなる） */
+  --nav-foreground: #d6e0ff; /* ヘッダーのメニューの文字 */
+  --nav-menu: #0f1f4d; /* ヘッダーのドロップダウンの背景（97% で使う） */
+  --nav-menu-border: #2a4290; /* ヘッダーのドロップダウンの枠 */
+  --card-border: #d5dae2; /* カードの枠 */
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.95 0.0058 264.53);
   --secondary-foreground: #030213;
@@ -116,6 +128,23 @@
   --color-input-background: var(--input-background);
   --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
+  /* 画面の配色（UI/UX UX-031） */
+  --color-app-background: var(--app-background);
+  --color-brand-navy-950: var(--brand-navy-950);
+  --color-brand-navy-900: var(--brand-navy-900);
+  --color-brand-navy-700: var(--brand-navy-700);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-line: var(--brand-gold-line);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav-menu: var(--nav-menu);
+  --color-nav-menu-border: var(--nav-menu-border);
+  --color-card-border: var(--card-border);
+  /* 影（ぼかし以外は rem）：カード・ヘッダー・メニューの選択中の下線 */
+  --shadow-card:
+    0 0.0625rem 2px rgb(15 23 42 / 0.06),
+    0 0.25rem 12px -0.25rem rgb(15 23 42 / 0.12);
+  --shadow-app-header: 0 0.125rem 8px rgb(15 31 77 / 0.25);
+  --shadow-nav-active: inset 0 -0.125rem 0 var(--brand-gold);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -123,10 +152,10 @@
   --color-chart-5: var(--chart-5);
 
   /* 角丸（shadcn/ui の rounded-sm/md/lg/xl が参照。--radius を基準に算出） */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 0.25rem);
 
   /* サイドバー設定 */
   --color-sidebar: var(--sidebar);
@@ -159,6 +188,14 @@
    ============================================ */
 html {
   overflow: hidden;
+}
+
+/* 画面全体（文字・余白・高さ・幅の rem）を 80% にする（1rem = 12.8px）。OS 倍率 150%・ブラウザ倍率 100% で、
+   ブラウザ倍率 80% のときと同じ大きさに見せる（UI/UX分科会 第1回 宿題15・課題No.1545 の ASD 回答。UI/UX UX-032
+   → 01「ルートフォントサイズ」）。拡大率で切り替えるとブラウザ倍率を下げたときに逆に大きくなるため、常に 80% にする。
+   px で書いた値（AG Grid の列の幅・1px の線など）は変わらない。JS で rem と px を換算するときは 1rem = 12.8px で計算する。 */
+html {
+  font-size: 80%;
 }
 
 body {
@@ -347,12 +384,19 @@ input[type='number'].no-spinner {
 }
 
 /* カードヘッダーの区切り線（共通）。
-   開閉カードのタイトル下線。amber-400→透明の横グラデーションで、
-   従来のベタ塗り2px線より軽やかで洗練された見た目にする。
-   旧 .border-b-2.border-b-amber-400 の置き換え（commonStyles 相当の共通スタイル）。 */
+   開閉カードのタイトル下線。金色（--brand-gold-line）の 1px の線を、左から 38% まではそのまま、
+   右端へ向かって自然に薄くする（UI/UX分科会 決定事項21＝宮澤案。UI/UX UX-031 → 01「画面の配色」）。 */
 .card-header-accent {
-  border-bottom: 0.125rem solid transparent;
-  border-image: linear-gradient(to right, #fbbf24, rgba(251, 191, 36, 0)) 1;
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(
+      90deg,
+      var(--brand-gold-line) 0%,
+      var(--brand-gold-line) 38%,
+      color-mix(in srgb, var(--brand-gold-line) 70%, transparent) 58%,
+      color-mix(in srgb, var(--brand-gold-line) 32%, transparent) 76%,
+      transparent 100%
+    )
+    1;
 }
 
 /* 画面ロック（検印済み／明細種類：振替）時：操作要素をグレーアウトして非活性を明示する。

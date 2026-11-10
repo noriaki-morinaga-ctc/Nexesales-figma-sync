@@ -5,7 +5,7 @@ import {
   toMonthIndex,
   buildMonthTiles,
   yearOfMonthIndex,
-} from '../../utils/monthStrip';
+} from '../../utils/common/monthStrip';
 import { Button } from './button';
 import { cn } from './utils';
 
@@ -58,7 +58,11 @@ export function MonthStripPicker({
   const handleNext = () => setWindowStart((s) => s + 1);
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    // data-copy-text：選択中の年月（CopyableArea の Ctrl+C／右クリック「コピー」で使う → 02 §15.1）
+    <div
+      className={cn('flex items-center gap-2', className)}
+      data-copy-text={value || undefined}
+    >
       <Button
         type="button"
         variant="outline"
@@ -66,6 +70,7 @@ export function MonthStripPicker({
         onClick={handlePrev}
         disabled={disabled}
         aria-label="表示を1ヶ月前へずらす"
+        title="表示を1ヶ月前へずらす"
         className="h-12 w-10 shrink-0"
       >
         <ChevronsLeft className="h-4 w-4" />
@@ -96,7 +101,7 @@ export function MonthStripPicker({
                 // 折り返さない幅に絞る（内容量に応じた固定幅）。
                 // 1280px幅では9タイル+矢印ボタンがステータス列に重なるため、2xl(1536px)未満は
                 // 縮小幅（w-14=3.5rem）にし、1600px等の広い幅では従来幅（4.5rem）を維持する。
-                'relative h-12 w-14 2xl:w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0',
+                'relative h-12 w-14 2xl:w-18 shrink-0 flex-col items-center justify-center gap-0',
                 // 選択中は薄い青の下地・濃い青の文字・青の枠にする（動画仕様）。
                 // 現在月のドットが背景に埋もれないよう、outline 既定を保ったまま className で上書きする。
                 // hover: 修飾子付きクラスも合わせて上書きし、ホバー時に選択状態のグレー化（outline の
@@ -154,6 +159,7 @@ export function MonthStripPicker({
         onClick={handleNext}
         disabled={disabled}
         aria-label="表示を1ヶ月後へずらす"
+        title="表示を1ヶ月後へずらす"
         className="h-12 w-10 shrink-0"
       >
         <ChevronsRight className="h-4 w-4" />

@@ -3,6 +3,8 @@
 // （PK＝販売店コード・適用開始年月。適用期間は年月。オペ条件口率は％で小数第2位まで）。
 // 画面の要否はエンティティ一覧（Q列＝画面）を正とする（朝比奈判断 10/15）。
 // アップロード用シートの列は課題0614 のレイアウト提示（20260729_条件口率マスタ登録_アップロードシート_v0.1）に合わせる。
+// 2026-10-30 Q&A QM-026：オペ条件口率は整数 3 桁・小数 2 桁（0.00〜100.00）。マイナスは入力できない（型1 の標準）。0 は登録できる（条件口が無い販売店）。
+// 上限 100 は業務上の範囲チェック（7 に書く）。
 
 import { RETAILER_CODE_NAME } from '../../../constants/masterCodeNameOptions';
 import { END_OF_MONTH } from '../../shared/master';
@@ -40,6 +42,8 @@ export const RETAILER_CONDITION_RATE_DEF: MasterScreenDef = {
       kind: 'number',
       required: true,
       format: 'decimal2',
+      maxDigits: 3,
+      max: 100,
       unit: '％',
       placeholder: '例：22.23',
     },

@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import { Label } from '../../../ui/label';
 import { MonthYearPicker } from '../../../ui/month-year-picker';
 import { SingleCombobox } from '../../../ui/single-combobox';
-import { toYearMonth } from '../../../../utils/yearMonth';
+import { toYearMonth } from '../../../../utils/common/yearMonth';
 import {
   STORE_NONE,
   PRIMARY_STORE_OPTIONS,
@@ -69,7 +69,7 @@ export const STORE_LABEL_PREFIX = {
 } as const;
 
 // 「YYYY年M月」表記を MonthYearPicker が扱う「YYYY/MM」へ変換するのは共通ヘルパー
-// （utils/yearMonth の toYearMonth）に委譲する。BASIC_INFO は他画面（費用分割の振替元情報など）が
+// （utils/common/yearMonth の toYearMonth）に委譲する。BASIC_INFO は他画面（費用分割の振替元情報など）が
 // 参照するため表記を変えず、ピッカーの初期値としてのみ変換する。
 
 // 基本情報の現在値。「振替先を固定する」のときの振替先明細の既定値など、
@@ -354,9 +354,11 @@ export function TransferDetailSearch({
               </label>
               <div className="w-[9.375rem]">
                 <MonthYearPicker
+                  id="allocate-target-month"
                   value={targetMonth}
                   onChange={setTargetMonth}
                   className="w-full"
+                  clearable
                 />
               </div>
             </div>
@@ -371,9 +373,11 @@ export function TransferDetailSearch({
               </label>
               <div className="w-[9.375rem]">
                 <MonthYearPicker
+                  id="allocate-posting-month"
                   value={postingMonth}
                   onChange={setPostingMonth}
                   className="w-full"
+                  clearable
                 />
               </div>
             </div>

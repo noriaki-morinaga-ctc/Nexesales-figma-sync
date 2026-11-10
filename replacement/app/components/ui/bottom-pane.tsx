@@ -104,7 +104,7 @@ export function BottomPane({
 }: BottomPaneProps) {
   // 画面の縦幅（rem換算）。デフォルトの表示高さ・最大高さの算出に用いる。
   const viewportRem =
-    typeof window !== 'undefined' ? window.innerHeight / 16 : 50;
+    typeof window !== 'undefined' ? window.innerHeight / 12.8 : 50;
   // デフォルトは画面の縦幅の約60%まで開く（明示指定があればそれを優先）。
   // 画面最下部のアクションバーの分だけ実際の表示領域が狭くなるため、
   // 親画面（グリッド）が十分に見える高さに抑える。
@@ -177,9 +177,9 @@ export function BottomPane({
     footer.style.bottom = '0';
     footer.style.zIndex = String(SCREEN_FOOTER_Z_INDEX);
 
-    // 実測値は px のため rem へ換算して扱う（1rem = 16px）
+    // 実測値は px のため rem へ換算して扱う（1rem = 12.8px。画面全体を 80% にしている → 01「ルートフォントサイズ設定」）
     const update = () =>
-      setFooterHeight(footer.getBoundingClientRect().height / 16);
+      setFooterHeight(footer.getBoundingClientRect().height / 12.8);
     update();
     const observer = new ResizeObserver(update);
     observer.observe(footer);
@@ -234,7 +234,7 @@ export function BottomPane({
       if (!resizing.current) return;
       // 一定以上動かしたらドラッグ（高さ調整）とみなす
       if (Math.abs(e.clientY - startY.current) > 3) moved.current = true;
-      const newHeightRem = (window.innerHeight - e.clientY) / 16;
+      const newHeightRem = (window.innerHeight - e.clientY) / 12.8;
       if (newHeightRem >= minHeight && newHeightRem <= resolvedMax) {
         setHeight(newHeightRem);
       }

@@ -41,7 +41,7 @@ import { DateMonthYearCellEditor } from '../../ui/date-month-year-cell-editor';
 import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import { Label } from '../../ui/label';
 import { RightPane } from '../../ui/right-pane';
 import {
@@ -1031,7 +1031,7 @@ export default function LocationContractFeeList({
         <Collapsible
           open={isHeaderOpen}
           onOpenChange={setIsHeaderOpen}
-          className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-3 shadow-md"
+          className={`${CARD_CLASS} overflow-hidden mb-3`}
         >
           {/* ヘッダーバー：左に「基本情報」（開閉）、反対側（右）にコメント履歴ボタン＋開閉アイコン */}
           <div className="bg-white px-3 py-3 card-header-accent flex w-full items-center justify-between">
@@ -1144,7 +1144,7 @@ export default function LocationContractFeeList({
         `}</style>
 
         {/* ロケ契約明細エリア */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md">
+        <div className={`${CARD_CLASS} overflow-hidden`}>
           {/* 根拠資料格納・根拠資料確認（左端）／明細追加（右端） */}
           <div className="flex items-center gap-2 px-3 pt-3 pb-2">
             {/* 根拠資料格納（左端） */}
@@ -1195,7 +1195,7 @@ export default function LocationContractFeeList({
               }}
               selectionColumnDef={{
                 pinned: 'left',
-                width: 50,
+                width: 40,
                 resizable: false,
                 suppressMovable: true,
                 suppressHeaderMenuButton: true,

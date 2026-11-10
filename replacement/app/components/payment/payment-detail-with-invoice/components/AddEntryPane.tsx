@@ -32,14 +32,14 @@ import { entrySummaryProductComboOptions } from './entrySummaryProductOptions';
 import {
   updateEntryBillingDraft,
   type EntryBillingDraftField,
-} from '../../../../utils/additionalEntryRules';
+} from '../../../../utils/payment/payment-detail/additionalEntryRules';
 import {
   FieldGroup,
   InputField,
   SelectField,
   ReadOnlyField,
   CheckField,
-} from './AddDetailFields';
+} from '../../../shared/payment/payment-detail/AddDetailFields';
 
 // 親（画面）から「追加」ボタンで呼ぶハンドル。
 export interface AddEntryPaneHandle {
@@ -93,7 +93,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
   function AddEntryPane({ onAdd }: AddEntryPaneProps, ref) {
     const [form, setForm] = useState<EntryFormValues>(EMPTY_FORM);
     // 追加を試みたかどうか（未入力の必須項目を赤枠で示すのは、押したあとだけにする）。
-    const [submitted, setSubmitted] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
     // 最終NET：函数無効チェックONのときは数式で算出せず手入力の値を使うため必須にする。
     const finalNetRequired = form.funcCheck;
@@ -125,7 +125,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
 
     // バラ単価・金額の入力欄に入った時点の請求情報（値が変わったかの比べ元）。
     const committedRef = useRef<ReturnType<typeof billingOf> | null>(null);
-    const focusBilling = () => {
+    const handleFocusBilling = () => {
       committedRef.current = billingOf(form);
     };
 
@@ -184,7 +184,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
 
     useImperativeHandle(ref, () => ({
       submit: () => {
-        setSubmitted(true);
+        setIsSubmitted(true);
         if (!form.productName) {
           toast.warning('サマリ商品名を選択してください。');
           return false;
@@ -198,7 +198,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
         onAdd(form);
         // 次の入力に備えてフォームを初期化する（ペインの開閉は親が決める）。
         setForm(EMPTY_FORM);
-        setSubmitted(false);
+        setIsSubmitted(false);
         return true;
       },
     }));
@@ -231,7 +231,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
             options={productOptions}
             placeholder="サマリ商品名を選択"
             required
-            invalid={submitted && !form.productName}
+            invalid={isSubmitted && !form.productName}
           />
           <ReadOnlyField
             id="add-entry-capacity"
@@ -291,7 +291,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
             label="バラ単価"
             value={form.unitPrice}
             onChange={(v) => setBilling('unitPrice', v)}
-            onFocus={focusBilling}
+            onFocus={handleFocusBilling}
             onBlur={() => commitBilling('unitPrice')}
             numeric
             maxFractionDigits={2}
@@ -302,7 +302,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
             label="金額"
             value={form.amount}
             onChange={(v) => setBilling('amount', v)}
-            onFocus={focusBilling}
+            onFocus={handleFocusBilling}
             onBlur={() => commitBilling('amount')}
             numeric
             maxFractionDigits={0}
@@ -428,7 +428,7 @@ export const AddEntryPane = forwardRef<AddEntryPaneHandle, AddEntryPaneProps>(
             maxFractionDigits={2}
             wide
             required={finalNetRequired}
-            invalid={submitted && finalNetMissing}
+            invalid={isSubmitted && finalNetMissing}
           />
         </FieldGroup>
 

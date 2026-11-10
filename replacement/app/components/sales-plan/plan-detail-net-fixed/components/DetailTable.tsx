@@ -9,6 +9,16 @@ import React, {
 } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
+  ColDef,
+  FilterChangedEvent,
+  GridApi,
+  ICellRendererParams,
+  RowClassParams,
+} from 'ag-grid-community';
+import { Trash2, Copy } from 'lucide-react';
+import { toast } from 'sonner';
+
+import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
   GRID_BASE_PROPS,
@@ -24,30 +34,23 @@ import {
   withHeaderTooltips,
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
+  useChangedCells,
+  useLinkedCellUndo,
 } from '../../../grid';
 import { GRID_EMPTY_TEXT, parseFormulaNumber } from '../../../grid/gridCommon';
-import { planDetailTotalRatesOf } from '../../../../utils/planDetailTotalRates';
+import { planDetailTotalRatesOf } from '../../../../utils/sales-plan/plan-detail/planDetailTotalRates';
 import { NO_DELIVERY_PRICE_NOTE } from '../../../../constants/aggregationTree';
-import { planDetailCodeColumns } from '../../../shared/planDetailCodeColumns';
-import { PlanRateLinks } from '../../../shared/PlanRateLinks';
-import {
-  ColDef,
-  FilterChangedEvent,
-  GridApi,
-  ICellRendererParams,
-  RowClassParams,
-} from 'ag-grid-community';
+import { planDetailCodeColumns } from '../../../shared/sales-plan/common/planDetailCodeColumns';
+import { PlanRateLinks } from '../../../shared/sales-plan/plan-detail/PlanRateLinks';
 import { Input } from '../../../ui/input';
 import { MonthYearCellEditor } from '../../../ui/month-year-cell-editor';
 import {
   SingleComboboxCellEditor,
   toComboOptions,
 } from '../../../ui/single-combobox-cell-editor';
-import { Trash2, Copy } from 'lucide-react';
-import { hasPriorYearActual } from '../../../../constants/nonProductExpenseTypes';
-import { toast } from 'sonner';
-import { PlanCopyPane } from '../../../shared/PlanCopyPane';
-import type { SalesPlanCopyResult } from '../../../shared/PlanCopyPane';
+import { hasPriorYearActual } from '../../../../utils/sales-plan/plan-detail/nonProductExpenseRow';
+import { PlanCopyPane } from '../../../shared/sales-plan/plan-detail/PlanCopyPane';
+import type { SalesPlanCopyResult } from '../../../shared/sales-plan/plan-detail/PlanCopyPane';
 import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import {
   type ProductData,
@@ -87,7 +90,7 @@ import {
   unitTimesQuantityTimesPlan,
   makeDetailValueOf,
   makeDetailTooltip,
-} from '../../../../utils/formulaCellHelpers';
+} from '../../../../utils/sales-plan/common/formulaCellHelpers';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanRate,
@@ -95,15 +98,18 @@ import {
   planCountFormatter,
   planRateFormatter,
   planNumberParser,
-} from '../../../../utils/planDetailNumberFormat';
-import { currentMonthEstimate } from '../../../../utils/currentMonthEstimate';
-import { buildCategoryChangeRows } from '../../../../utils/productCategoryChange';
+} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
+import { currentMonthEstimate } from '../../../../utils/sales-plan/plan-detail/currentMonthEstimate';
+import { buildCategoryChangeRows } from '../../../../utils/sales-plan/common/productCategoryChange';
 import { toAxisMetaBrand } from '../../../../constants/aggregationAxisMapping';
 import { volumeAddRateOf } from '../../../../constants/aggregationMasterDummy';
 import {
   CARD_TITLE_CLASS,
   FORM_LABEL_CLASS,
   TEXT_INPUT_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+  CARD_CLASS,
 } from '../../../../../styles/commonStyles';
 
 // 計画詳細・シミュレーション共通のダミー補完（salesPlanWholesaleMockData）。
@@ -234,6 +240,8 @@ interface DetailTableProps {
   wholesaleIncentiveAvg?: string;
   // 年間計画／シミュレーションへの画面遷移コールバック
   onNavigate?: (menuId: string) => void;
+  // 年間計画・シミュレーションのボタンを非活性にするか（取引制度を変更した後の対象年月）
+  isPlanNavigationDisabled?: boolean;
   // グリッドの全明細行が変わったときに親へ通知する（販売計画(集計)の算出元）。
   // 親側は必ず useCallback で安定化したハンドラを渡すこと（毎レンダリング再生成すると無限ループになる）。
   onRowsChange?: (rows: ProductData[]) => void;
@@ -302,6 +310,44 @@ function recalcGiftLikeRates(data: ProductData): ProductData {
   );
   return next;
 }
+
+// 連動セル（→ 02 §7.3）：recalcGiftLikeRates が算出して書き換える従属セル。
+// マージン率・値入率はギフト/特殊商品のときだけ再計算される（他区分は値をそのまま保つ）。
+const GIFT_LIKE_CALC_FIELDS: (keyof ProductData)[] = [
+  'margin',
+  'discount',
+  'markupAmount',
+  'externalSales',
+  'delivery',
+  'volumeAddRate',
+];
+// 連動セル：サマリ商品名の選択で共通マスタから補完する従属セル。
+const SUMMARY_MASTER_FIELDS: (keyof ProductData)[] = [
+  'metaBrand',
+  'containerCapacityG',
+  'wholesaleMesh',
+  'quantity',
+  'actual',
+  'prevYear',
+];
+// 連動セルのキャッシュを引く行キー（共通フック useLinkedCellUndo の rowIdOf）。
+// 行IDに「主セル・従属セル以外の算出元」の値を加える。他の算出元を変えた後に主セルを
+// 以前の値へ打ち直したとき、古い算出値をキャッシュから戻さず導出し直すため。
+// Undo/Redo は後の編集から順に戻るため算出元が一致し、キャッシュから厳密に復元される。
+// マージン率はギフト/特殊商品以外では再計算されず手入力値を保つため、キーに含める。
+const linkedRowKeyOf =
+  (fields: (keyof ProductData)[]) =>
+  (params: { node?: { id?: string }; data?: ProductData }): string => {
+    const category = params.data?.productCategory;
+    const keyFields =
+      category === 'ギフト' || category === '特殊商品'
+        ? fields
+        : [...fields, 'margin' as const];
+    return [
+      params.node?.id ?? '',
+      ...keyFields.map((f) => String(params.data?.[f] ?? '')),
+    ].join('#');
+  };
 
 // 計算式（派生）セル → 計算式テンプレートと算出元フィールド。
 // 計算式セルにホバーすると、計算式ツールチップ（式＋実値の2行）を表示し、
@@ -428,6 +474,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       centerFeeAvg = '0.00%',
       wholesaleIncentiveAvg = '0.00%',
       onNavigate,
+      isPlanNavigationDisabled = false,
       onRowsChange,
     },
     ref
@@ -442,12 +489,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const gridApiRef = useRef<GridApi | null>(null);
 
     // 列状態（列幅・並び順・ソート・固定・表示）を localStorage へ永続化。
-    // 既定の列幅を維持するため autoSize:false。復元後に既存の onGridReady
-    // （計算式ハイライト用のAPI捕捉）を連結実行する。
+    // 復元後に既存の onGridReady（計算式ハイライト用のAPI捕捉）を連結実行する。
     const gridColumnStateProps = useGridColumnState(
       'Wholesale.detailTable.columnState',
       {
-        autoSize: false,
         onGridReady: (p: any) => {
           formulaHL.captureApi(p.api);
           gridApiRef.current = p.api;
@@ -458,16 +503,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // セル編集による未保存状態を保持（画面遷移時のアラート判定に使用）
     const hasUnsavedRef = useRef(false);
 
-    // 編集されたセル（行ID::列ID）の集合。編集後に黄色＋オレンジ枠で強調する。
-    const changedCellsRef = useRef<Set<string>>(new Set());
-    // 各セルの元値（初回編集時に記録）。元値に戻したら強調を解除するため。
-    const originalCellValuesRef = useRef<Map<string, string>>(new Map());
-    const cellChangeKey = (params: any) =>
-      `${params.node?.id}::${params.column?.getColId?.() ?? params.colDef?.field}`;
-    const isCellChanged = (params: any) => {
-      if (params.data?._isHeader || params.node?.rowPinned) return false;
-      return changedCellsRef.current.has(cellChangeKey(params));
-    };
+    // 編集セルの変更ハイライト（黄＋オレンジ枠）の追跡・判定（共通フック → 02 §7.2）。
+    // 元値に戻したら強調を解除し、計画保存時に resetChangedCells でクリアする。
+    // 本画面は列ごとの cellStyle で isCellChanged を参照して強調色を付ける。
+    const { isCellChanged, trackCellChange, resetChangedCells } =
+      useChangedCells();
 
     // 未保存があれば確認のうえ画面遷移する共通ハンドラ
     // 年間計画／シミュレーションへの遷移は確認ダイアログで「入力中のデータがリセット
@@ -479,7 +519,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       setPendingNavMenuId(menuId);
     };
 
-    // State management for dynamic data
+    // 明細データ（グリッドの行）の状態
     // 初期表示時から社外売上高・売上原価等が算出値になるよう、各行に
     // recalcGiftLikeRates を1度通す（recalcGiftLikeRates はモジュールスコープの純関数）。
     const [regularProductsData, setRegularProductsData] = useState<
@@ -537,13 +577,13 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       return { ...row, promotion: labels[0] ?? '' };
     });
 
-    // State for case plan initial display percentage
+    // 函数計画の初期表示の割合（％）
     const [casePlanPercentage, setCasePlanPercentage] = useState('100');
 
-    // State for total store count
+    // 総店舗数
     const [totalStoreCount, setTotalStoreCount] = useState('50');
 
-    // State for section tab filter
+    // 区分タブの絞り込み
     const [activeTab, setActiveTab] = useState<string>('all');
 
     // 表示中のタブで商品区分を変更した行。変更直後に行が消えると利用者が混乱するため、
@@ -568,12 +608,15 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // ※再構築で rowData 参照が変わり Undo 履歴はクリアされるが、これらは意図的な
     //   一括/モーダル操作であり許容する（セル編集の Undo は維持される）。
     const [gridRebuildToken, setGridRebuildToken] = useState(0);
-    const bumpGridRebuild = useCallback(
-      () => setGridRebuildToken((t) => t + 1),
-      []
-    );
+    // 連動セル（主セル編集に連動する従属セル）を Undo/Redo で一括・厳密復元する共通フック（→ 02 §7.3）。
+    const { makeHandler, clearCache } = useLinkedCellUndo<ProductData>();
+    // 再構築で行データが作り直されるため、連動セルのキャッシュも破棄する（保存確定時も本経路）。
+    const bumpGridRebuild = useCallback(() => {
+      clearCache();
+      setGridRebuildToken((t) => t + 1);
+    }, [clearCache]);
 
-    // Handle adding new row
+    // 行の追加
     const handleAddRow = useCallback(
       (section: string) => {
         if (onOpenAddDetail) {
@@ -583,7 +626,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [onOpenAddDetail]
     );
 
-    // Handle delete click
+    // 削除ボタンのクリック
     const handleDeleteClick = useCallback(
       (data: ProductData) => {
         if (onOpenDeleteDetail) {
@@ -593,10 +636,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [onOpenDeleteDetail]
     );
 
-    // Handle copy row
+    // 行のコピー
     const handleCopyRow = useCallback(
       (data: ProductData) => {
-        // Create a deep copy of the row data
+        // 行データを複製する
         const copiedData = {
           ...data,
           // コピー行には一意なIDを再採番（getRowId 衝突・編集時の源行巻き込みを防止）
@@ -779,8 +822,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         setNewProductsData(strip);
         setPromotionProductsData(strip);
         setGiftProductsData(strip);
-        changedCellsRef.current.clear();
-        originalCellValuesRef.current.clear();
+        resetChangedCells();
         hasUnsavedRef.current = false;
         // 帯の有無は行構造シグネチャに含まれないため、再構築を明示する
         bumpGridRebuild();
@@ -806,7 +848,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [getGiftSet, handleAddCopiedGiftSet, handleCopyRow]
     );
 
-    // Handle checkbox update for expTarget
+    // 経費対象（expTarget）のチェックの更新
     const handleUpdateRegularProduct = useCallback(
       (updatedData: ProductData) => {
         setRegularProductsData((prev) =>
@@ -840,6 +882,23 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         prev.map((item) => (matchesRow(item, updatedData) ? updatedData : item))
       );
     }, []);
+
+    // 連動セル反映後の state 同期（商品区分＝section で対象配列を選択）。
+    // rowData の参照は変えない（再構築トークンを進めない → 02 §7.1・§7.3）。
+    const syncRowBySection = useCallback(
+      (row: ProductData) => {
+        if (row.section === '定番商品') handleUpdateRegularProduct(row);
+        else if (row.section === '新商品') handleUpdateNewProduct(row);
+        else if (row.section === '特殊商品') handleUpdatePromotionProduct(row);
+        else if (row.section === 'ギフト') handleUpdateGiftProduct(row);
+      },
+      [
+        handleUpdateRegularProduct,
+        handleUpdateNewProduct,
+        handleUpdatePromotionProduct,
+        handleUpdateGiftProduct,
+      ]
+    );
 
     // 商品区分の変更（グリッド内のセル編集）。
     // タブ振り分けに使う section・販促区分を連動させ、ギフト⇄他区分では
@@ -884,7 +943,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [giftProductsData, bumpGridRebuild, activeTab]
     );
 
-    // Calculate totals
+    // 合計の算出
     // 値は文字列で保持するのが基本だが、グリッドの編集経路によっては数値で
     // 渡ることがあるため、文字列化してから解釈する。
     const parseNumber = (value: string | number | undefined | null) => {
@@ -907,7 +966,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       });
 
     // 函数反映の確認ダイアログ表示状態
-    const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+    const [isApplyConfirmShown, setIsApplyConfirmShown] = useState(false);
 
     // 「函数反映」ボタン押下：表示中の商品区分の計画函数へ前年実績比の率を適用
     // （確認ダイアログでOK後に実行）
@@ -1126,7 +1185,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       const countText = (value: number): string =>
         value.toLocaleString('ja-JP', { maximumFractionDigits: 0 });
 
-      // 率は分子・分母を合算してから除算する（課題1758・utils/planDetailTotalRates）。
+      // 率は分子・分母を合算してから除算する（課題1758・utils/sales-plan/plan-detail/planDetailTotalRates）。
       // 金額列（社外売上高・値入額）と同じくギフトはセット代表行だけを対象にする。
       const rates = planDetailTotalRatesOf(
         mergedRows,
@@ -1200,7 +1259,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allData, activeTab, heldRowKeys, filteredRowIds]);
 
-    // Column Definitions
+    // 列定義
 
     // コード値・区分値の列（名称列から値を引く・既定は非表示）
     const codeColumns = useMemo(
@@ -1218,7 +1277,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: 'メタブランド',
           field: 'metaBrand',
-          width: 140,
+          width: 112,
           lockPinned: true,
           cellClass: 'ag-cell-left-pinned',
           cellStyle: (params: any) => ({
@@ -1234,7 +1293,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '容器容量G',
           field: 'containerCapacityG',
-          width: 140,
+          width: 112,
           lockPinned: true,
           cellClass: 'ag-cell-left-pinned',
           cellStyle: whiteCellStyle,
@@ -1246,7 +1305,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 定番商品=グレー（一般卸メッシュを使用）、新商品/特殊/ギフト=黄（セレクトボックス）
           headerName: 'サマリ商品',
           field: 'summaryProduct',
-          width: 330,
+          width: 264,
           lockPinned: true,
           cellClass: 'ag-cell-left-pinned',
           // サマリ商品名：商品区分が定番商品を除き全行を活性（編集可・黄）。定番商品のみ非活性（グレー）。
@@ -1270,46 +1329,42 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             params.data?.productCategory === '定番商品'
               ? '-'
               : (params.value ?? ''),
-          onCellValueChanged: (params) => {
-            // サマリ商品名選択時、共通マスタから
-            // メタブランド／容器容量G／一般卸メッシュ／入数／当月実績／前年実績を
-            // 自動補完する（明細追加と同一挙動。実績系はサマリ商品に紐づく前年同月実績値）。
-            // 当月着地見込は算出値のため補完対象外（従来どおり計算式で算出）。
-            // サマリ商品名は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
-            const master = SUMMARY_PRODUCT_BY_VALUE.get(params.newValue);
-            const updatedData = recalcGiftLikeRates({
-              ...params.data,
-              summaryProduct: params.newValue,
-              ...(master
-                ? {
-                    metaBrand: master.metaBrand,
-                    containerCapacityG: master.containerCapacityG,
-                    wholesaleMesh: master.wholesaleMesh,
-                    quantity: master.quantity,
-                    actual: master.currentActual,
-                    prevYear: master.prevYearActual,
-                  }
-                : {}),
-            });
-            // 連動項目（メタブランド・容器容量G・入数・当月実績・前年実績等）を
-            // グリッド表示へ反映する。rowData は値編集で再生成しない設計のため、
-            // 当該ノードの data を直接更新し行内の全セルを再描画する（state 同期は下記）。
-            Object.assign(params.data, updatedData);
-            params.api.refreshCells({ rowNodes: [params.node], force: true });
-            if (params.data.section === '新商品') {
-              params.context.updateNewProduct(updatedData);
-            } else if (params.data.section === '特殊商品') {
-              params.context.updatePromotionProduct(updatedData);
-            } else if (params.data.section === 'ギフト') {
-              params.context.updateGiftProduct(updatedData);
-            }
-          },
+          // サマリ商品名選択時、共通マスタから
+          // メタブランド／容器容量G／一般卸メッシュ／入数／当月実績／前年実績を
+          // 自動補完する（明細追加と同一挙動。実績系はサマリ商品に紐づく前年同月実績値）。
+          // 当月着地見込は算出値のため補完対象外（従来どおり計算式で算出）。
+          // サマリ商品名は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
+          // 連動セルは共通フックで反映し、Ctrl+Z 1回で主セルごと戻る（→ 02 §7.3）。
+          // 定番商品はサマリ商品名を編集できないため、state 同期は従来どおり定番商品以外のみ。
+          onCellValueChanged: makeHandler('summaryProduct', {
+            depFields: [...SUMMARY_MASTER_FIELDS, ...GIFT_LIKE_CALC_FIELDS],
+            deriveDeps: (value, row) => {
+              const master = SUMMARY_PRODUCT_BY_VALUE.get(value);
+              return recalcGiftLikeRates({
+                ...row,
+                ...(master
+                  ? {
+                      metaBrand: master.metaBrand,
+                      containerCapacityG: master.containerCapacityG,
+                      wholesaleMesh: master.wholesaleMesh,
+                      quantity: master.quantity,
+                      actual: master.currentActual,
+                      prevYear: master.prevYearActual,
+                    }
+                  : {}),
+              });
+            },
+            syncState: (row) => {
+              if (row.section !== '定番商品') syncRowBySection(row);
+            },
+            rowIdOf: linkedRowKeyOf(['plan', 'net', 'planPrice', 'price']),
+          }),
         },
         {
           // 定番商品=黄（セレクトボックス）、新商品=白、特殊商品=グレー（不使用）、ギフト=白（自動表示）
           headerName: '一般卸メッシュ',
           field: 'wholesaleMesh',
-          width: 110,
+          width: 88,
           lockPinned: true,
           cellClass: 'ag-cell-left-pinned',
           // 一般卸メッシュは全区分で非活性（自動表示）。定番商品も編集不可（グレー）。
@@ -1373,7 +1428,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerName: '終売区分',
           field: 'endSale',
           ...GRID_MONTH_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1406,7 +1461,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '商品区分',
           field: 'productCategory',
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-left',
           // 商品区分：新商品/特殊商品/ギフトを活性（編集可＝黄）。
           // ギフトは3行1セットの先頭セルで結合表示する。
@@ -1446,7 +1501,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 販促区分：特殊商品・ギフトは区分名で固定のため非活性（グレー・編集不可）、他区分は活性（黄）。
           headerName: '販促区分',
           field: 'promotion',
-          width: 180,
+          width: 144,
           cellClass: 'ag-cell-left',
           cellStyle: makeCellStyle(
             { 特殊商品: 'gray', ギフト: 'gray' },
@@ -1481,7 +1536,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // セル結合対象外（行ごとに表示）。
           headerName: '販売期間',
           field: 'period',
-          width: 90,
+          width: 72,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           rowSpan: () => 1,
@@ -1494,7 +1549,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             '入数[自動表示]サマリ商品/一般卸メッシュに紐づく入数を取得表示',
           field: 'quantity',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 85,
+          width: 68,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyle,
           // 入数＝整数（3桁区切り）。合計行は空欄。
@@ -1510,7 +1565,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 '函数-計画[入力値/自動表示]前年同月実績値を取得表示',
               field: 'plan',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 100,
+              width: 80,
               cellClass: 'ag-cell-right',
               cellStyle: yellowCellStyle,
               rowSpan: () => 1,
@@ -1526,23 +1581,22 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               cellEditorParams: { precision: 0 },
               cellDataType: false,
               valueParser: planNumberParser(0),
-              onCellValueChanged: (params) => {
-                // 函数(計画) は社外売上高・売上原価の算出元でもあるため
-                // recalcGiftLikeRates で追従させる。
-                const updatedData = recalcGiftLikeRates({
-                  ...params.data,
-                  plan: params.newValue,
-                });
-                if (params.data.section === '定番商品') {
-                  params.context.updateRegularProduct(updatedData);
-                } else if (params.data.section === '新商品') {
-                  params.context.updateNewProduct(updatedData);
-                } else if (params.data.section === '特殊商品') {
-                  params.context.updatePromotionProduct(updatedData);
-                } else if (params.data.section === 'ギフト') {
-                  params.context.updateGiftProduct(updatedData);
-                }
-              },
+              // 函数(計画) は社外売上高・売上原価の算出元でもあるため
+              // recalcGiftLikeRates で追従させる（連動セルは共通フック → 02 §7.3）。
+              onCellValueChanged: makeHandler('plan', {
+                depFields: GIFT_LIKE_CALC_FIELDS,
+                deriveDeps: (_value, row) => recalcGiftLikeRates(row),
+                syncState: syncRowBySection,
+                rowIdOf: linkedRowKeyOf([
+                  'net',
+                  'planPrice',
+                  'price',
+                  'quantity',
+                  'summaryProduct',
+                  'wholesaleMesh',
+                  'metaBrand',
+                ]),
+              }),
             },
             {
               // 新商品=グレー（非活性）、その他=白（自動表示）
@@ -1551,7 +1605,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 '函数-当月着地見込[算出]当月実績÷当月実績反映日数×当月日数',
               field: 'estimate',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 155,
+              width: 124,
               cellClass: 'ag-cell-right',
               cellStyle: makeCellStyle({ 新商品: 'gray' }, 'white'),
               // 当月着地見込＝当月実績÷当月実績反映日数×当月日数（算出値）。
@@ -1573,7 +1627,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerTooltip: '函数-当月実績[自動表示]同年同月実績値を取得表示',
               field: 'actual',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 115,
+              width: 92,
               cellClass: 'ag-cell-right',
               cellStyle: whiteCellStyle,
               // 函数-当月実績＝整数（3桁区切り）
@@ -1585,7 +1639,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerTooltip: '函数-前年実績[自動表示]前年同月実績値を取得表示',
               field: 'prevYear',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 115,
+              width: 92,
               cellClass: 'ag-cell-right',
               cellStyle: makeCellStyle({ 新商品: 'gray' }, 'white'),
               // 函数-前年実績＝整数（3桁区切り）
@@ -1597,7 +1651,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerTooltip: '函数-計画/前年実績比[算出]計画/前年実績*100%',
               field: 'ratio',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 175,
+              width: 140,
               cellClass: 'ag-cell-right',
               // 計画/前年実績比＝小数第1位（％）
               valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.ratio),
@@ -1615,7 +1669,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             'NET[条件分岐]定番商品・新商品：[自動表示]固定NET設定値を取得表示、特殊商品・ギフト：[入力値]前年同月実績値を取得表示',
           field: 'net',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 105,
+          width: 84,
           cellClass: 'ag-cell-right',
           cellStyle: makeCellStyle(
             { ギフト: 'yellow', 特殊商品: 'yellow' },
@@ -1626,22 +1680,22 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // NET＝小数第2位（入力値も同じ桁へ丸めて保持する）。合計行は空欄。
           valueFormatter: priceFormatterExceptTotal,
           valueParser: planNumberParser(PLAN_DETAIL_DIGITS.price),
-          onCellValueChanged: (params) => {
-            // NET は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
-            const updatedData = recalcGiftLikeRates({
-              ...params.data,
-              net: params.newValue,
-            });
-            if (params.data.section === '定番商品') {
-              params.context.updateRegularProduct(updatedData);
-            } else if (params.data.section === '新商品') {
-              params.context.updateNewProduct(updatedData);
-            } else if (params.data.section === '特殊商品') {
-              params.context.updatePromotionProduct(updatedData);
-            } else if (params.data.section === 'ギフト') {
-              params.context.updateGiftProduct(updatedData);
-            }
-          },
+          // NET はマージン率等の算出元でもあるため recalcGiftLikeRates で追従させる
+          // （連動セルは共通フック → 02 §7.3）。
+          onCellValueChanged: makeHandler('net', {
+            depFields: GIFT_LIKE_CALC_FIELDS,
+            deriveDeps: (_value, row) => recalcGiftLikeRates(row),
+            syncState: syncRowBySection,
+            rowIdOf: linkedRowKeyOf([
+              'plan',
+              'planPrice',
+              'price',
+              'quantity',
+              'summaryProduct',
+              'wholesaleMesh',
+              'metaBrand',
+            ]),
+          }),
         },
         {
           headerName: '納価',
@@ -1653,7 +1707,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 '納価-計画[入力値]商品区分・取引制度によらず手入力可',
               field: 'planPrice',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 100,
+              width: 80,
               cellClass: 'ag-cell-right',
               // EDI反映との差異が±1.00以上なら赤字・太字で強調
               cellStyle: withEdiDiffHighlight(yellowCellStyle),
@@ -1663,30 +1717,29 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               // 納価-計画＝小数第2位（入力値も同じ桁へ丸めて保持する）。合計行は空欄。
               valueFormatter: priceFormatterExceptTotal,
               valueParser: planNumberParser(PLAN_DETAIL_DIGITS.price),
-              onCellValueChanged: (params) => {
-                // 納価(計画) は社外売上高・売上原価の算出元でもあるため
-                // recalcGiftLikeRates で追従させる。
-                const updatedData = recalcGiftLikeRates({
-                  ...params.data,
-                  planPrice: params.newValue,
-                });
-                if (params.data.section === '定番商品') {
-                  params.context.updateRegularProduct(updatedData);
-                } else if (params.data.section === '新商品') {
-                  params.context.updateNewProduct(updatedData);
-                } else if (params.data.section === '特殊商品') {
-                  params.context.updatePromotionProduct(updatedData);
-                } else if (params.data.section === 'ギフト') {
-                  params.context.updateGiftProduct(updatedData);
-                }
-              },
+              // 納価(計画) はマージン率・値入率・値入額の算出元でもあるため
+              // recalcGiftLikeRates で追従させる（連動セルは共通フック → 02 §7.3）。
+              onCellValueChanged: makeHandler('planPrice', {
+                depFields: GIFT_LIKE_CALC_FIELDS,
+                deriveDeps: (_value, row) => recalcGiftLikeRates(row),
+                syncState: syncRowBySection,
+                rowIdOf: linkedRowKeyOf([
+                  'plan',
+                  'net',
+                  'price',
+                  'quantity',
+                  'summaryProduct',
+                  'wholesaleMesh',
+                  'metaBrand',
+                ]),
+              }),
             },
             {
               headerName: 'EDI反映',
               headerTooltip: '納価-EDI反映[自動表示]EDIの納価を取得表示',
               field: 'ediPrice',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 100,
+              width: 80,
               cellClass: 'ag-cell-right',
               cellStyle: whiteCellStyle,
               // 空欄行が多いため、擬似ランダムなEDI納価で補完しー表示を減らす
@@ -1701,7 +1754,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               headerTooltip: '納価-前年実績[自動表示]前年同月実績値を取得表示',
               field: 'prevYearPrice',
               ...GRID_NUMBER_TEXT_FILTER,
-              width: 110,
+              width: 88,
               cellClass: 'ag-cell-right',
               // 納価-前年実績＝小数第2位。合計行は空欄。
               valueFormatter: priceFormatterExceptTotal,
@@ -1723,7 +1776,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             '売価[入力値/自動表示]前年同月実績値を取得表示（手入力可）',
           field: 'price',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 100,
+          width: 80,
           cellClass: 'ag-cell-right',
           cellStyle: yellowCellStyle,
           editable: (params) =>
@@ -1735,22 +1788,22 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           cellDataType: false,
           valueFormatter: amountFormatterExceptTotal,
           valueParser: planNumberParser(PLAN_DETAIL_DIGITS.amount),
-          onCellValueChanged: (params) => {
-            // 売価は社外売上高・売上原価の算出元でもあるため recalcGiftLikeRates で追従させる。
-            const updatedData = recalcGiftLikeRates({
-              ...params.data,
-              price: params.newValue,
-            });
-            if (params.data.section === '定番商品') {
-              params.context.updateRegularProduct(updatedData);
-            } else if (params.data.section === '新商品') {
-              params.context.updateNewProduct(updatedData);
-            } else if (params.data.section === '特殊商品') {
-              params.context.updatePromotionProduct(updatedData);
-            } else if (params.data.section === 'ギフト') {
-              params.context.updateGiftProduct(updatedData);
-            }
-          },
+          // 売価は値入率・値入額の算出元でもあるため recalcGiftLikeRates で追従させる
+          // （連動セルは共通フック → 02 §7.3）。
+          onCellValueChanged: makeHandler('price', {
+            depFields: GIFT_LIKE_CALC_FIELDS,
+            deriveDeps: (_value, row) => recalcGiftLikeRates(row),
+            syncState: syncRowBySection,
+            rowIdOf: linkedRowKeyOf([
+              'plan',
+              'net',
+              'planPrice',
+              'quantity',
+              'summaryProduct',
+              'wholesaleMesh',
+              'metaBrand',
+            ]),
+          }),
         },
         {
           // 商品区分によらず全区分で手入力可（黄）。ギフト/特殊商品は算出値を初期表示する。
@@ -1761,7 +1814,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             'マージン率[算出/入力値]手入力しない場合は(納価-NET)/納価*100%を算出表示、商品区分によらず手入力での上書きも可',
           field: 'margin',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-right',
           // マージン率＝小数第2位（％）
           valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.marginRate),
@@ -1802,7 +1855,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '値入額[算出](売価-納価)*入数*函数(計画)',
           field: 'markupAmount',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-right',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1815,7 +1868,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '値入率[算出](売価-納価)/売価*100%',
           field: 'discount',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 100,
+          width: 80,
           cellClass: 'ag-cell-right',
           // 値入率＝小数第1位（％）
           valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
@@ -1829,7 +1882,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '量経追加口率[算出]量経追加口/社外売上高*100%',
           field: 'volumeAddRate',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-right',
           // 量経追加口率＝小数第1位（％）
           valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
@@ -1841,7 +1894,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '社外売上高[算出]社外売単価×入数×函数(計画)',
           field: 'externalSales',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-right',
           // 社外売上高＝整数
           valueFormatter: planAmountFormatter(PLAN_DETAIL_DIGITS.amount),
@@ -1853,7 +1906,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '売上原価[算出]売上原価単価×入数×函数(計画)',
           field: 'delivery',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 110,
+          width: 88,
           cellClass: 'ag-cell-right',
           // 売上原価＝整数
           valueFormatter: planAmountFormatter(PLAN_DETAIL_DIGITS.amount),
@@ -1865,7 +1918,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           headerTooltip: '売買差益率[算出]売買差益/売上高*100%',
           field: 'profit',
           ...GRID_NUMBER_TEXT_FILTER,
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-right',
           // 売買差益率＝小数第1位（％）
           valueFormatter: planRateFormatter(PLAN_DETAIL_DIGITS.rate),
@@ -1876,7 +1929,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '一次店コード',
           field: 'tier1Code',
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1885,7 +1938,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '一次店',
           field: 'tier1',
-          width: 200,
+          width: 160,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1894,7 +1947,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '三次店コード',
           field: 'tier3Code',
-          width: 130,
+          width: 104,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1903,7 +1956,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {
           headerName: '三次店',
           field: 'tier3',
-          width: 200,
+          width: 160,
           cellClass: 'ag-cell-left',
           cellStyle: whiteCellStyle,
           editable: false,
@@ -1911,8 +1964,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         },
         {
           headerName: '',
-          field: 'actions',
-          width: 100,
+          colId: 'actions',
+          width: 80,
           pinned: 'right',
           lockPinned: true,
           cellClass: 'ag-cell-center',
@@ -2038,7 +2091,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             !!p.data?._giftFirst &&
             p.colDef.field !== 'period' &&
             p.colDef.field !== 'plan' &&
-            p.colDef.field !== 'actions',
+            p.colDef.colId !== 'actions',
         },
       }),
       [defaultColDef, formulaHL.cellClassRules, formulaHL.tooltipValueGetter]
@@ -2136,7 +2189,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
     return (
       <>
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+        <div className={`${CARD_CLASS} overflow-hidden mb-4`}>
           {/* Table title header */}
           <div className="bg-white text-gray-900 text-left card-header-accent px-3 pt-2 pb-4">
             {/* 1段目: タイトル、コピーボタン、函数計画の初期表示 */}
@@ -2148,7 +2201,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               {/* Copy Execute Button（右ペインで実行。コピー元は前月計画で固定） */}
               <button
                 onClick={onOpenCopyPane}
-                className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm ml-[1.875rem]"
+                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-2 py-1 whitespace-nowrap text-sm ml-[1.875rem]`}
                 aria-label="前月計画コピー"
               >
                 前月計画コピー
@@ -2174,14 +2227,14 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                       .replace(/^(\d{0,3})(\.\d?)?.*$/, '$1$2'); // 整数3桁・小数1桁に制限
                     setCasePlanPercentage(value);
                   }}
-                  className={`${TEXT_INPUT_CLASS} w-[3.75rem] border rounded px-2 py-1 focus:border-blue-500 text-right`}
+                  className={`${TEXT_INPUT_CLASS} w-15 border rounded px-2 py-1 focus:border-blue-500 text-right`}
                   maxLength={5}
                 />
                 <span className="text-gray-900 text-sm">%</span>
                 {/* 函数反映ボタン：表示中タブの計画函数へ率を適用 */}
                 <button
-                  onClick={() => setShowApplyConfirm(true)}
-                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm ml-2"
+                  onClick={() => setIsApplyConfirmShown(true)}
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm ml-2`}
                   aria-label="函数反映"
                 >
                   函数反映
@@ -2190,11 +2243,13 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
               {/* Total Store Count */}
               <label
+                htmlFor="total-store-count"
                 className={`${FORM_LABEL_CLASS} whitespace-nowrap ml-[1.875rem] mr-0 my-0`}
               >
                 総間口数
               </label>
               <Input
+                id="total-store-count"
                 type="text"
                 value={totalStoreCount}
                 onChange={(e) => {
@@ -2203,7 +2258,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                     .slice(0, 3);
                   setTotalStoreCount(value);
                 }}
-                className={`${TEXT_INPUT_CLASS} w-[3.75rem] border rounded px-2 py-1 focus:border-blue-500 text-right`}
+                className={`${TEXT_INPUT_CLASS} w-15 border rounded px-2 py-1 focus:border-blue-500 text-right`}
                 maxLength={3}
                 aria-describedby="total-store-count-note"
               />
@@ -2307,7 +2362,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                   onClick={() =>
                     handleNavigateWithGuard('annual-plan-creation')
                   }
-                  className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  disabled={isPlanNavigationDisabled}
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-2 py-1 whitespace-nowrap text-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white`}
                   aria-label="年間計画"
                 >
                   年間計画
@@ -2318,7 +2374,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                   onClick={() =>
                     handleNavigateWithGuard('sales-plan-simulation-net-fixed')
                   }
-                  className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  disabled={isPlanNavigationDisabled}
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-2 py-1 whitespace-nowrap text-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white`}
                   aria-label="シミュレーション"
                 >
                   シミュレーション
@@ -2329,7 +2386,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                   onClick={() =>
                     handleAddRow(activeTab === 'all' ? '' : activeTab)
                   }
-                  className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
                   aria-label="＋明細追加"
                 >
                   ＋明細追加
@@ -2357,15 +2414,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                       text-align: center;
                     }
 
-                    .sales-detail-grid .ag-pinned-left-header {
-                      background-color: var(--grid-header-bg) !important;
-                    }
+                    /* （見出しの背景色・文字色は共通テーマ GRID_THEME に委ねる → 02 §7「ヘッダーの配色」・UI/UX UX-031） */
                     .sales-detail-grid .ag-header-cell {
-                      background-color: var(--grid-header-bg);
                       border-right: 1px solid var(--grid-strong-divider);
                     }
                     .sales-detail-grid .ag-cell {
-                      border-right: 1px solid var(--grid-grid-line);
                       transition: background-color 0.2s ease;
                     }
                     /* ギフト3行1セットの結合セルは、セット下端の横罫線が消えるため補う */
@@ -2419,20 +2472,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 // いずれかのセルが編集されたら未保存状態にする
                 hasUnsavedRef.current = true;
                 // 編集済みセルを記録（元値に戻したら解除）し、当該セルを再描画して
-                // 黄色＋オレンジ枠（changedCellStyle）を反映する
-                const key = cellChangeKey(params);
-                if (!originalCellValuesRef.current.has(key)) {
-                  originalCellValuesRef.current.set(
-                    key,
-                    String(params.oldValue ?? '')
-                  );
-                }
-                const orig = originalCellValuesRef.current.get(key) ?? '';
-                if (String(params.newValue ?? '') === orig) {
-                  changedCellsRef.current.delete(key);
-                } else {
-                  changedCellsRef.current.add(key);
-                }
+                // 黄色＋オレンジ枠（changedCellStyle）を反映する（共通フック → 02 §7.2）
+                trackCellChange(params);
                 params.api.refreshCells({
                   rowNodes: [params.node],
                   columns: [params.column.getColId()],
@@ -2471,15 +2512,15 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
         {/* 函数反映の確認: 表内に入力中のデータがある場合にリセットされる旨を確認 */}
         <ConfirmDialog
-          open={showApplyConfirm}
+          open={isApplyConfirmShown}
           title="函数反映の確認"
           confirmLabel="反映"
           description="入力中のデータがリセットされます。本当によろしいですか？"
           onConfirm={() => {
-            setShowApplyConfirm(false);
+            setIsApplyConfirmShown(false);
             handleApplyCasePlan();
           }}
-          onCancel={() => setShowApplyConfirm(false)}
+          onCancel={() => setIsApplyConfirmShown(false)}
         />
 
         {/* 年間計画／シミュレーション遷移の確認 */}

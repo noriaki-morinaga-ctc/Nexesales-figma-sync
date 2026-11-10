@@ -5,6 +5,7 @@ import type {
   CellValueChangedEvent,
   ColDef,
   ColGroupDef,
+  GetRowIdParams,
   GridApi,
   ValueFormatterParams,
 } from 'ag-grid-community';
@@ -46,7 +47,7 @@ import {
   resolveDetailStatus,
   qtyUnitLabel,
   selectableQtyUnits,
-} from '../../../../utils/billingEdiImport';
+} from '../../../../utils/payment/billing/billingEdiImport';
 import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
 
 // 変換できなかった項目に表示する文言（エラー）。
@@ -129,11 +130,11 @@ const DetailStatusRenderer = (
     <div className="flex items-center gap-1 overflow-hidden">
       <Icon
         className={`h-5 w-5 flex-shrink-0 ${
-          isError ? 'text-red-600' : 'text-green-600'
+          isError ? 'text-red-700' : 'text-green-600'
         }`}
       />
       <span
-        className={isError ? 'truncate font-bold text-red-600' : 'truncate'}
+        className={isError ? 'truncate font-bold text-red-700' : 'truncate'}
       >
         {props.value}
       </span>
@@ -143,6 +144,10 @@ const DetailStatusRenderer = (
 
 // 既定は参照専用（灰背景）。列側で cellStyle を持つ列は各列でこの色を引き継ぐ
 const DETAIL_DEFAULT_COL_DEF = { ...GRID_DEFAULT_COL_DEF, cellStyle: RO_STYLE };
+
+// 行ID（AG Grid 公式 getRowId）。モジュール直下に置いて参照を固定する（→ 02 §7.1）
+const getDetailRowId = (params: GetRowIdParams<BillingEdiDetailRow>) =>
+  params.data.id;
 
 // 未修正の入力可セル（データ不正の項目）1件。前／次のエラーで辿る単位
 interface ErrorCellTarget {
@@ -227,7 +232,7 @@ const ErrorFieldRenderer = (
             {jumpable ? (
               <button
                 type="button"
-                className="cursor-pointer text-blue-600 hover:underline"
+                className="cursor-pointer text-blue-700 hover:underline"
                 onClick={() =>
                   context.jumpToCell({
                     rowIndex: node.rowIndex as number,
@@ -266,7 +271,7 @@ export function BillingDetailList({
 }: BillingDetailListProps) {
   // エラー行のみに絞り込むトグル。
   // この画面の目的は取込エラーへの対処のため、既定でエラー行のみを表示する。
-  const [errorRowsOnly, setErrorRowsOnly] = useState(true);
+  const [isErrorRowsOnly, setIsErrorRowsOnly] = useState(true);
 
   const errorCount = useMemo(
     () => rowData.filter((d) => d.errors.length > 0).length,
@@ -280,8 +285,10 @@ export function BillingDetailList({
     if (filterSummary) {
       return rowData.filter((d) => matchesErrorSummary(d, filterSummary));
     }
-    return errorRowsOnly ? rowData.filter((d) => d.errors.length > 0) : rowData;
-  }, [errorRowsOnly, filterSummary, rowData]);
+    return isErrorRowsOnly
+      ? rowData.filter((d) => d.errors.length > 0)
+      : rowData;
+  }, [isErrorRowsOnly, filterSummary, rowData]);
 
   // セル編集の確定時に、修正差分（原本→修正後）を親へ通知する
   const handleCellValueChanged = useCallback(
@@ -307,7 +314,7 @@ export function BillingDetailList({
   });
 
   // 件数・位置・前後の移動先の有無を、表示中の行・列とフォーカス位置から数え直す
-  const refreshErrorCellNav = useCallback(() => {
+  const handleRefreshErrorCellNav = useCallback(() => {
     const api = gridRef.current?.api;
     if (!api) return;
     const { targets } = collectErrorCells(api);
@@ -369,8 +376,7 @@ export function BillingDetailList({
   // 企画・商品（連携値）へ移動。
   // v15：ステータス・区分・エラー項目・エラー内容を左固定にした（保存済みの固定状態で上書きされないよう更新）。
   const gridColumnStateProps = useGridColumnState(
-    'billingEdiImport.detailColumnState.v15',
-    { autoSize: false }
+    'billingEdiImport.detailColumnState.v15'
   );
 
   // 明細列定義。決定6により集約せず1行単位で表示する。
@@ -391,7 +397,7 @@ export function BillingDetailList({
           {
             headerName: 'ステータス',
             colId: 'status',
-            width: 120,
+            width: 96,
             cellClass: 'cell-left',
             cellRenderer: DetailStatusRenderer,
             valueGetter: (params) =>
@@ -400,7 +406,7 @@ export function BillingDetailList({
           {
             headerName: '区分',
             colId: 'errorCategory',
-            width: 170,
+            width: 136,
             cellClass: 'cell-left',
             // 変換マスタ未登録＝マスタ修正または変換後の値の登録／データ不正＝明細で値を修正
             valueGetter: (params) =>
@@ -409,7 +415,7 @@ export function BillingDetailList({
           {
             headerName: 'エラー項目',
             colId: 'errorField',
-            width: 170,
+            width: 136,
             cellClass: 'cell-left',
             valueGetter: (params) =>
               params.data ? formatDetailErrorFields(params.data) : '',
@@ -422,7 +428,7 @@ export function BillingDetailList({
           {
             headerName: 'エラー内容',
             colId: 'errorReason',
-            width: 240,
+            width: 192,
             cellClass: 'cell-left',
             valueGetter: (params) =>
               params.data ? formatDetailErrorReasons(params.data) : '',
@@ -431,7 +437,7 @@ export function BillingDetailList({
             // 原本（卸から連携された値）を画面で修正したか。原本は上書きせず差分として保持する
             headerName: '修正',
             colId: 'corrected',
-            width: 100,
+            width: 80,
             cellClass: 'cell-left',
             valueGetter: (params) => {
               if (!params.data || !isCorrectedRow(params.data)) return '';
@@ -456,7 +462,7 @@ export function BillingDetailList({
             headerName: '受信日時',
             field: 'receivedAt',
             ...GRID_DATE_TEXT_FILTER,
-            width: 140,
+            width: 112,
             cellClass: 'cell-left',
           },
           {
@@ -464,7 +470,7 @@ export function BillingDetailList({
             headerName: '再取込日時',
             field: 'reimportedAt',
             ...GRID_DATE_TEXT_FILTER,
-            width: 140,
+            width: 112,
             cellClass: 'cell-left',
             valueFormatter: (params) =>
               params.value ? params.value : GRID_EMPTY_TEXT,
@@ -478,20 +484,20 @@ export function BillingDetailList({
           {
             headerName: '請求書No',
             field: 'billingNo',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
           },
           // 請求元コード（2-5）・請求元名（2-6）は画面に出さない（商流変換の入力としては保持する）
           {
             headerName: '事業所コード',
             field: 'senderOfficeCode',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
           },
           {
             headerName: '事業所名',
             field: 'senderOfficeName',
-            width: 180,
+            width: 144,
             cellClass: 'cell-left',
           },
         ],
@@ -506,19 +512,19 @@ export function BillingDetailList({
           {
             headerName: '請求伝票番号',
             field: 'slipNo',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
           },
           {
             headerName: '得意先コード',
             field: 'customerCode',
-            width: 120,
+            width: 96,
             cellClass: 'cell-left',
           },
           {
             headerName: '得意先名',
             field: 'customerName',
-            width: 160,
+            width: 128,
             cellClass: 'cell-left',
           },
           // 得意先区分（3-8）は取込では保持するが画面には出さない。
@@ -535,7 +541,7 @@ export function BillingDetailList({
           {
             headerName: '販売店コード',
             field: 'storeCode',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -543,7 +549,7 @@ export function BillingDetailList({
           {
             headerName: '販売店名',
             field: 'storeName',
-            width: 180,
+            width: 144,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -551,7 +557,7 @@ export function BillingDetailList({
           {
             headerName: '一次店コード',
             field: 'primaryStoreCode',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -559,7 +565,7 @@ export function BillingDetailList({
           {
             headerName: '一次店名',
             field: 'primaryStoreName',
-            width: 200,
+            width: 160,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -567,7 +573,7 @@ export function BillingDetailList({
           {
             headerName: '三次店コード',
             field: 'tertiaryStoreCode',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -575,7 +581,7 @@ export function BillingDetailList({
           {
             headerName: '三次店名',
             field: 'tertiaryStoreName',
-            width: 180,
+            width: 144,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -589,13 +595,13 @@ export function BillingDetailList({
           {
             headerName: '計上No',
             field: 'recordingNo',
-            width: 120,
+            width: 96,
             cellClass: 'cell-left',
           },
           {
             headerName: '計上日',
             field: 'accountingDate',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
             ...correctableCell('accountingDate', (params) =>
               params.value ? String(params.value) : ''
@@ -612,7 +618,7 @@ export function BillingDetailList({
             headerName: '対象年月',
             field: 'targetMonth',
             ...GRID_MONTH_TEXT_FILTER,
-            width: 110,
+            width: 88,
             cellClass: 'cell-left',
             headerTooltip:
               '対象期間（終了日）が属する月。終了日が空欄のときは請求締日が属する月',
@@ -631,13 +637,13 @@ export function BillingDetailList({
           {
             headerName: '対象期間(開始日)',
             field: 'periodFrom',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
           },
           {
             headerName: '対象期間(終了日)',
             field: 'periodTo',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
             headerTooltip: '対象月の導出元。空欄のときは請求締日から導出する',
           },
@@ -645,7 +651,7 @@ export function BillingDetailList({
             // 対象期間（終了日）が空欄の明細で対象月を導出する元（区分2）。
             headerName: '請求締日',
             field: 'billingClosingDate',
-            width: 130,
+            width: 104,
             cellClass: 'cell-left',
             headerTooltip:
               '請求元情報（レコード区分2）の請求締日。対象期間（終了日）が空欄のときの対象月の導出元',
@@ -653,7 +659,7 @@ export function BillingDetailList({
           {
             headerName: '計上区分',
             field: 'recordingType',
-            width: 100,
+            width: 80,
             cellClass: 'cell-left',
             // 取消はこの区分で表され、金額は正のまま。支払への反映方法は未決のため表示のみ
             cellStyle: (params) =>
@@ -670,13 +676,13 @@ export function BillingDetailList({
           {
             headerName: '摘要コード',
             field: 'summaryCode',
-            width: 110,
+            width: 88,
             cellClass: 'cell-left',
           },
           {
             headerName: '摘要名',
             field: 'summaryName',
-            width: 170,
+            width: 136,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -691,7 +697,7 @@ export function BillingDetailList({
             // 卸ごとにパターン化した費目判別ロジック（決定9）。使う項目が卸で変わる
             headerName: '費目判別ロジック',
             field: 'expenseRule',
-            width: 170,
+            width: 136,
             cellClass: 'cell-left',
           },
           {
@@ -699,7 +705,7 @@ export function BillingDetailList({
             // 表示は請求詳細画面が担うため、この画面では赤字の「(未変換)」を出さない（決定19）
             headerName: '費目',
             field: 'expenseType',
-            width: 100,
+            width: 80,
             cellClass: 'cell-left',
           },
         ],
@@ -711,13 +717,13 @@ export function BillingDetailList({
           {
             headerName: '販売促進企画番号',
             field: 'promotionPlanNo',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
           },
           {
             headerName: '商品コード(変換前)',
             field: 'productCodeOriginal',
-            width: 170,
+            width: 136,
             cellClass: 'cell-left',
             // 必須項目（区分4-8）が未連携のケースは画面で補える
             ...correctableCell('productCodeOriginal', (params) =>
@@ -727,7 +733,7 @@ export function BillingDetailList({
           {
             headerName: '商品名(変換前)',
             field: 'productNameOriginal',
-            width: 190,
+            width: 152,
             cellClass: 'cell-left',
           },
           {
@@ -735,7 +741,7 @@ export function BillingDetailList({
             // どちらも連携値のまま表示し、読み替えロジックは設けない
             headerName: '備考',
             field: 'noteOriginal',
-            width: 190,
+            width: 152,
             cellClass: 'cell-left',
             valueFormatter: (params) =>
               params.value ? params.value : GRID_EMPTY_TEXT,
@@ -744,14 +750,14 @@ export function BillingDetailList({
             // 標準は 1：プライベート／3：JAN。5：SDP・6：GTIN は卸独自の拡張値
             headerName: '商品コード使用区分',
             field: 'productCodeType',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
           },
           {
             // 金額（連携値）から移動。商品に関する連携値としてまとめて見せる
             headerName: 'ケース入数',
             field: 'casePack',
-            width: 110,
+            width: 88,
             cellClass: 'cell-right',
             valueFormatter: (params) =>
               params.value?.toLocaleString() ?? GRID_EMPTY_TEXT,
@@ -765,7 +771,7 @@ export function BillingDetailList({
           {
             headerName: 'オンライン商品コード',
             field: 'onlineProductCode',
-            width: 180,
+            width: 144,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -773,7 +779,7 @@ export function BillingDetailList({
           {
             headerName: 'オンライン商品名',
             field: 'onlineProductName',
-            width: 200,
+            width: 160,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -781,7 +787,7 @@ export function BillingDetailList({
           {
             headerName: 'サマリ商品コード',
             field: 'summaryProductCode',
-            width: 160,
+            width: 128,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -789,7 +795,7 @@ export function BillingDetailList({
           {
             headerName: 'サマリ商品名',
             field: 'summaryProductName',
-            width: 180,
+            width: 144,
             cellClass: 'cell-left',
             valueFormatter: unconvertedFormatter,
             cellStyle: unconvertedStyle,
@@ -804,7 +810,7 @@ export function BillingDetailList({
             headerName: '請求計上対象数量',
             field: 'billingQty',
             ...GRID_NUMBER_FILTER,
-            width: 140,
+            width: 112,
             cellClass: 'cell-right',
             // 決定11により数量なしを許容する。空欄で表示しエラーとはしない
             valueFormatter: (params) =>
@@ -815,7 +821,7 @@ export function BillingDetailList({
           {
             headerName: '計上対象数量単位',
             field: 'qtyUnit',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
             // 値はコードのまま持ち、表示だけ名称にする（再取込にもコードで渡すため）。
             // 定義外の区分値が来た場合は連携生値を出し、画面で正しい区分値へ直せる
@@ -842,13 +848,13 @@ export function BillingDetailList({
           {
             headerName: '請求計上条件区分',
             field: 'billingConditionType',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
           },
           {
             headerName: '請求計上条件',
             field: 'billingCondition',
-            width: 130,
+            width: 104,
             cellClass: 'cell-right',
             // 区分が「％」のときは単価ではなく率（例: 1.26%）。それ以外は3桁区切りの金額
             valueFormatter: (params) =>
@@ -859,7 +865,7 @@ export function BillingDetailList({
           {
             headerName: '請求計上金額',
             field: 'billingAmount',
-            width: 140,
+            width: 112,
             cellClass: 'cell-right',
             // 数値に変換できない場合は連携生値を出し、画面で正しい金額へ直せる
             ...correctableCell('billingAmount', (params) =>
@@ -874,13 +880,13 @@ export function BillingDetailList({
           {
             headerName: '請求金額計算区分',
             field: 'amountCalcType',
-            width: 150,
+            width: 120,
             cellClass: 'cell-left',
           },
           {
             headerName: '消費税区分',
             field: 'taxType',
-            width: 120,
+            width: 96,
             cellClass: 'cell-left',
           },
           // 請求消費税額（4-17）は仕様上ゼロ固定で実データでも常にゼロのため列にしない
@@ -914,7 +920,7 @@ export function BillingDetailList({
               className={`flex items-center gap-1 px-2 py-0.5 whitespace-nowrap text-sm ${errorCellNav.hasPrev ? BUTTON_STYLES.outline : BUTTON_STYLES.disabled} ${BUTTON_BASE}`}
               aria-label="前のエラー"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
               前のエラー
             </button>
             <span className="min-w-20 text-center text-sm text-gray-700">
@@ -929,7 +935,7 @@ export function BillingDetailList({
               aria-label="次のエラー"
             >
               次のエラー
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
           {/* エラーサマリの行を選ぶとここに絞り込み条件が出る。解除で全明細へ戻す */}
@@ -946,7 +952,7 @@ export function BillingDetailList({
                 className={`flex items-center gap-1 px-2 py-0.5 whitespace-nowrap text-sm ${BUTTON_STYLES.outline} ${BUTTON_BASE}`}
                 aria-label="絞り込みを解除"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
                 絞り込みを解除
               </button>
             </span>
@@ -955,9 +961,9 @@ export function BillingDetailList({
             <input
               type="checkbox"
               className="h-4 w-4"
-              checked={errorRowsOnly}
+              checked={isErrorRowsOnly}
               disabled={filterSummary !== null}
-              onChange={(e) => setErrorRowsOnly(e.target.checked)}
+              onChange={(e) => setIsErrorRowsOnly(e.target.checked)}
             />
             エラー行のみ
           </label>
@@ -971,13 +977,13 @@ export function BillingDetailList({
           defaultColDef={DETAIL_DEFAULT_COL_DEF}
           getContextMenuItems={gridFilterContextMenuItems}
           domLayout="normal"
-          getRowId={(params) => params.data.id}
+          getRowId={getDetailRowId}
           onCellValueChanged={handleCellValueChanged}
           context={gridContext}
           // 行・列の表示やフォーカスが変わるたびに「n / N 件」を数え直す
-          onCellFocused={refreshErrorCellNav}
-          onModelUpdated={refreshErrorCellNav}
-          onDisplayedColumnsChanged={refreshErrorCellNav}
+          onCellFocused={handleRefreshErrorCellNav}
+          onModelUpdated={handleRefreshErrorCellNav}
+          onDisplayedColumnsChanged={handleRefreshErrorCellNav}
           stopEditingWhenCellsLoseFocus={true}
           {...GRID_BASE_PROPS}
           {...gridColumnStateProps}

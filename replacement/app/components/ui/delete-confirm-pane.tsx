@@ -66,7 +66,7 @@ export function DeleteConfirmPane({
           <div className="space-y-2">
             {items.map((item) => (
               <div key={item.label} className="flex gap-2">
-                <span className="font-semibold text-gray-600 w-32">
+                <span className="font-bold text-gray-600 w-32">
                   {item.label}:
                 </span>
                 <span className="text-gray-900">{item.value}</span>

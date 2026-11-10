@@ -1,18 +1,14 @@
+import { useState } from 'react';
+
 // 支払詳細(商流販売店紐づけなし)画面の基本情報。
 // 本画面は商流販売店に紐づかない支払（②商流のみ／③販売店のみ／④末端組織）を扱う。
 // パターンをラジオで選び、対象の販売店／一次店／三次店／末端組織を入力すると、その作成単位
 // （一次店 × 三次店 × 販売店 × 末端組織。権限整理 P4）の拡売費計画（ヘッダ）が定まる。
 // パターンごとにどれがダミーコードになるかは権限整理 P9〜P11 に従う（storeInputAvailability）。
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../../ui/collapsible';
+import { CollapsibleCard } from '../../../ui/collapsible-card';
 import { SingleCombobox } from '../../../ui/single-combobox';
 import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
 import { Label } from '../../../ui/label';
-import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
 import {
   DEALER_OPTIONS_DUMMY,
   FIRST_STORE_OPTIONS_DUMMY,
@@ -29,7 +25,7 @@ import {
   DUMMY_STORE_LABEL,
   storeInputAvailability,
   type NoLinkPattern,
-} from '../../../../utils/paymentNoLink';
+} from '../../../../utils/payment/payment-detail/paymentNoLink';
 
 interface SearchPaneProps {
   onImport: () => void;
@@ -61,7 +57,7 @@ const PATTERN_OPTIONS: { value: NoLinkPattern; id: string }[] = [
 // ダミーコード固定の項目の表示（非活性・コンボボックスを出さない）。
 function DummyStoreValue() {
   return (
-    <div className="flex-1 h-8 flex items-center rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500">
+    <div className="flex-1 h-8 flex items-center rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-600">
       {DUMMY_STORE_LABEL}
     </div>
   );
@@ -127,176 +123,159 @@ export function SearchPane(_props: SearchPaneProps) {
   };
 
   return (
-    <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4"
-    >
-      {/* タイトルヘッダー */}
-      <div className="bg-white px-3 pt-2 pb-4 card-header-accent flex items-center justify-between">
-        <span className="text-gray-900 font-bold text-lg">基本情報</span>
-
-        <CollapsibleTrigger className="ml-auto hover:text-blue-700 transition-colors">
-          <ChevronDown
-            className={`h-5 w-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </CollapsibleTrigger>
-      </div>
-
-      <CollapsibleContent>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          {/* 1行目: 作成単位パターン（②③④のラジオ）を最上部に配置。
+    <CollapsibleCard title="基本情報" open={isOpen} onOpenChange={setIsOpen}>
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        {/* 1行目: 作成単位パターン（②③④のラジオ）を最上部に配置。
               選んだパターンにより、どの商流販売店項目がダミーコードになるかが決まる。 */}
-          <div className="flex items-start gap-2 mb-2 pb-3 border-b border-gray-300">
-            <label className={`${LABEL_CLASS} pt-1.5`}>作成単位</label>
-            <RadioGroup
-              value={pattern}
-              onValueChange={(v) => handlePatternChange(v as NoLinkPattern)}
-              className="flex flex-wrap items-center gap-x-8 gap-y-2 pt-1.5"
-            >
-              {PATTERN_OPTIONS.map((opt) => (
-                <div key={opt.id} className="flex items-center space-x-2">
-                  <RadioGroupItem value={opt.value} id={opt.id} />
-                  <Label htmlFor={opt.id} className="text-sm text-gray-900">
-                    {opt.value}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          {/* 2行目: 販売店 / 三次店 / 一次店。パターンによりダミーコード固定になる（権限 P9-11）。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>販売店</label>
-              {available.dealer ? (
-                <div className="flex-1">
-                  <SingleCombobox
-                    options={DEALER_OPTIONS_DUMMY}
-                    value={dealer}
-                    onChange={setDealer}
-                    placeholder="販売店を選択／検索"
-                    clearable
-                  />
-                </div>
-              ) : (
-                <DummyStoreValue />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>三次店</label>
-              {available.thirdStore ? (
-                <div className="flex-1">
-                  <SingleCombobox
-                    options={THIRD_STORE_OPTIONS_DUMMY}
-                    value={thirdStore}
-                    onChange={setThirdStore}
-                    placeholder="三次店を選択／検索"
-                    clearable
-                  />
-                </div>
-              ) : (
-                <DummyStoreValue />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>一次店</label>
-              {available.firstStore ? (
-                <div className="flex-1">
-                  <SingleCombobox
-                    options={FIRST_STORE_OPTIONS_DUMMY}
-                    value={firstStore}
-                    onChange={setFirstStore}
-                    placeholder="一次店を選択／検索"
-                    clearable
-                  />
-                </div>
-              ) : (
-                <DummyStoreValue />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2"></div>
-          </div>
-
-          {/* 3行目: 事業場 / 部署 / 末端組織 / 営業担当者（組織階層順・上段＝販売計画側） */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>事業場</label>
-              <div className="flex-1 min-w-0">
-                <SingleCombobox
-                  options={OFFICE_OPTIONS}
-                  value={office}
-                  onChange={handleOfficeChange}
-                  placeholder="事業場を選択／検索"
-                />
+        <div className="flex items-start gap-2 mb-2 pb-3 border-b border-gray-300">
+          <label className={`${LABEL_CLASS} pt-1.5`}>作成単位</label>
+          <RadioGroup
+            value={pattern}
+            onValueChange={(v) => handlePatternChange(v as NoLinkPattern)}
+            className="flex flex-wrap items-center gap-x-8 gap-y-2 pt-1.5"
+          >
+            {PATTERN_OPTIONS.map((opt) => (
+              <div key={opt.id} className="flex items-center space-x-2">
+                <RadioGroupItem value={opt.value} id={opt.id} />
+                <Label htmlFor={opt.id} className="text-sm text-gray-900">
+                  {opt.value}
+                </Label>
               </div>
-            </div>
+            ))}
+          </RadioGroup>
+        </div>
 
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>部署</label>
-              <div className="flex-1 min-w-0">
+        {/* 2行目: 販売店 / 三次店 / 一次店。パターンによりダミーコード固定になる（権限 P9-11）。 */}
+        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>販売店</label>
+            {available.dealer ? (
+              <div className="flex-1">
                 <SingleCombobox
-                  options={DEPARTMENT_OPTIONS}
-                  value={department}
-                  onChange={handleDepartmentChange}
-                  placeholder="部署を選択／検索"
-                />
-              </div>
-            </div>
-
-            {/* 末端組織（第6階層）。全パターンで作成単位に含まれる（権限整理 P4）。 */}
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>末端組織</label>
-              <div className="flex-1 min-w-0">
-                <SingleCombobox
-                  options={TERMINAL_ORG_OPTIONS}
-                  value={terminalOrg}
-                  onChange={handleTerminalOrgChange}
-                  placeholder="末端組織を選択／検索"
+                  options={DEALER_OPTIONS_DUMMY}
+                  value={dealer}
+                  onChange={setDealer}
+                  placeholder="販売店を選択／検索"
                   clearable
                 />
               </div>
-            </div>
+            ) : (
+              <DummyStoreValue />
+            )}
+          </div>
 
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>営業担当者</label>
-              <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>三次店</label>
+            {available.thirdStore ? (
+              <div className="flex-1">
                 <SingleCombobox
-                  options={SALES_PERSON_OPTIONS}
-                  value={salesRep}
-                  onChange={setSalesRep}
-                  placeholder="営業担当者を選択／検索"
+                  options={THIRD_STORE_OPTIONS_DUMMY}
+                  value={thirdStore}
+                  onChange={setThirdStore}
+                  placeholder="三次店を選択／検索"
+                  clearable
                 />
               </div>
+            ) : (
+              <DummyStoreValue />
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>一次店</label>
+            {available.firstStore ? (
+              <div className="flex-1">
+                <SingleCombobox
+                  options={FIRST_STORE_OPTIONS_DUMMY}
+                  value={firstStore}
+                  onChange={setFirstStore}
+                  placeholder="一次店を選択／検索"
+                  clearable
+                />
+              </div>
+            ) : (
+              <DummyStoreValue />
+            )}
+          </div>
+
+          <div className="flex items-center gap-2"></div>
+        </div>
+
+        {/* 3行目: 事業場 / 部署 / 末端組織 / 営業担当者（組織階層順・上段＝販売計画側） */}
+        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>事業場</label>
+            <div className="flex-1 min-w-0">
+              <SingleCombobox
+                options={OFFICE_OPTIONS}
+                value={office}
+                onChange={handleOfficeChange}
+                placeholder="事業場を選択／検索"
+              />
             </div>
           </div>
 
-          {/* 4行目: 対象年月 / 支払No。作成単位・商流販売店・組織が決まると計画が定まるため、
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>部署</label>
+            <div className="flex-1 min-w-0">
+              <SingleCombobox
+                options={DEPARTMENT_OPTIONS}
+                value={department}
+                onChange={handleDepartmentChange}
+                placeholder="部署を選択／検索"
+              />
+            </div>
+          </div>
+
+          {/* 末端組織（第6階層）。全パターンで作成単位に含まれる（権限整理 P4）。 */}
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>末端組織</label>
+            <div className="flex-1 min-w-0">
+              <SingleCombobox
+                options={TERMINAL_ORG_OPTIONS}
+                value={terminalOrg}
+                onChange={handleTerminalOrgChange}
+                placeholder="末端組織を選択／検索"
+                clearable
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>営業担当者</label>
+            <div className="flex-1 min-w-0">
+              <SingleCombobox
+                options={SALES_PERSON_OPTIONS}
+                value={salesRep}
+                onChange={setSalesRep}
+                placeholder="営業担当者を選択／検索"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 4行目: 対象年月 / 支払No。作成単位・商流販売店・組織が決まると計画が定まるため、
               選択の流れに合わせて最後に配置する（レビュー指摘 2026/7/22）。
               計画書No は本画面で使わないため項目自体を置かない
               （→ 本コメントスレッド返信 渡邊 2026-08-04）。 */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>対象年月</label>
-              <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
-                {TARGET_MONTH}
-              </div>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>対象年月</label>
+            <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
+              {TARGET_MONTH}
             </div>
-
-            <div className="flex items-center gap-2">
-              <label className={LABEL_CLASS}>支払No</label>
-              <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
-                {PAYMENT_STATEMENT_NO}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2"></div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <label className={LABEL_CLASS}>支払No</label>
+            <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
+              {PAYMENT_STATEMENT_NO}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2"></div>
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+    </CollapsibleCard>
   );
 }

@@ -1,14 +1,6 @@
 import { Search, Download } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { CopyableArea } from '../../ui/copyable-area';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { SearchClearButton } from '../../ui/search-clear-button';
-import { Input } from '../../ui/input';
-import {
-  FORM_LABEL_CLASS,
-  TEXT_INPUT_CLASS,
-} from '../../../../styles/commonStyles';
 import { AgGridReact } from 'ag-grid-react';
 import type {
   ColDef,
@@ -16,6 +8,16 @@ import type {
   ICellRendererParams,
   CellValueChangedEvent,
 } from 'ag-grid-community';
+
+import { CopyableArea } from '../../ui/copyable-area';
+import { SingleCombobox } from '../../ui/single-combobox';
+import { SearchClearButton } from '../../ui/search-clear-button';
+import { Input } from '../../ui/input';
+import {
+  FORM_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+  CARD_CLASS,
+} from '../../../../styles/commonStyles';
 import { BottomPane } from '../../ui/bottom-pane';
 import {
   GRID_BASE_PROPS,
@@ -531,9 +533,9 @@ export default function MetadataMaintenance() {
         // カラム詳細（下ペイン）を開くボタン列。セル編集と分離するため独立列にする
         headerName: '',
         colId: 'detail',
-        width: 88,
-        minWidth: 88,
-        maxWidth: 88,
+        width: 70,
+        minWidth: 70,
+        maxWidth: 70,
         editable: false,
         sortable: false,
         filter: false,
@@ -576,7 +578,7 @@ export default function MetadataMaintenance() {
         // 極端に横長になるのを防ぐため、この列のみ maxWidth で上限を設ける。
         headerName: 'テーブル説明',
         field: 'tableDescription',
-        maxWidth: 360,
+        maxWidth: 288,
         editable: true,
         wrapText: true,
         autoHeight: true,
@@ -677,7 +679,7 @@ export default function MetadataMaintenance() {
         // 説明は折り返し表示（autoHeight）。テーブル説明列と同様に maxWidth で上限を設ける。
         headerName: 'カラム説明（業務定義）',
         field: 'columnDescription',
-        maxWidth: 360,
+        maxWidth: 288,
         editable: true,
         wrapText: true,
         autoHeight: true,
@@ -701,6 +703,16 @@ export default function MetadataMaintenance() {
       },
     ],
     []
+  );
+
+  // ヘッダーが省略表示された場合にマウスオーバーで全文表示する（参照を固定する → 02 §7.1）
+  const tableColumnDefsWithTooltip = useMemo(
+    () => withHeaderTooltips(tableColumnDefs),
+    [tableColumnDefs]
+  );
+  const columnColumnDefsWithTooltip = useMemo(
+    () => withHeaderTooltips(columnColumnDefs),
+    [columnColumnDefs]
   );
 
   // defaultColDef（共通形をベースに、文字列列の既定横寄せを左寄せに）。
@@ -742,7 +754,7 @@ export default function MetadataMaintenance() {
   // 画面高さがこの下限を下回ると root が <main> を超え、画面全体（<main>）に縦スクロールが出る（計画一覧と同挙動）。
   // グリッド高さは従来どおり flex-fill で残り画面に追従するため、検索カードの折返しで chrome 高が変わっても破綻しない。
   return (
-    <div className="w-full h-full min-h-[45rem] flex flex-col">
+    <div className="min-w-300 h-full min-h-180 flex flex-col">
       <div className="px-6 py-3 flex flex-col flex-1 min-h-0">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="メタデータメンテナンス" />
@@ -750,7 +762,7 @@ export default function MetadataMaintenance() {
         {/* 検索条件カード（管理対象商品一覧と同じレイアウト・検索ボタンなし） */}
         {/* 検索条件の値は Ctrl+C／右クリック「コピー」で表示中の値をコピーできる（CopyableArea → 02 §15） */}
         <CopyableArea className="shrink-0">
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-3 shadow-md">
+          <div className={`${CARD_CLASS} overflow-hidden mb-3`}>
             {/* 検索条件ヘッダー（クリアボタンはヘッダー右端に置き、専用の行を使わない。計画一覧と同一体裁） */}
             <div className="px-3 py-1.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -766,11 +778,13 @@ export default function MetadataMaintenance() {
                 {/* スキーマ */}
                 <div className="flex items-center gap-2">
                   <label
+                    htmlFor="search-schema"
                     className={`${FORM_LABEL_CLASS} whitespace-nowrap w-24 text-right`}
                   >
                     スキーマ
                   </label>
                   <SingleCombobox
+                    id="search-schema"
                     className="w-40"
                     // 未選択＝「指定なし」（条件なし）。「すべて」の選択肢は持たない（→ 02 §9）
                     options={schemaOptions.map((sc) => ({
@@ -788,11 +802,13 @@ export default function MetadataMaintenance() {
                 {/* テーブル種別 */}
                 <div className="flex items-center gap-2 ml-5">
                   <label
+                    htmlFor="search-table-type"
                     className={`${FORM_LABEL_CLASS} whitespace-nowrap w-24 text-right`}
                   >
                     テーブル種別
                   </label>
                   <SingleCombobox
+                    id="search-table-type"
                     className="w-40"
                     options={tableTypeOptions.map((tt) => ({
                       value: tt,
@@ -809,11 +825,13 @@ export default function MetadataMaintenance() {
                 {/* 分類 */}
                 <div className="flex items-center gap-2 ml-5">
                   <label
+                    htmlFor="search-classification"
                     className={`${FORM_LABEL_CLASS} whitespace-nowrap w-24 text-right`}
                   >
                     分類
                   </label>
                   <SingleCombobox
+                    id="search-classification"
                     className="w-40"
                     options={CLASSIFICATION_OPTIONS.map((cl) => ({
                       value: cl,
@@ -830,11 +848,13 @@ export default function MetadataMaintenance() {
                 {/* テーブル名（部分一致） */}
                 <div className="flex items-center gap-2 ml-5">
                   <label
+                    htmlFor="search-table-name"
                     className={`${FORM_LABEL_CLASS} whitespace-nowrap w-24 text-right`}
                   >
                     テーブル名
                   </label>
                   <Input
+                    id="search-table-name"
                     type="text"
                     value={tableName}
                     onChange={(e) => setTableName(e.target.value)}
@@ -848,9 +868,11 @@ export default function MetadataMaintenance() {
         </CopyableArea>
 
         {/* テーブル一覧（管理対象商品一覧のグリッドエリアと同じ体裁：タイトル・黄色下線なし／shadow-md）。
-            高さは残り画面に追従（flex-1＋min-h-0）。全体の下限は root の min-h-[45rem] が担い、
+            高さは残り画面に追従（flex-1＋min-h-0）。全体の下限は root の min-h-180 が担い、
             画面高さが下限を割ると <main> 全体に縦スクロールが出る。 */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-md p-2 flex flex-col flex-1 min-h-0">
+        <div
+          className={`${CARD_CLASS} overflow-hidden p-2 flex flex-col flex-1 min-h-0`}
+        >
           {/* グリッド上部ボタン群（右寄せ） */}
           <div className="flex items-center gap-2 mb-2">
             <button
@@ -868,7 +890,7 @@ export default function MetadataMaintenance() {
             <AgGridReact<MetadataTableData>
               {...GRID_BASE_PROPS}
               rowData={filteredTables}
-              columnDefs={withHeaderTooltips(tableColumnDefs)}
+              columnDefs={tableColumnDefsWithTooltip}
               defaultColDef={defaultColDef}
               getRowId={getTableRowId}
               getContextMenuItems={gridFilterContextMenuItems}
@@ -903,7 +925,7 @@ export default function MetadataMaintenance() {
           <AgGridReact<MetadataColumnData>
             {...GRID_BASE_PROPS}
             rowData={filteredColumns}
-            columnDefs={withHeaderTooltips(columnColumnDefs)}
+            columnDefs={columnColumnDefsWithTooltip}
             defaultColDef={defaultColDef}
             getRowId={getColumnRowId}
             getContextMenuItems={gridFilterContextMenuItems}

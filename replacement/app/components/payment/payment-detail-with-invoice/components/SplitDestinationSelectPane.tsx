@@ -110,7 +110,7 @@ export function SplitDestinationSelectPane({
             {
               headerName: '選択',
               colId: 'selectedReadOnly',
-              width: 70,
+              width: 56,
               cellClass: 'cell-center',
               sortable: false,
               valueGetter: (p: { data?: SplitDestination }) =>
@@ -127,20 +127,20 @@ export function SplitDestinationSelectPane({
             },
           ]
         : []),
-      { headerName: '販売店コード', field: 'storeCode', width: 110 },
-      { headerName: '販売店名称', field: 'storeName', width: 140 },
-      { headerName: '三次店コード', field: 'tertiaryCode', width: 110 },
-      { headerName: '三次店名称', field: 'tertiaryName', width: 280 },
-      { headerName: '一次店コード', field: 'primaryCode', width: 110 },
-      { headerName: '一次店名称', field: 'primaryName', width: 200 },
-      { headerName: '部署コード', field: 'deptCode', width: 100 },
-      { headerName: '部署名称', field: 'deptName', width: 170 },
-      { headerName: '担当者コード', field: 'staffCode', width: 110 },
-      { headerName: '担当者名', field: 'staffName', width: 110 },
+      { headerName: '販売店コード', field: 'storeCode', width: 88 },
+      { headerName: '販売店名称', field: 'storeName', width: 112 },
+      { headerName: '三次店コード', field: 'tertiaryCode', width: 88 },
+      { headerName: '三次店名称', field: 'tertiaryName', width: 224 },
+      { headerName: '一次店コード', field: 'primaryCode', width: 88 },
+      { headerName: '一次店名称', field: 'primaryName', width: 160 },
+      { headerName: '部署コード', field: 'deptCode', width: 80 },
+      { headerName: '部署名称', field: 'deptName', width: 136 },
+      { headerName: '担当者コード', field: 'staffCode', width: 88 },
+      { headerName: '担当者名', field: 'staffName', width: 88 },
       {
         headerName: '計画ケース',
         field: 'planCases',
-        width: 110,
+        width: 88,
         type: 'rightAligned',
         valueFormatter: (p) =>
           typeof p.value === 'number'
@@ -150,7 +150,7 @@ export function SplitDestinationSelectPane({
       {
         headerName: '前月分割',
         colId: 'prevMonth',
-        width: 100,
+        width: 80,
         cellClass: 'cell-center',
         valueGetter: (p) =>
           p.data && prevMonthIdSet.has(p.data.id) ? '有' : GRID_EMPTY_TEXT,
@@ -200,7 +200,7 @@ export function SplitDestinationSelectPane({
             getContextMenuItems={gridFilterContextMenuItems}
             rowSelection={rowSelection}
             selectionColumnDef={{
-              width: 50,
+              width: 40,
               resizable: false,
               suppressMovable: true,
               suppressHeaderMenuButton: true,

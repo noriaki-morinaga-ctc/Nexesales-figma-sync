@@ -19,10 +19,11 @@ interface MonthYearPickerProps {
   value: string; // YYYY/MM format
   onChange: (value: string) => void;
   className?: string;
-  required?: boolean; // 必須フラグ（テキスト入力廃止に伴い内部では未使用。API互換のため保持）
+  required?: boolean; // 必須フラグ（トリガーへ aria-required を付与）
   disabled?: boolean; // 非活性フラグ
   min?: string; // 選択可能な下限（YYYY/MM、これより前は選択不可）
   max?: string; // 選択可能な上限（YYYY/MM、これより後は選択不可）
+  disabledMonths?: string[]; // 範囲内でも選択させない月（YYYY/MM）
   // カレンダー選択で「確定」したい時に呼ぶ（AG Grid セル編集の確定に使用）。
   onCommit?: (value: string) => void;
   id?: string; // トリガーボタンの id（ラベルの htmlFor と紐付ける用途）
@@ -43,9 +44,11 @@ export function MonthYearPicker({
   value,
   onChange,
   className,
+  required = false,
   disabled = false,
   min,
   max,
+  disabledMonths,
   onCommit,
   id,
   ariaLabel,
@@ -53,7 +56,7 @@ export function MonthYearPicker({
 }: MonthYearPickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  // Parse the value to get year and month
+  // 値から年と月を取り出す
   const parseValue = (
     val: string,
   ): { year: number; month: number } => {
@@ -85,6 +88,8 @@ export function MonthYearPicker({
     const v = y * 12 + m;
     if (minVal != null && v < minVal) return false;
     if (maxVal != null && v > maxVal) return false;
+    if (disabledMonths?.includes(`${y}/${m.toString().padStart(2, "0")}`))
+      return false;
     return true;
   };
 
@@ -152,6 +157,7 @@ export function MonthYearPicker({
             type="button"
             disabled={disabled}
             aria-label={ariaLabel ?? "年月を選択"}
+            aria-required={required || undefined}
             className={cn(
               "relative flex h-9.5 items-center justify-between rounded-md border border-gray-400 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm transition-colors",
               // clearable のときは×の分だけ幅を常に広げる（値の有無で幅が変わると隣の項目がずれ、
@@ -163,7 +169,7 @@ export function MonthYearPicker({
               className,
             )}
           >
-            <span className={cn("truncate", !value && "text-gray-400")}>
+            <span className={cn("truncate", !value && "text-gray-500")}>
               {value || "YYYY/MM"}
             </span>
             <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
@@ -173,11 +179,12 @@ export function MonthYearPicker({
           <button
             type="button"
             aria-label="年月をクリア"
+            title="年月をクリア"
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -206,7 +213,7 @@ export function MonthYearPicker({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="font-semibold text-sm">
+            <div className="font-bold text-sm">
               {selectedYear}年
             </div>
             <Button

@@ -1,22 +1,38 @@
-import { CollapsibleCard } from '../../ui/collapsible-card';
 import { Save, Send, Check, Undo2, History, CornerUpLeft } from 'lucide-react';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { RightPane } from '../../ui/right-pane';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { GetRowIdParams, GridApi } from 'ag-grid-community';
+import type {
+  CellClassParams,
+  CellValueChangedEvent,
+  GetRowIdParams,
+  GridApi,
+} from 'ag-grid-community';
+
+import { Input } from '../../ui/input';
+import { CollapsibleCard } from '../../ui/collapsible-card';
+import { NumericInput } from '../../ui/numeric-input';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { RightPane } from '../../ui/right-pane';
 import { AggregationPane } from './components/AggregationPane';
 import {
   GRID_COLORS,
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
+  isEmptyCellDisplay,
   GRID_EMPTY_TEXT,
   useGridColumnState,
   readSavedColumnState,
   saveGridColumnState,
   GRID_NO_FILTER_COLUMN_TYPES,
+  useChangedCells,
+  withComparableCellValues,
 } from '../../grid';
-import { FORM_LABEL_CLASS } from '../../../../styles/commonStyles';
+import {
+  FORM_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+  BUTTON_STYLES,
+  BUTTON_BASE,
+} from '../../../../styles/commonStyles';
 import {
   PLAN_BASIC_INFO_LABEL_WIDTH,
   PlanBasicInfoField,
@@ -37,7 +53,7 @@ import {
   firstStoreCode,
   thirdStoreCode,
 } from '../../../constants/storeTierMockData';
-import { joinCodeName } from '../../../utils/nameCode';
+import { joinCodeName } from '../../../utils/common/nameCode';
 import { ScreenTitle } from '../../ui/screen-title';
 import { valueOrEmpty } from '../../ui/empty-value';
 
@@ -45,9 +61,14 @@ import { valueOrEmpty } from '../../ui/empty-value';
 // （画面設計標準 3.11。グレーは defaultColDef の cellClassRules 'cell-empty'）。
 const toHalfWidthDash = (text: string): string =>
   text === '－' ? GRID_EMPTY_TEXT : text;
-// 値が無いセルの「-」をグレーにする（共通の既定列設定のルールを流用）
-const EMPTY_CELL_CLASS_RULES = {
-  'cell-empty': GRID_DEFAULT_COL_DEF.cellClassRules!['cell-empty'],
+// 共通の既定列設定のルールを流用する：値が無いセルの「-」をグレーにする（cell-empty）と、
+// 値を変えたセルを薄い黄＋オレンジ枠にする（ag-cell-changed。判定はグリッドの context.isCellChanged → 02 §7.2）
+const CELL_CLASS_RULES = {
+  // 比の列（前月比など）は値を持たず、cellRenderer が計算式（`${field}_formula`）から
+  // 比を計算して表示するため、計算式のあるセルは値が空でもグレー（cell-empty）にしない
+  'cell-empty': (p: CellClassParams) =>
+    !p.data?.[`${p.colDef?.field ?? ''}_formula`] && isEmptyCellDisplay(p),
+  'ag-cell-changed': GRID_DEFAULT_COL_DEF.cellClassRules!['ag-cell-changed'],
 };
 
 // 基本情報に表示する三次店/一次店。本画面では販売店・三次店・一次店がいずれも一意（1件）の
@@ -150,9 +171,7 @@ const REF_HIGHLIGHT_STYLE = {
 // px は使わず rem に統一する（枠線 1px 例外を除く）。グリッド固有のルール
 // （合計行・col17 白背景／転置後の行インデックス別インデント等）は各 <style> 側に置く。
 const gridOverrideStyles = (prefix: string) => `
-  /* 1階層目（最上位グループ行）のみ従来の灰背景を維持。2階層目以降は themeBalham 継承。 */
-  .${prefix} .ag-header-row-column-group:first-child { background-color: var(--grid-header-bg); }
-  .${prefix} .ag-header-cell-label { justify-content: center; }
+  /* （見出しの背景色・文字色は共通テーマ GRID_THEME に委ねる → 02 §7「ヘッダーの配色」・UI/UX UX-031） */
   .${prefix} .ag-header-cell-menu-button { display: none !important; }
   /* データ行は themeBalham 本来の表示を継承し、レイアウト（横余白）のみ指定する。 */
   .${prefix} .ag-cell { padding: 0 0.5rem; transition: background-color 0.2s ease; }
@@ -183,46 +202,6 @@ const gridOverrideStyles = (prefix: string) => `
   .${prefix} .ag-header-group-cell-label { white-space: normal !important; line-height: 1.3 !important; word-break: break-word !important; }
   .${prefix} .ag-header-cell-label { white-space: normal !important; line-height: 1.3 !important; word-break: break-word !important; }
 `;
-
-// 数式を表示するカスタムセルエディタ
-const FormulaEditor = (props: any) => {
-  const [value, setValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // 編集開始時に数式または値を設定
-    const fieldName = props.colDef?.field + '_formula';
-    if (props.data[fieldName]) {
-      setValue(props.data[fieldName]);
-    } else {
-      setValue(props.value || '');
-    }
-
-    // フォーカスを設定
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.select();
-      }
-    }, 0);
-  }, []);
-
-  return (
-    <input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          props.stopEditing();
-        } else if (e.key === 'Escape') {
-          props.stopEditing(true);
-        }
-      }}
-      className="w-full h-full border-none outline-none px-1 text-sm text-right"
-    />
-  );
-};
 
 // マウスオーバー時のツールチップ（画面設計標準準拠）を列定義へ付与するヘルパー。
 // ・ヘッダー：列幅で省略された見出しを全文表示（AG Grid公式 headerTooltip）。
@@ -275,7 +254,7 @@ export default function PlanDetailVending({
   onMenuChange,
 }: PlanDetailVendingProps = {}) {
   // 「一覧へ戻る」押下時の確認ダイアログ表示状態
-  const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [isBackConfirmShown, setIsBackConfirmShown] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   // 基本情報の対象年月（月ストリップ）。基準画面 計画詳細(マージン率固定・NET入力)と同様、
   // 画面内で保持する（本画面では表示専用でグリッドへは連動しない）。
@@ -289,7 +268,7 @@ export default function PlanDetailVending({
   const highlightedCellsRef = useRef<string[]>([]);
   const gridRef = useRef<any>(null);
   // 数式ガイド
-  const [showFormulaGuide, setShowFormulaGuide] = useState(false);
+  const [isFormulaGuideShown, setIsFormulaGuideShown] = useState(false);
   const showFormulaGuideRef = useRef(false);
   // クリックした起点セル（青で強調）。販売/経費どちらのグリッドかも保持する。
   const [clickedCell, setClickedCell] = useState<{
@@ -339,7 +318,7 @@ export default function PlanDetailVending({
   const [isDiffMode, setIsDiffMode] = useState(false);
 
   // コメント機能
-  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   // コメント履歴ペインのモックデータ。
   // 販売計画の実際の流れ（未申請 → 承認待ち → 差戻し → 承認待ち → 承認済み → 確定）を
@@ -347,7 +326,7 @@ export default function PlanDetailVending({
   // ※もう一つの終了ステータス「未承認確定」はシステムが自動実行するもので、
   //   確定とは排他のためこの履歴には含めない（発生時は承認者・コメントを持たない）。
   // action は行った操作、status はその操作の後の計画ステータス。支払詳細の
-  // コメント履歴（shared/CommentHistoryPane）と同じ持ち方・同じ体裁で表示する。
+  // コメント履歴（shared/common/CommentHistoryPane）と同じ持ち方・同じ体裁で表示する。
   const [commentHistory] = useState([
     {
       action: '確定',
@@ -393,6 +372,44 @@ export default function PlanDetailVending({
     },
   ]);
   const isDiffModeRef = useRef(false);
+
+  // 値を変えたセルの強調（薄い黄＋オレンジ枠。元の値に戻したら解除 → 02 §7.2）。グリッドごとに1つ。
+  // 数式で計算し直したセルは対象外（利用者が編集したセルだけ）。
+  // ※ 保存の処理はまだ無いため、保存確定時の resetChangedCells は保存を作るときに入れる。
+  const salesPlanChanged = useChangedCells();
+  const expensePlanChanged = useChangedCells();
+  const salesPlanGridContext = useMemo(
+    () => ({ isCellChanged: salesPlanChanged.isCellChanged }),
+    [salesPlanChanged.isCellChanged]
+  );
+  const expensePlanGridContext = useMemo(
+    () => ({ isCellChanged: expensePlanChanged.isCellChanged }),
+    [expensePlanChanged.isCellChanged]
+  );
+  // 編集の確定（元に戻す・やり直しを含む）で変更を記録し、そのセルの強調を描き直す。
+  // 列ごとの onCellValueChanged（再計算）は列定義側でそのまま動く。
+  const handleSalesPlanCellValueChanged = useCallback(
+    (e: CellValueChangedEvent) => {
+      salesPlanChanged.trackCellChange(withComparableCellValues(e));
+      e.api.refreshCells({
+        rowNodes: [e.node],
+        columns: [e.column],
+        force: true,
+      });
+    },
+    [salesPlanChanged]
+  );
+  const handleExpensePlanCellValueChanged = useCallback(
+    (e: CellValueChangedEvent) => {
+      expensePlanChanged.trackCellChange(withComparableCellValues(e));
+      e.api.refreshCells({
+        rowNodes: [e.node],
+        columns: [e.column],
+        force: true,
+      });
+    },
+    [expensePlanChanged]
+  );
 
   // 列状態（列幅・列の表示/非表示）の保存／復元（共通フック）。
   // 初回表示のみ既定の列設定（全社設定）を onFirstDataRendered で適用するため、
@@ -1098,8 +1115,8 @@ export default function PlanDetailVending({
 
   // 数式ガイドトグル：refを同期し、OFF時はハイライト・ツールチップをクリア
   useEffect(() => {
-    showFormulaGuideRef.current = showFormulaGuide;
-    if (!showFormulaGuide) {
+    showFormulaGuideRef.current = isFormulaGuideShown;
+    if (!isFormulaGuideShown) {
       setHighlightedCells([]);
       setExpenseHighlightedCells([]);
       setExpenseDependentHighlights([]);
@@ -1109,7 +1126,7 @@ export default function PlanDetailVending({
       setClickedCell(null);
       setFormulaTooltip(null);
     }
-  }, [showFormulaGuide]);
+  }, [isFormulaGuideShown]);
 
   // isDiffModeが切り替わったらrefを同期して両グリッドを再描画
   useEffect(() => {
@@ -1643,7 +1660,7 @@ export default function PlanDetailVending({
       'catShishaBKyotsu',
       'catShishaBKaitaku',
     ];
-    const JISSEKI_FIELDS = [
+    const ACTUAL_FIELDS = [
       'catZengetsuJisseki',
       'catYosan',
       'catZennenJisseki',
@@ -1664,7 +1681,7 @@ export default function PlanDetailVending({
         // 604…(12) の拠点列は子行から算出する値のため起点から除外する。
         (BRANCH_FIELDS.includes(field) &&
           [9, 10, 11, 13, 14].includes(rowIndex)) ||
-        (JISSEKI_FIELDS.includes(field) &&
+        (ACTUAL_FIELDS.includes(field) &&
           // 経費金額合計(0) は算出値のため起点から除外。
           // ロケ運転費(7) の実績列は数式を持たない固定値のため起点に含める
           //（ロケ運転費率(8)・経費金額合計(0) の実績列の算出元になる）。
@@ -2472,7 +2489,7 @@ export default function PlanDetailVending({
           : oneDecimal
             ? '±0.0'
             : '±0',
-        color: '#374151',
+        color: GRID_COLORS.neutralText,
       };
     if (diff > 0)
       return {
@@ -2488,12 +2505,13 @@ export default function PlanDetailVending({
   const shukkaWorkingDays = useMemo(() => {
     const v = salesPlanData[0]?.col17;
     const current = v != null ? String(v) : '';
-    if (!isDiffMode) return { text: current, color: '#374151', isInput: true };
+    if (!isDiffMode)
+      return { text: current, color: GRID_COLORS.neutralText, isInput: true };
     const num = parseFloat(String(v || '0').replace(/,/g, ''));
     if (isNaN(num))
       return {
         text: current,
-        color: '#374151',
+        color: GRID_COLORS.neutralText,
         isInput: false,
       };
     return { ...calcHeaderDiff(num, 20), isInput: false };
@@ -2505,7 +2523,8 @@ export default function PlanDetailVending({
   // 差分表示は同じ値を基準にした差を出す（現状は表示値＝基準値のため ±0）。
   const prevYearShukkaWorkingDays = useMemo(() => {
     const current = PREV_YEAR_SHIPPING_WORKING_DAYS;
-    if (!isDiffMode) return { text: String(current), color: '#374151' };
+    if (!isDiffMode)
+      return { text: String(current), color: GRID_COLORS.neutralText };
     return calcHeaderDiff(current, PREV_YEAR_SHIPPING_WORKING_DAYS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDiffMode]);
@@ -2514,11 +2533,15 @@ export default function PlanDetailVending({
     const col17 = parseFloat(
       String(salesPlanData[0]?.col17 || '0').replace(/,/g, '')
     );
-    if (isNaN(col17) || col17 === 0) return { text: '－', color: '#374151' };
+    if (isNaN(col17) || col17 === 0)
+      return { text: '－', color: GRID_COLORS.neutralText };
     // 小数第1位まで表示（小数第2位を四捨五入）。差分も同様。
     const current = (col17 / PREV_YEAR_SHIPPING_WORKING_DAYS) * 100;
     if (!isDiffMode)
-      return { text: formatDecimal1(current) + '%', color: '#374151' };
+      return {
+        text: formatDecimal1(current) + '%',
+        color: GRID_COLORS.neutralText,
+      };
     return calcHeaderDiff(current, 105.3, true, true);
   }, [salesPlanData, isDiffMode]);
 
@@ -2582,8 +2605,8 @@ export default function PlanDetailVending({
   const progressRate = useMemo(() => {
     const row0 = salesPlanData[0];
     if (!row0 || !row0.col5_formula) {
-      const text = String(row0?.col5 ?? '－');
-      return { text, color: '#374151' };
+      const text = String(row0?.col5 ?? GRID_EMPTY_TEXT);
+      return { text, color: GRID_COLORS.neutralText };
     }
     // 商流販売店計の当月函数(col4) ÷ 商流販売店計の合計函数(col6) × 100
     const col4 = parseFloat(String(row0.col4 || '0').replace(/,/g, '')) || 0;
@@ -2591,7 +2614,10 @@ export default function PlanDetailVending({
     // 小数第1位まで表示（小数第2位を四捨五入）。差分も同様。
     const current = col6Total === 0 ? 0 : (col4 / col6Total) * 100;
     if (!isDiffMode)
-      return { text: formatDecimal1(current) + '%', color: '#374151' };
+      return {
+        text: formatDecimal1(current) + '%',
+        color: GRID_COLORS.neutralText,
+      };
     return calcHeaderDiff(current, 41.7, true, true);
   }, [salesPlanData, isDiffMode]);
 
@@ -3196,8 +3222,6 @@ export default function PlanDetailVending({
     if (params.node?.rowPinned === 'top') {
       return {
         backgroundColor: GRID_COLORS.readonly,
-        // 固定上段（単位・税抜き注記行）も AG Grid 標準の text-sm(0.875rem) に統一
-        fontSize: '0.875rem',
         textAlign: 'center',
         display: 'flex',
         alignItems: 'center',
@@ -3231,8 +3255,6 @@ export default function PlanDetailVending({
       return {
         backgroundColor: bg,
         fontWeight: 'bold',
-        fontSize: '0.875rem',
-        lineHeight: '2rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent,
@@ -3260,8 +3282,6 @@ export default function PlanDetailVending({
 
     return {
       backgroundColor: bgColor,
-      fontSize: '0.875rem',
-      lineHeight: '2rem',
       display: 'flex',
       alignItems: 'center',
       justifyContent,
@@ -3285,8 +3305,6 @@ export default function PlanDetailVending({
     if (params.node?.rowPinned === 'top') {
       return {
         backgroundColor: GRID_COLORS.readonly,
-        // 固定上段（単位・税抜き注記行）も AG Grid 標準の text-sm(0.875rem) に統一
-        fontSize: '0.875rem',
         textAlign: 'center',
         display: 'flex',
         alignItems: 'center',
@@ -3319,8 +3337,6 @@ export default function PlanDetailVending({
       return {
         backgroundColor: bg,
         fontWeight: 'bold',
-        fontSize: '0.875rem',
-        lineHeight: '2rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent,
@@ -3340,8 +3356,6 @@ export default function PlanDetailVending({
     const bg = isEditable ? GRID_COLORS.editable : GRID_COLORS.readonly;
     return {
       backgroundColor: bg,
-      fontSize: '0.875rem',
-      lineHeight: '2rem',
       display: 'flex',
       alignItems: 'center',
       justifyContent,
@@ -3363,9 +3377,8 @@ export default function PlanDetailVending({
       {
         headerName: '',
         field: 'category',
-        width: 200,
+        width: 160,
         lockPosition: true,
-        headerClass: 'ag-header-cell-left',
         cellClass: (params) => {
           if (params.node?.rowPinned === 'top') {
             return '';
@@ -3376,12 +3389,7 @@ export default function PlanDetailVending({
           if (params.node?.rowPinned === 'top') {
             return {
               backgroundColor: GRID_COLORS.readonly,
-              // 固定上段（税抜き注記行）も AG Grid 標準の text-sm(0.875rem) に統一
-              fontSize: '0.875rem',
               textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             };
           }
           const rowIndex = params.node?.rowIndex ?? -1;
@@ -3395,8 +3403,6 @@ export default function PlanDetailVending({
             return {
               backgroundColor: GRID_COLORS.total,
               fontWeight: 'bold',
-              fontSize: '0.875rem',
-              lineHeight: '2rem',
               paddingLeft: '0.5rem',
               border: isHighlighted ? REF_HIGHLIGHT_BORDER : undefined,
             };
@@ -3405,8 +3411,6 @@ export default function PlanDetailVending({
             backgroundColor: GRID_COLORS.readonly,
             // 合計行以外の行タイトルは太字にしない（太字は合計行のみ／標準準拠）
             fontWeight: 'normal',
-            fontSize: '0.875rem',
-            lineHeight: '2rem',
             paddingLeft: '0.5rem',
             border: isHighlighted ? REF_HIGHLIGHT_BORDER : undefined,
           };
@@ -3418,11 +3422,10 @@ export default function PlanDetailVending({
           {
             headerName: '当月計画',
             field: 'col1',
-            width: 80,
+            width: 64,
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col1'),
-            cellEditor: FormulaEditor,
             tooltipValueGetter: (params) => {
               if (params.data.col1_formula) {
                 const rowIndex = params.node?.rowIndex ?? -1;
@@ -3557,7 +3560,7 @@ export default function PlanDetailVending({
               {
                 headerName: '金額',
                 field: 'col21',
-                width: 80,
+                width: 64,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: false,
                 cellStyle: (params) => getCellStyle(params, 'right'),
@@ -3565,7 +3568,7 @@ export default function PlanDetailVending({
               {
                 headerName: '予算比',
                 field: 'col22',
-                width: 70,
+                width: 56,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: false,
                 tooltipValueGetter: (params) => {
@@ -3623,12 +3626,11 @@ export default function PlanDetailVending({
               {
                 headerName: '金額',
                 field: 'col2',
-                width: 80,
+                width: 64,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col2'),
-                cellEditor: FormulaEditor,
                 tooltipValueGetter: (params) => {
                   if (params.data.col2_formula) {
                     const rowIndex = params.node?.rowIndex ?? -1;
@@ -3701,11 +3703,10 @@ export default function PlanDetailVending({
               {
                 headerName: '前年比',
                 field: 'col3',
-                width: 70,
+                width: 56,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col3'),
-                cellEditor: FormulaEditor,
                 tooltipValueGetter: (params) => {
                   if (params.data.col3_formula) {
                     return '数式: 当月計画 ÷ 前年実績';
@@ -3804,7 +3805,7 @@ export default function PlanDetailVending({
           {
             headerName: '当月実績',
             field: 'col4',
-            width: 80,
+            width: 64,
             hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
             editable: (params) =>
               !params.node?.rowPinned &&
@@ -3824,17 +3825,11 @@ export default function PlanDetailVending({
           {
             headerName: '合計函数',
             field: 'col6',
-            width: 80,
+            width: 64,
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col6'),
-            cellEditorSelector: (params) => {
-              // rows 4,5 は通常テキスト入力（FormulaEditorを使わない）
-              if (params.node?.rowIndex === 4 || params.node?.rowIndex === 5) {
-                return { component: 'agTextCellEditor' };
-              }
-              return { component: FormulaEditor };
-            },
+            // 編集できるのは 4・5 行目だけ（isCellTrigger）で、標準の文字入力で編集する
             tooltipValueGetter: (params) => {
               if (params.data.col6_formula) {
                 const rowIndex = params.node?.rowIndex ?? -1;
@@ -3940,7 +3935,7 @@ export default function PlanDetailVending({
               {
                 headerName: '函数',
                 field: 'col23',
-                width: 80,
+                width: 64,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: false,
                 cellStyle: (params) => getCellStyle(params, 'right'),
@@ -3948,7 +3943,7 @@ export default function PlanDetailVending({
               {
                 headerName: '予算比',
                 field: 'col24',
-                width: 70,
+                width: 56,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: false,
                 tooltipValueGetter: (params) => {
@@ -4006,7 +4001,7 @@ export default function PlanDetailVending({
               {
                 headerName: '前年函数',
                 field: 'col7',
-                width: 80,
+                width: 64,
                 hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
                 editable: (params) =>
                   !params.node?.rowPinned &&
@@ -4069,11 +4064,10 @@ export default function PlanDetailVending({
               {
                 headerName: '前年比',
                 field: 'col8',
-                width: 70,
+                width: 56,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col8'),
-                cellEditor: FormulaEditor,
                 tooltipValueGetter: (params) => {
                   if (params.data.col8_formula) {
                     return '数式: 合計函数 ÷ 前年函数';
@@ -4166,7 +4160,7 @@ export default function PlanDetailVending({
           {
             headerName: '平均入数',
             field: 'col9',
-            width: 80,
+            width: 64,
             hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
             editable: (params) =>
               !params.node?.rowPinned &&
@@ -4204,12 +4198,11 @@ export default function PlanDetailVending({
           {
             headerName: '合計本数',
             field: 'col10',
-            width: 80,
+            width: 64,
             hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col10'),
-            cellEditor: FormulaEditor,
             tooltipValueGetter: (params) => {
               if (params.data.col10_formula) {
                 const rowIndex = params.node?.rowIndex ?? -1;
@@ -4328,11 +4321,10 @@ export default function PlanDetailVending({
               {
                 headerName: '専用機PM/提携機PC',
                 field: 'col11',
-                width: 110,
+                width: 88,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col11'),
-                cellEditor: FormulaEditor,
                 tooltipValueGetter: (params) => {
                   if (params.data.col11_formula) {
                     const rowIndex = params.node?.rowIndex ?? -1;
@@ -4417,7 +4409,7 @@ export default function PlanDetailVending({
                 // 編集可否は isCellEditable が一元管理しており、当列は対象外＝入力不可。
                 headerName: '前年PM/PC',
                 field: 'col25',
-                width: 100,
+                width: 80,
                 // col11 と同じ小数第1位まで表示。"－"・空は素通し。
                 valueFormatter: (params) => {
                   const v = params.value;
@@ -4431,7 +4423,7 @@ export default function PlanDetailVending({
               {
                 headerName: 'PM/PC商談見込',
                 field: 'col12',
-                width: 100,
+                width: 80,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col12'),
@@ -4460,7 +4452,7 @@ export default function PlanDetailVending({
           {
             headerName: '直近変動率',
             field: 'col13',
-            width: 90,
+            width: 72,
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col13'),
@@ -4501,11 +4493,10 @@ export default function PlanDetailVending({
               {
                 headerName: '稼働台数(コラム)',
                 field: 'col14',
-                width: 100,
+                width: 80,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col14'),
-                cellEditor: FormulaEditor,
                 tooltipValueGetter: (params) => {
                   if (params.data.col14_formula) {
                     const rowIndex = params.node?.rowIndex ?? -1;
@@ -4614,7 +4605,7 @@ export default function PlanDetailVending({
                 // 編集可否は isCellEditable が一元管理しており、当列は対象外＝入力不可。
                 headerName: '直近台数(コラム)',
                 field: 'col26',
-                width: 120,
+                width: 96,
                 // 台数（コラム数）は整数で3桁区切り表示。"－"・空は素通し。
                 valueFormatter: (params) => {
                   const v = params.value;
@@ -4628,7 +4619,7 @@ export default function PlanDetailVending({
               {
                 headerName: '台/コラム商談見込',
                 field: 'col15',
-                width: 120,
+                width: 96,
                 editable: (params) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col15'),
@@ -4683,7 +4674,7 @@ export default function PlanDetailVending({
             // 単一リーフ列（函単価）として表示する
             headerName: '函単価',
             field: 'col18',
-            width: 80,
+            width: 64,
             editable: (params) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col18'),
@@ -4733,7 +4724,7 @@ export default function PlanDetailVending({
             field: 'col20',
             wrapHeaderText: true,
             autoHeaderHeight: true,
-            width: 210,
+            width: 168,
             hide: true, // 初期非表示（→ SALES_PLAN_INITIAL_HIDDEN_COLS）
             editable: (params) =>
               !params.node?.rowPinned &&
@@ -4760,13 +4751,7 @@ export default function PlanDetailVending({
       filter: false,
       suppressMovable: true,
       suppressMenu: true,
-      cellClassRules: EMPTY_CELL_CLASS_RULES,
-      cellStyle: {
-        fontSize: '0.875rem',
-        lineHeight: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-      },
+      cellClassRules: CELL_CLASS_RULES,
       cellRenderer: (params: any) => {
         // ピン行（単位行）はそのまま表示
         if (params.node?.rowPinned) {
@@ -4889,13 +4874,7 @@ export default function PlanDetailVending({
       filter: false,
       suppressMovable: true,
       suppressMenu: true,
-      cellClassRules: EMPTY_CELL_CLASS_RULES,
-      cellStyle: {
-        fontSize: '0.875rem',
-        lineHeight: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-      },
+      cellClassRules: CELL_CLASS_RULES,
       cellRenderer: (params: any) => {
         if (params.node?.rowPinned) {
           return (
@@ -5276,7 +5255,7 @@ export default function PlanDetailVending({
       field,
       wrapHeaderText: true,
       autoHeaderHeight: true,
-      width: 110,
+      width: 88,
       editable: (params: any) =>
         isExpenseCellEditable(params.node?.rowIndex ?? -1, field),
       valueGetter: (params: any) => {
@@ -5294,7 +5273,7 @@ export default function PlanDetailVending({
     });
 
     // 実績/予算列（読み取り専用）
-    const plainCol = (field: string, headerName: string, width = 120) => ({
+    const plainCol = (field: string, headerName: string, width = 96) => ({
       headerName,
       field,
       width,
@@ -5333,7 +5312,7 @@ export default function PlanDetailVending({
     });
 
     // 比列（cellRenderer が比率を算出）
-    const ratioCol = (field: string, headerName: string, width = 100) => ({
+    const ratioCol = (field: string, headerName: string, width = 80) => ({
       headerName,
       field,
       width,
@@ -5350,21 +5329,15 @@ export default function PlanDetailVending({
         // 経費項目ラベル
         headerName: '経費項目',
         field: 'category',
-        width: 240,
+        width: 192,
         lockPosition: true,
-        headerClass: 'ag-header-cell-left',
         cellClass: (params: any) =>
           params.node?.rowPinned === 'top' ? '' : 'ag-cell-left',
         cellStyle: (params: any) => {
           if (params.node?.rowPinned === 'top') {
             return {
               backgroundColor: GRID_COLORS.readonly,
-              // 固定上段（税抜き注記行）も AG Grid 標準の text-sm(0.875rem) に統一
-              fontSize: '0.875rem',
               textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             };
           }
           const rowIndex = params.node?.rowIndex ?? -1;
@@ -5384,8 +5357,6 @@ export default function PlanDetailVending({
                   : GRID_COLORS.readonly,
             // 太字は合計行（経費金額合計＝rowIndex 0）のみ（標準準拠）
             fontWeight: rowIndex === 0 ? 'bold' : 'normal',
-            fontSize: '0.875rem',
-            lineHeight: '2rem',
             paddingLeft,
             border: isHighlighted ? REF_HIGHLIGHT_BORDER : undefined,
           };
@@ -5439,23 +5410,14 @@ export default function PlanDetailVending({
                     ? GRID_COLORS.decreaseText
                     : '#374151';
               return (
-                <span
-                  style={{
-                    // セル幅いっぱいに広げ、差分表示を marginLeft:auto でセル右端へ寄せる
-                    // （category 列の cell-wrapper/value は下部 style で幅100%に拡張）。
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '100%',
-                  }}
-                >
+                // セル幅いっぱいに広げ、差分表示を ml-auto でセル右端へ寄せる
+                // （category 列の cell-wrapper/value は下部 style で幅100%に拡張）。
+                // 文字色は増減で変わる動的値のため style で渡す。
+                <span className="flex w-full items-center">
                   <span>{label}</span>
                   <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: '0.6875rem',
-                      fontWeight: 500,
-                      color: diffColor,
-                    }}
+                    className="ml-auto text-xs font-medium"
+                    style={{ color: diffColor }}
                   >
                     {diffText}
                   </span>
@@ -5483,23 +5445,18 @@ export default function PlanDetailVending({
               recalculateExpensePlan();
             };
             return (
-              <span
-                style={{
-                  // セル幅いっぱいに広げ、入力ボックスを ml-auto でセル右端へ寄せる
-                  // （category 列の cell-wrapper/value は下部 style で幅100%に拡張）。
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-              >
+              // セル幅いっぱいに広げ、入力ボックスを ml-auto でセル右端へ寄せる
+              // （category 列の cell-wrapper/value は下部 style で幅100%に拡張）。
+              <span className="flex w-full items-center">
                 <span>{label}</span>
-                <input
+                <Input
                   type="text"
+                  // 入力中の再レンダリングでフォーカスが外れないよう非制御入力にし、
+                  // 外部値が変わったら key で再初期化する（key は spread せず直接渡す）
+                  key={isRateEditable ? rateDisplay : 'readonly'}
                   {...(isRateEditable
                     ? {
-                        // 入力中の再レンダリングでフォーカスが外れないよう非制御入力にし、
-                        // 外部値が変わったら key で再初期化、確定は onBlur で行う。
-                        key: rateDisplay,
+                        // 確定は onBlur で行う
                         defaultValue: rateDisplay,
                         // 参照のみの率ボックスと同様に、クリック時は AG Grid の
                         // セルクリック（onExpenseCellClicked）で依存先（オレンジ）を
@@ -5518,7 +5475,8 @@ export default function PlanDetailVending({
                       })}
                   title={data.rateLabel}
                   aria-label={data.rateLabel}
-                  className={`ml-auto w-12 h-5 text-xs font-medium text-right text-blue-600 rounded-sm px-1 ${
+                  // 入力欄はほかの入力欄と同じ標準の見た目（TEXT_INPUT_CLASS → 02 §10.2）
+                  className={`${TEXT_INPUT_CLASS} ml-auto w-20 min-w-0 text-right text-blue-600 ${
                     isRateEditable ? 'cursor-text' : 'cursor-pointer'
                   }`}
                   style={{
@@ -5540,7 +5498,7 @@ export default function PlanDetailVending({
         // 計画金額
         headerName: '計画金額',
         field: 'catPlan',
-        width: 120,
+        width: 96,
         editable: (params: any) =>
           isExpenseCellEditable(params.node?.rowIndex ?? -1, 'catPlan'),
         valueGetter: (params: any) => {
@@ -5669,7 +5627,7 @@ export default function PlanDetailVending({
   // 凡例は色相に加え実線/破線でも参照・依存を区別する（→ 06 色以外の手がかり）。
   const formulaGuideActions = (
     <>
-      {showFormulaGuide && (
+      {isFormulaGuideShown && (
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-4 h-4 rounded-sm border-2 border-solid border-blue-500" />
@@ -5693,18 +5651,18 @@ export default function PlanDetailVending({
       <span className="mr-12 flex h-8 items-center gap-2">
         <Switch
           id="formula-guide"
-          checked={showFormulaGuide}
-          onCheckedChange={setShowFormulaGuide}
+          checked={isFormulaGuideShown}
+          onCheckedChange={setIsFormulaGuideShown}
           className="h-5 w-9 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300"
           aria-label="数式ガイドを切り替える"
         />
         <label
           htmlFor="formula-guide"
           className={`cursor-pointer text-sm font-medium whitespace-nowrap ${
-            showFormulaGuide ? 'text-green-700' : 'text-gray-500'
+            isFormulaGuideShown ? 'text-green-700' : 'text-gray-500'
           }`}
         >
-          数式ガイド {showFormulaGuide ? 'ON' : 'OFF'}
+          数式ガイド {isFormulaGuideShown ? 'ON' : 'OFF'}
         </label>
       </span>
     </>
@@ -5712,7 +5670,7 @@ export default function PlanDetailVending({
 
   return (
     <div
-      className="min-w-[75rem]"
+      className="min-w-300"
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest('.ag-cell'))
           setFormulaTooltip(null);
@@ -5721,7 +5679,7 @@ export default function PlanDetailVending({
       {/* 浮遊数式ツールチップ（表示位置のみ動的値のため inline、他は Tailwind） */}
       {formulaTooltip && (
         <div
-          className="fixed z-[9999] bg-gray-800 text-gray-50 text-xs py-1.5 px-2.5 rounded-md max-w-[22.5rem] shadow-lg pointer-events-none whitespace-pre-wrap leading-normal"
+          className="fixed z-70 bg-gray-800 text-gray-50 text-xs py-1.5 px-2.5 rounded-md max-w-90 shadow-lg pointer-events-none whitespace-pre-wrap leading-normal"
           style={{
             left: formulaTooltip.x,
             top: formulaTooltip.y - window.scrollY,
@@ -5783,11 +5741,11 @@ export default function PlanDetailVending({
                   // 必要幅を縮める（読み上げ名は aria-label で維持）。
                   <button
                     type="button"
-                    onClick={() => setCommentPanelOpen((v) => !v)}
-                    className="flex items-center gap-1 bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-xs"
+                    onClick={() => setIsCommentPanelOpen((v) => !v)}
+                    className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-1 px-2 py-1 whitespace-nowrap text-xs`}
                     aria-label="コメント履歴"
                   >
-                    <History className="h-[0.875rem] w-[0.875rem]" />
+                    <History className="h-4 w-4" />
                     <span className="hidden 2xl:inline">コメント履歴</span>
                   </button>
                 }
@@ -5922,8 +5880,9 @@ export default function PlanDetailVending({
                   </label>
                   {shukkaWorkingDays.isInput ? (
                     <>
-                      <input
-                        type="number"
+                      <NumericInput
+                        maxFractionDigits={0}
+                        aria-label="出荷稼働日"
                         value={shukkaWorkingDays.text}
                         onChange={(e) => {
                           const newData = [...salesPlanData];
@@ -5940,7 +5899,7 @@ export default function PlanDetailVending({
                             ? REF_HIGHLIGHT_STYLE
                             : undefined
                         }
-                        className="w-20 h-8 border border-gray-300 rounded px-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className={`${TEXT_INPUT_CLASS} w-20 text-right`}
                       />
                       <span className="text-xs text-gray-500">日</span>
                     </>
@@ -6045,8 +6004,6 @@ export default function PlanDetailVending({
                 <style>{`
                   ${gridOverrideStyles('sales-plan-grid')}
                   /* ── 販売計画固有ルール ── */
-                  /* カテゴリ列ヘッダーの左寄せ */
-                  .sales-plan-grid .ag-header-cell-left .ag-header-cell-label { justify-content: flex-start !important; }
                   /* カテゴリ列（行タイトル）の左インデント */
                   .sales-plan-grid .ag-cell[col-id="category"] { padding-left: 0.5rem !important; }
                   .sales-plan-grid .ag-row:not(.ag-row-pinned) .ag-cell[col-id="category"] { padding-left: 0.5rem !important; }
@@ -6062,10 +6019,11 @@ export default function PlanDetailVending({
                      対象は col-id で当該列に限定し、他列の折り返しには影響させない。 */
                   .sales-plan-grid .ag-header-cell[col-id="col20"] .ag-header-cell-text {
                     white-space: pre-line !important;
-                    text-align: center;
                   }
                 `}</style>
+                {/* 規約例外（集計表）：商品の区分ごとの行が決まっている計画表のため、件数表示（statusBar）は付けない */}
                 <AgGridReact
+                  className="grid-summary-table"
                   {...salesPlanColumnStateProps}
                   // 共通基本プロパティ（Enter縦移動・Excelライク編集・テキスト選択・
                   // Undo/Redo・列仮想化抑止）。singleClickEdit を持たないため編集は
@@ -6073,6 +6031,8 @@ export default function PlanDetailVending({
                   {...GRID_BASE_PROPS}
                   ref={gridRef}
                   rowData={salesPlanData}
+                  context={salesPlanGridContext}
+                  onCellValueChanged={handleSalesPlanCellValueChanged}
                   columnDefs={salesPlanColumnDefsWithTooltips}
                   defaultColDef={salesPlanDefaultColDef}
                   // defaultColDef で filter: false のため、型によるフィルタの追加を止める（→ grid/gridCommon）
@@ -6232,10 +6192,11 @@ export default function PlanDetailVending({
                     .ag-header-cell[col-id='catShishaBKaitaku']
                     .ag-header-cell-text {
                     white-space: pre-line !important;
-                    text-align: center;
                   }
                 `}</style>
+                {/* 規約例外（集計表）：経費項目ごとの行が決まっている計画表のため、件数表示（statusBar）は付けない */}
                 <AgGridReact
+                  className="grid-summary-table"
                   {...expensePlanColumnStateProps}
                   // 共通基本プロパティ（Enter縦移動・Excelライク編集・テキスト選択・
                   // Undo/Redo・列仮想化抑止）。singleClickEdit を持たないため編集は
@@ -6243,6 +6204,8 @@ export default function PlanDetailVending({
                   {...GRID_BASE_PROPS}
                   ref={expenseGridRef}
                   rowData={expensePlanData}
+                  context={expensePlanGridContext}
+                  onCellValueChanged={handleExpensePlanCellValueChanged}
                   columnDefs={expensePlanColumnDefsWithTooltips}
                   defaultColDef={expensePlanDefaultColDef}
                   // defaultColDef で filter: false のため、型によるフィルタの追加を止める（→ grid/gridCommon）
@@ -6311,7 +6274,7 @@ export default function PlanDetailVending({
           <div className="flex flex-wrap gap-3">
             <button
               className="btn-action-base btn-action-outline"
-              onClick={() => setShowBackConfirm(true)}
+              onClick={() => setIsBackConfirmShown(true)}
               aria-label="一覧へ戻る"
             >
               <Undo2 className="h-4 w-4" />
@@ -6333,7 +6296,7 @@ export default function PlanDetailVending({
                 onChange={(e) => setCommentInput(e.target.value)}
                 placeholder="コメントを入力（差戻し理由など）"
                 rows={2}
-                className="h-10 w-[24rem] min-w-[10rem] max-w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                className="h-10 w-96 min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
               />
             </div>
             <button
@@ -6377,8 +6340,8 @@ export default function PlanDetailVending({
 
       {/* コメント履歴右ペイン（共通 RightPane：販売計画表(商流紐づけなし)と同一スタイル） */}
       <RightPane
-        open={commentPanelOpen}
-        onClose={() => setCommentPanelOpen(false)}
+        open={isCommentPanelOpen}
+        onClose={() => setIsCommentPanelOpen(false)}
         title="コメント履歴"
         description=""
       >
@@ -6409,15 +6372,15 @@ export default function PlanDetailVending({
 
       {/* 戻る（画面移動）の確認: 入力中データの破棄を確認する */}
       <ConfirmDialog
-        open={showBackConfirm}
+        open={isBackConfirmShown}
         title="画面移動の確認"
         confirmLabel="移動"
         description="入力中のデータが破棄されます。本当によろしいですか？"
         onConfirm={() => {
-          setShowBackConfirm(false);
+          setIsBackConfirmShown(false);
           onMenuChange?.('plan-list');
         }}
-        onCancel={() => setShowBackConfirm(false)}
+        onCancel={() => setIsBackConfirmShown(false)}
       />
     </div>
   );

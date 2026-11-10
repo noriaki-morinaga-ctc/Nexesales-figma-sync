@@ -62,7 +62,7 @@ function LinkInsertDialog({
         if (!next) onCancel();
       }}
     >
-      <DialogContent className="max-w-[22.5rem]">
+      <DialogContent className="max-w-90">
         <DialogHeader>
           <DialogTitle className="text-base font-bold text-gray-900">
             {isEdit ? 'リンクを編集' : 'リンクを挿入'}
@@ -231,13 +231,13 @@ export function RichBodyEditor({
   const selectedImg = useRef<HTMLImageElement | null>(null);
   // 画像ボタン押下時のキャレット位置（ファイル選択ダイアログ後も挿入位置を保つ）
   const pendingRange = useRef<Range | null>(null);
-  const [linkOpen, setLinkOpen] = useState<boolean>(false);
+  const [isLinkOpen, setIsLinkOpen] = useState<boolean>(false);
   const [linkText, setLinkText] = useState<string>('');
   const [linkUrl, setLinkUrl] = useState<string>('');
   // 編集中の既存リンク（リンクの上でダイアログを開いたとき。新規挿入は null）
   const editingLink = useRef<HTMLAnchorElement | null>(null);
   const [isLinkEdit, setIsLinkEdit] = useState<boolean>(false);
-  const [dragOver, setDragOver] = useState<boolean>(false);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
   // ツールバーの装飾ボタンのアクティブ状態（現在のカーソル位置が太字/斜体…かどうか）。
   const [marks, setMarks] = useState<Marks>(EMPTY_MARKS);
   // 表示中のアクティブ状態（exec で「押した直後の状態」を求めるため ref にも持つ）
@@ -603,12 +603,12 @@ export function RichBodyEditor({
       setLinkText(r ? r.toString() : sel ? sel.toString() : '');
       setLinkUrl('');
     }
-    setLinkOpen(true);
+    setIsLinkOpen(true);
   };
-  const insertLink = () => {
+  const handleInsertLink = () => {
     const url = linkUrl.trim();
     if (!url) {
-      setLinkOpen(false);
+      setIsLinkOpen(false);
       return;
     }
     const text = linkText.trim() || url;
@@ -618,7 +618,7 @@ export function RichBodyEditor({
       link.setAttribute('href', url);
       link.textContent = text;
       editingLink.current = null;
-      setLinkOpen(false);
+      setIsLinkOpen(false);
       onDirty();
       serialize();
       return;
@@ -634,7 +634,7 @@ export function RichBodyEditor({
       false,
       `<a href="${url.replace(/"/g, '%22')}">${esc(text)}</a>&nbsp;`
     );
-    setLinkOpen(false);
+    setIsLinkOpen(false);
     onDirty();
     serialize();
   };
@@ -786,8 +786,8 @@ export function RichBodyEditor({
         aria-multiline="true"
         aria-label="本文"
         aria-invalid={invalid}
-        className={`notice-editor min-h-40 max-h-[22.5rem] overflow-y-auto px-3 py-2 text-sm text-gray-800 leading-relaxed ${
-          dragOver ? 'ring-2 ring-blue-400 ring-inset bg-blue-50/40' : ''
+        className={`notice-editor min-h-40 max-h-90 overflow-y-auto px-3 py-2 text-sm text-gray-800 leading-normal ${
+          isDragOver ? 'ring-2 ring-blue-400 ring-inset bg-blue-50/40' : ''
         }`}
         contentEditable
         suppressContentEditableWarning
@@ -865,16 +865,16 @@ export function RichBodyEditor({
           // 画像ドラッグ中のみドロップを受け付ける
           if (Array.from(e.dataTransfer.types).includes('Files')) {
             e.preventDefault();
-            if (!dragOver) setDragOver(true);
+            if (!isDragOver) setIsDragOver(true);
           }
         }}
-        onDragLeave={() => setDragOver(false)}
+        onDragLeave={() => setIsDragOver(false)}
         onDrop={(e) => {
           const files: File[] = Array.from(e.dataTransfer.files || []);
           const imgs = files.filter((f) => f.type.startsWith('image/'));
           if (imgs.length) {
             e.preventDefault();
-            setDragOver(false);
+            setIsDragOver(false);
             // ドロップ地点にキャレット range を作る（対応ブラウザのみ／無ければ末尾）
             const doc = document as CaretPointDocument;
             let dropRange: Range | null = null;
@@ -894,14 +894,14 @@ export function RichBodyEditor({
       />
 
       <LinkInsertDialog
-        open={linkOpen}
+        open={isLinkOpen}
         isEdit={isLinkEdit}
         text={linkText}
         url={linkUrl}
         onText={setLinkText}
         onUrl={setLinkUrl}
-        onCancel={() => setLinkOpen(false)}
-        onInsert={insertLink}
+        onCancel={() => setIsLinkOpen(false)}
+        onInsert={handleInsertLink}
       />
     </div>
   );

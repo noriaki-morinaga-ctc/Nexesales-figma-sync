@@ -203,14 +203,35 @@ export const STAFF_CODE_NAME: CodeNameOption[] = [
   { code: '1000108', name: '営戦 七海' },
 ];
 
-/** 役職（人事の役職コード。コード・名称は仮） */
+/** 社員コード → 所属する部署（採算組織の第5階層）のコード。事業場→部署→社員の絞り込みに使う（モック。Q&A QM-032） */
+export const DEPT_CODE_BY_STAFF_CODE: Record<string, string> =
+  Object.fromEntries(
+    STAFF_CODE_NAME.map((s, i) => [
+      s.code,
+      PROFIT_ORG_DEPT_CODE_NAME[i % 4]?.code ?? '',
+    ])
+  );
+
+/**
+ * 役職（人事の役職コード＝社員マスタの社員共通役職コード、半角 3 桁。コード・名称は仮）。
+ * 名称は汎用コード値明細マスタの区分「役職コード」（KBN-028）から取る（Q&A QM-037）
+ */
 export const POSITION_CODE_NAME: CodeNameOption[] = [
-  { code: '0100', name: '本部長' },
-  { code: '0200', name: '部長' },
-  { code: '0300', name: '部支店長' },
-  { code: '0400', name: 'グループリーダー' },
-  { code: '0500', name: 'チームリーダー' },
-  { code: '0600', name: '担当' },
+  { code: '100', name: '本部長' },
+  { code: '200', name: '部長' },
+  { code: '300', name: '部支店長' },
+  { code: '400', name: 'グループリーダー' },
+  { code: '500', name: 'チームリーダー' },
+  { code: '600', name: '担当' },
+];
+
+/** 役職区分（役職区分マスタ。承認権限の単位。区分値は未定義のため仮） */
+export const POSITION_CLASS_CODE_NAME: CodeNameOption[] = [
+  { code: '01', name: '本部長' },
+  { code: '02', name: '部長' },
+  { code: '03', name: '部支店長' },
+  { code: '04', name: 'グループリーダー・チームリーダー' },
+  { code: '05', name: '担当' },
 ];
 
 /** ブランド（コードは現行のブランドコード体系に合わせた仮の値。メタブランドは META_BRAND_MASTER のコード） */
@@ -300,17 +321,12 @@ export const SUMMARY_PRODUCT_CODE_NAME_WITH_DUMMY: CodeNameOption[] = [
   ...SUMMARY_PRODUCT_CODE_NAME_DUMMY,
 ];
 
-// ── 商品分類導出マスタ（2026-10-26 更新）：判断軸の候補。アサヒ整理の商品分類マスタ【26.8.6ver】に合わせる ──
-// 「（指定なし）」は判断軸のどの値にも当てはまる（ルールの any）。保持の仕方は確認中のためモックではコード「*」
-/** 判断軸の「指定なし」 */
-export const RULE_WILDCARD_OPTION: CodeNameOption = {
-  code: '*',
-  name: '（指定なし）',
-};
+// ── 商品分類導出マスタ（2026-10-26 作成、10-30 更新）：判断軸の候補。アサヒ整理の商品分類マスタ【26.8.6ver】に合わせる ──
+// 判断軸の「指定なし」（ルールの any）は値を持たない（NULL）で表し、専用のコードは作らない（Q&A QM-028 の回答 10/30）。
+// 画面では未設定を「指定なし」と表示する（MasterFieldDef.emptyLabel）
 
 /** メタブランド（現行コード＋ToBe 案だけの区分は仮コード T〜） */
 export const DERIVATION_META_BRAND_CODE_NAME: CodeNameOption[] = [
-  RULE_WILDCARD_OPTION,
   { code: '2B10', name: 'ワンダ' },
   { code: '2B20', name: '三ツ矢' },
   { code: '2B30', name: 'ウイルキンソン' },
@@ -337,7 +353,6 @@ export const DERIVATION_META_BRAND_CODE_NAME: CodeNameOption[] = [
 
 /** ブランド（判断軸に出てくるものと代表的なもの。コードは現行） */
 export const DERIVATION_BRAND_CODE_NAME: CodeNameOption[] = [
-  RULE_WILDCARD_OPTION,
   { code: '2S180', name: '提携品' },
   { code: '2B300', name: 'ウイルキンソン' },
   { code: '2S030', name: 'ウェルチ' },
@@ -350,15 +365,13 @@ export const DERIVATION_BRAND_CODE_NAME: CodeNameOption[] = [
   { code: '2S520', name: 'その他日本茶（ＰＢ）' },
 ];
 
-/** 容器容量（指定なし＋モックの容器容量） */
+/** 容器容量（モックの容器容量と同じ） */
 export const DERIVATION_CONTAINER_CAPACITY_CODE_NAME: CodeNameOption[] = [
-  RULE_WILDCARD_OPTION,
   ...CONTAINER_CAPACITY_CODE_NAME,
 ];
 
 /** 容器容量グループ（現行コード＋ToBe 案だけの区分は仮コード T〜） */
 export const DERIVATION_CONTAINER_GROUP_CODE_NAME: CodeNameOption[] = [
-  RULE_WILDCARD_OPTION,
   { code: '01', name: 'ＰＥＴ・ボトル缶２８０・３５０' },
   { code: '02', name: 'ＰＥＴ・ボトル缶５００' },
   { code: '04', name: 'ＰＥＴ１．５' },

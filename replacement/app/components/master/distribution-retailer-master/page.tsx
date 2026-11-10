@@ -1,25 +1,30 @@
+import { Search, Upload } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import type { ColDef, GetRowIdParams } from 'ag-grid-community';
+
 import { CopyableArea } from '../../ui/copyable-area';
 import {
   buildSearchSummary,
   formatSummaryValue,
 } from '../../ui/search-summary';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../ui/collapsible';
-import { ChevronDown, RotateCcw, Upload } from 'lucide-react';
-import { useState, useMemo, useRef } from 'react';
+import { CollapsibleCard } from '../../ui/collapsible-card';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
-import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, GetRowIdParams } from 'ag-grid-community';
+import {
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+  CARD_CLASS,
+} from '../../../../styles/commonStyles';
+import { SearchClearButton } from '../../ui/search-clear-button';
 import {
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
+  GRID_STATUS_BAR,
   gridFilterContextMenuItems,
+  useGridColumnState,
 } from '../../grid';
 import { ScreenTitle } from '../../ui/screen-title';
 
@@ -41,14 +46,14 @@ interface DistributionRetailerMasterProps {
 }
 
 // サンプルデータ生成用の基本データ
-const departments = [
+const DEPARTMENTS = [
   '北海道支社営業一部',
   '北海道支社営業二部',
   '北海道支社営業三部',
   '東北支社営業一部',
   '関東支社営業一部',
 ];
-const managers = [
+const MANAGERS = [
   '平山 智己',
   '二階堂 拓哉',
   '竹原 幸奈',
@@ -58,28 +63,28 @@ const managers = [
   '山田 花子',
   '高橋 一郎',
 ];
-const retailers = [
+const RETAILERS = [
   '21102278:ホーマック',
   '21102279:コープさっぽろ',
   '21102280:イオン北海道',
   '21102281:ツルハドラッグ',
   '21102282:サツドラ',
 ];
-const tertiaryStores = [
+const TERTIARY_STORES = [
   '10760813:国分北海道株式会社恵庭流通センター',
   '10760814:国分北海道株式会社札幌流通センター',
   '10760815:国分北海道株式会社旭川流通センター',
   '10760816:三菱食品株式会社北海道支社',
   '10760817:日本アクセス北海道株式会社',
 ];
-const primaryStores = [
+const PRIMARY_STORES = [
   '10888833:国分北海道株式会社経理財務部 経理財務課',
   '10888834:国分北海道株式会社営業企画部',
   '10888835:三菱食品株式会社営業本部',
   '10888836:日本アクセス株式会社営業統括部',
 ];
-const beverageDivisions = ['CA', 'CB', 'CC', 'CD'];
-const channels = [
+const BEVERAGE_DIVISIONS = ['CA', 'CB', 'CC', 'CD'];
+const CHANNELS = [
   '全国/DS･HC',
   '全国/CVS',
   '全国/SM',
@@ -147,25 +152,25 @@ function generateSampleData(): DistributionRetailerData[] {
 
   // 2行目以降の99行を生成
   for (let i = 2; i <= 100; i++) {
-    const deptIndex = (i - 1) % departments.length;
-    const managerIndex = (i - 1) % managers.length;
-    const retailerIndex = (i - 1) % retailers.length;
-    const tertiaryIndex = (i - 1) % tertiaryStores.length;
-    const primaryIndex = (i - 1) % primaryStores.length;
-    const beverageIndex = (i - 1) % beverageDivisions.length;
-    const channelIndex = (i - 1) % channels.length;
+    const deptIndex = (i - 1) % DEPARTMENTS.length;
+    const managerIndex = (i - 1) % MANAGERS.length;
+    const retailerIndex = (i - 1) % RETAILERS.length;
+    const tertiaryIndex = (i - 1) % TERTIARY_STORES.length;
+    const primaryIndex = (i - 1) % PRIMARY_STORES.length;
+    const beverageIndex = (i - 1) % BEVERAGE_DIVISIONS.length;
+    const channelIndex = (i - 1) % CHANNELS.length;
 
     data.push({
       id: String(i),
-      distributionRetailerManager: `${departments[deptIndex]}／${managers[managerIndex]}`,
-      retailer: retailers[retailerIndex],
-      retailerAccountingOrg: departments[deptIndex],
-      tertiaryDepartment: departments[(deptIndex + 1) % departments.length],
-      tertiaryManager: managers[(managerIndex + 1) % managers.length],
-      tertiaryStore: tertiaryStores[tertiaryIndex],
-      primaryStore: primaryStores[primaryIndex],
-      beverageDivision: beverageDivisions[beverageIndex],
-      channel: channels[channelIndex],
+      distributionRetailerManager: `${DEPARTMENTS[deptIndex]}／${MANAGERS[managerIndex]}`,
+      retailer: RETAILERS[retailerIndex],
+      retailerAccountingOrg: DEPARTMENTS[deptIndex],
+      tertiaryDepartment: DEPARTMENTS[(deptIndex + 1) % DEPARTMENTS.length],
+      tertiaryManager: MANAGERS[(managerIndex + 1) % MANAGERS.length],
+      tertiaryStore: TERTIARY_STORES[tertiaryIndex],
+      primaryStore: PRIMARY_STORES[primaryIndex],
+      beverageDivision: BEVERAGE_DIVISIONS[beverageIndex],
+      channel: CHANNELS[channelIndex],
     });
   }
 
@@ -230,7 +235,6 @@ export default function DistributionRetailerMaster({
   };
 
   const handleDetail = (data: DistributionRetailerData) => {
-    console.log('詳細クリック:', data);
     // 商流販売店マスタ詳細画面に遷移
     if (onMenuChange) {
       onMenuChange('distribution-retailer-detail');
@@ -263,14 +267,13 @@ export default function DistributionRetailerMaster({
   };
 
   const handleRetailerSelect = () => {
-    console.log('販売店選択');
+    // TODO: 販売店選択（未実装）
   };
 
   const handleFileUpload = () => {
     const fileInput = fileInputRef.current;
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
       setSelectedFileName(fileInput.files[0].name);
-      console.log('ファイルアップロード:', fileInput.files[0].name);
     }
   };
 
@@ -280,7 +283,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '',
         field: 'detail',
-        width: 80,
+        width: 64,
         cellRenderer: DetailButtonRenderer,
         sortable: false,
         filter: false,
@@ -294,7 +297,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '商流販売店担当者',
         field: 'distributionRetailerManager',
-        width: 200,
+        width: 160,
         wrapText: true,
         autoHeight: true,
         cellStyle: {
@@ -305,7 +308,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '販売店',
         field: 'retailer',
-        width: 180,
+        width: 144,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -314,7 +317,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '販売店計上組織',
         field: 'retailerAccountingOrg',
-        width: 160,
+        width: 128,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -323,7 +326,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '三次店担当部署',
         field: 'tertiaryDepartment',
-        width: 160,
+        width: 128,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -332,7 +335,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '三次店担当者',
         field: 'tertiaryManager',
-        width: 120,
+        width: 96,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -341,7 +344,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '三次店',
         field: 'tertiaryStore',
-        width: 280,
+        width: 224,
         wrapText: true,
         autoHeight: true,
         cellStyle: {
@@ -352,7 +355,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '一次店',
         field: 'primaryStore',
-        width: 280,
+        width: 224,
         wrapText: true,
         autoHeight: true,
         cellStyle: {
@@ -363,7 +366,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: '飲料事業区分',
         field: 'beverageDivision',
-        width: 120,
+        width: 96,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -372,7 +375,7 @@ export default function DistributionRetailerMaster({
       {
         headerName: 'チャネル',
         field: 'channel',
-        width: 140,
+        width: 112,
         cellStyle: {
           justifyContent: 'flex-start',
           paddingLeft: '0.5rem',
@@ -386,222 +389,188 @@ export default function DistributionRetailerMaster({
   const defaultColDef = useMemo<ColDef<DistributionRetailerData>>(
     () => ({
       ...GRID_DEFAULT_COL_DEF,
-      cellStyle: {
-        lineHeight: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-      },
+      cellClass: 'cell-center',
     }),
     []
   );
 
+  // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）
+  const retailerGridColumnStateProps = useGridColumnState(
+    '商流販売店マスタ.一覧.columnState'
+  );
   return (
-    <div className="min-w-[120rem]">
-      <div className="px-6 py-3">
+    <div className="min-w-300 h-full flex flex-col">
+      <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="商流販売店マスタ一覧" />
         {/* 検索条件の値は Ctrl+C／右クリック「コピー」で表示中の値をコピーできる（CopyableArea → 02 §15） */}
-        <CopyableArea>
-          <Collapsible
+        <CopyableArea className="shrink-0">
+          <CollapsibleCard
+            title={
+              <span className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-gray-700" />
+                検索条件
+              </span>
+            }
             open={isOpen}
             onOpenChange={setIsOpen}
-            className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-[1.5rem]"
+            // 画面が低くてもグリッドに押しつぶされないよう縮めない
+            className="shrink-0"
+            // クリアはヘッダーバーに置く（検索はリアルタイムのため検索ボタンは設けない）
+            headerActions={<SearchClearButton onClick={handleClear} />}
+            collapsedSummary={searchSummary || undefined}
           >
-            {/* タイトルヘッダー */}
-            <div className="bg-white px-[0.75rem] pt-[0.5rem] pb-[1rem] card-header-accent">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-gray-900 font-bold text-lg">
-                    商流販売店マスタ一覧
-                  </span>
-                </div>
-                {/* 折り畳んでいる間だけ、値が入っている検索条件を1行で出す（CollapsibleCard の collapsedSummary と同じ体裁） */}
-                {!isOpen && searchSummary && (
-                  <span
-                    className="ml-4 min-w-0 flex-1 truncate text-sm text-gray-700"
-                    title={searchSummary}
+            <div className="px-4 py-1.5">
+              {/* 一覧画面の検索条件は全画面共通の5列（→ 05 一覧画面の検索条件） */}
+              <div className={SEARCH_GRID_CLASS}>
+                {/* 部署1 */}
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="search-department1"
+                    className={SEARCH_LABEL_CLASS}
                   >
-                    {searchSummary}
-                  </span>
-                )}
-
-                <CollapsibleTrigger className="hover:text-blue-700 transition-colors">
-                  <ChevronDown
-                    className={`h-[1.25rem] w-[1.25rem] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    部署1
+                  </label>
+                  <SingleCombobox
+                    id="search-department1"
+                    className="flex-1 min-w-0"
+                    options={DEPARTMENT1_OPTIONS}
+                    value={department1}
+                    onChange={setDepartment1}
+                    placeholder="指定なし"
+                    clearable
+                    searchable={false}
                   />
-                </CollapsibleTrigger>
+                </div>
+                {/* 部署2 */}
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="search-department2"
+                    className={SEARCH_LABEL_CLASS}
+                  >
+                    部署2
+                  </label>
+                  <SingleCombobox
+                    id="search-department2"
+                    className="flex-1 min-w-0"
+                    options={DEPARTMENT2_OPTIONS}
+                    value={department2}
+                    onChange={setDepartment2}
+                    placeholder="指定なし"
+                    clearable
+                    searchable={false}
+                  />
+                </div>
+                {/* 営業担当者 */}
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="search-sales-rep"
+                    className={SEARCH_LABEL_CLASS}
+                  >
+                    営業担当者
+                  </label>
+                  <SingleCombobox
+                    id="search-sales-rep"
+                    className="flex-1 min-w-0"
+                    options={SALES_REP_OPTIONS}
+                    value={salesRep}
+                    onChange={setSalesRep}
+                    placeholder="指定なし"
+                    clearable
+                    searchable={false}
+                  />
+                </div>
+                {/* チャネル */}
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="search-channel"
+                    className={SEARCH_LABEL_CLASS}
+                  >
+                    チャネル
+                  </label>
+                  <SingleCombobox
+                    id="search-channel"
+                    className="flex-1 min-w-0"
+                    // 未選択＝「指定なし」（条件なし）。「全て」の選択肢は持たない（→ 02 §9）
+                    options={CHANNEL_OPTIONS}
+                    value={channel}
+                    onChange={setChannel}
+                    placeholder="指定なし"
+                    clearable
+                    searchable={false}
+                  />
+                </div>
+
+                {/* 販売店（選択ペインは未実装） */}
+                <div className="flex items-center gap-2">
+                  <span className={SEARCH_LABEL_CLASS}>販売店</span>
+                  <button
+                    className="px-4 py-1 rounded-full bg-white text-blue-600 border-2 border-blue-600 font-medium hover:bg-blue-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm whitespace-nowrap"
+                    onClick={handleRetailerSelect}
+                    aria-label="販売店選択"
+                  >
+                    選択
+                  </button>
+                </div>
               </div>
             </div>
-
-            <CollapsibleContent>
-              <div className="bg-white px-[0.75rem] pt-[0.5rem] pb-[1rem]">
-                <div className="text-gray-900 font-bold text-lg mb-[0.75rem]">
-                  検索条件
-                </div>
-
-                <div className="bg-white rounded-lg border border-gray-200 p-[1rem]">
-                  {/* 1行目: 部署1、部署2、営業担当者 */}
-                  <div className="flex items-center flex-wrap gap-[0.5rem] mb-[0.625rem]">
-                    {/* 部署1 */}
-                    <div className="flex items-center gap-[0.25rem]">
-                      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-[6.25rem]">
-                        部署1
-                      </label>
-                      <SingleCombobox
-                        className="w-[10rem]"
-                        options={DEPARTMENT1_OPTIONS}
-                        value={department1}
-                        onChange={setDepartment1}
-                        placeholder="指定なし"
-                        clearable
-                        searchable={false}
-                      />
-                    </div>
-
-                    {/* 部署2 */}
-                    <div className="flex items-center gap-[0.25rem] ml-[1.25rem]">
-                      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-[6.25rem]">
-                        部署2
-                      </label>
-                      <SingleCombobox
-                        className="w-[10rem]"
-                        options={DEPARTMENT2_OPTIONS}
-                        value={department2}
-                        onChange={setDepartment2}
-                        placeholder="指定なし"
-                        clearable
-                        searchable={false}
-                      />
-                    </div>
-
-                    {/* 営業担当者 */}
-                    <div className="flex items-center gap-[0.25rem] ml-[1.25rem]">
-                      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-[6.25rem]">
-                        営業担当者
-                      </label>
-                      <SingleCombobox
-                        className="w-[10rem]"
-                        options={SALES_REP_OPTIONS}
-                        value={salesRep}
-                        onChange={setSalesRep}
-                        placeholder="指定なし"
-                        clearable
-                        searchable={false}
-                      />
-                    </div>
-                  </div>
-
-                  {/* 2行目: チャネル、販売店 */}
-                  <div className="flex items-center gap-[0.5rem] mb-[0.625rem]">
-                    {/* チャネル */}
-                    <div className="flex items-center gap-[0.25rem]">
-                      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-[6.25rem]">
-                        チャネル
-                      </label>
-                      <SingleCombobox
-                        className="w-[10rem]"
-                        // 未選択＝「指定なし」（条件なし）。「全て」の選択肢は持たない（→ 02 §9）
-                        options={CHANNEL_OPTIONS}
-                        value={channel}
-                        onChange={setChannel}
-                        placeholder="指定なし"
-                        clearable
-                        searchable={false}
-                      />
-                    </div>
-
-                    {/* 販売店 */}
-                    <div className="flex items-center gap-[0.25rem] ml-[1.25rem]">
-                      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-[6.25rem]">
-                        販売店
-                      </label>
-                      <button
-                        className="px-4 py-1 rounded-full bg-white text-blue-600 border-2 border-blue-600 font-medium hover:bg-blue-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm whitespace-nowrap"
-                        onClick={handleRetailerSelect}
-                        aria-label="販売店選択"
-                      >
-                        選択
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* クリアボタン（検索はリアルタイムのため検索ボタンは設けない） */}
-                  <div className="flex justify-end gap-[0.5rem]">
-                    <Button
-                      variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50 py-6 rounded-lg"
-                      onClick={handleClear}
-                    >
-                      <RotateCcw className="h-[1rem] w-[1rem] mr-[0.5rem]" />
-                      クリア
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          </CollapsibleCard>
         </CopyableArea>
 
-        {/* 商流販売店マスタ一覧テーブル */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-[1.5rem]">
-          <div className="p-[1rem]">
-            <div
-              className="sales-plan-list-grid"
-              style={{ height: '25rem', width: '100%' }}
-            >
-              <AgGridReact<DistributionRetailerData>
-                {...GRID_BASE_PROPS}
-                rowData={filteredData}
-                columnDefs={columnDefs}
-                defaultColDef={defaultColDef}
-                getRowId={getRowId}
-                getContextMenuItems={gridFilterContextMenuItems}
-                domLayout="normal"
-                rowSelection={{
-                  mode: 'multiRow',
-                  checkboxes: false,
-                  headerCheckbox: false,
-                  enableClickSelection: false,
-                }}
-                // selectionColumnDef={{
-                //width: 60,
-                //minWidth: 60,
-                //maxWidth: 60,
-                //resizable: false,
-                //suppressMovable: true,
-                //}}
-                animateRows={true}
-              />
-            </div>
+        {/* 一覧カード（fillParent でページの余り高さいっぱいまで広げ、折り畳み時は下限を外してヘッダーのみの高さへ戻す） */}
+        <CollapsibleCard
+          title="商流販売店マスタ一覧"
+          fillParent
+          className="data-[state=open]:min-h-95"
+          contentClassName="p-2 flex flex-col flex-1 min-h-0"
+        >
+          <div className="flex-1 min-h-0 w-full">
+            <AgGridReact<DistributionRetailerData>
+              {...retailerGridColumnStateProps}
+              {...GRID_BASE_PROPS}
+              rowData={filteredData}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              getRowId={getRowId}
+              getContextMenuItems={gridFilterContextMenuItems}
+              domLayout="normal"
+              rowSelection={{
+                mode: 'multiRow',
+                checkboxes: false,
+                headerCheckbox: false,
+                enableClickSelection: false,
+              }}
+              animateRows={true}
+              statusBar={GRID_STATUS_BAR}
+            />
           </div>
-        </div>
+        </CollapsibleCard>
 
         {/* 商流販売店マスタ アップロードセクション */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-[1.5rem]">
+        <div className={`${CARD_CLASS} shrink-0 overflow-hidden`}>
           {/* タイトルヘッダー */}
-          <div className="bg-white px-[0.75rem] pt-[0.5rem] pb-[1rem] card-header-accent">
+          <div className="bg-white px-3 pt-2 pb-4 card-header-accent">
             <span className="text-gray-900 font-bold text-lg">
               商流販売店マスタ アップロード
             </span>
           </div>
 
           {/* アップロードコンテンツ */}
-          <div className="p-[1rem]">
-            <div className="flex items-center gap-[0.5rem]">
+          <div className="p-4">
+            <div className="flex items-center gap-2">
               {/* ファイル名表示領域と参照ボタン（連結） */}
               <div className="flex items-center">
                 <Input
                   type="text"
                   value={selectedFileName}
                   readOnly
+                  aria-label="選択したファイル名"
                   placeholder=""
-                  className={`${TEXT_INPUT_CLASS} w-[25rem] text-gray-900 border-r-0 rounded-r-none`}
+                  className={`${TEXT_INPUT_CLASS} w-100 text-gray-900 border-r-0 rounded-r-none`}
                 />
                 <Button
                   variant="outline"
-                  className="h-[2rem] border-gray-400 text-gray-700 hover:bg-gray-50 rounded-l-none border-l"
+                  className="h-8 border-gray-400 text-gray-700 hover:bg-gray-50 rounded-l-none border-l"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   参照…
@@ -624,7 +593,7 @@ export default function DistributionRetailerMaster({
                 className="bg-blue-500 hover:bg-blue-600 text-white py-6 rounded-lg"
                 onClick={handleFileUpload}
               >
-                <Upload className="h-[1rem] w-[1rem] mr-[0.5rem]" />
+                <Upload className="h-4 w-4 mr-2" />
                 アップロード
               </Button>
             </div>

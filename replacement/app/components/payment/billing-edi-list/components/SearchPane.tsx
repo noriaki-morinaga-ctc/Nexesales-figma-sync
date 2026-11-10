@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 
+import { SearchRangeField } from '../../../ui/search-range-field';
 import { CopyableArea } from '../../../ui/copyable-area';
 import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
 import { CollapsibleCard } from '../../../ui/collapsible-card';
@@ -10,13 +11,14 @@ import {
 } from '../../../ui/search-summary';
 import { SingleCombobox } from '../../../ui/single-combobox';
 import { BILLING_EDI_PAYEE_OPTIONS } from '../../../../constants/billingEdiMockData';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import {
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
+} from '../../../../../styles/commonStyles';
 import {
   INITIAL_SEARCH_CRITERIA,
   type BillingEdiSearchCriteria,
 } from '../../../../constants/billingEdiMockData';
-
-const LABEL_CLASS = `${FORM_LABEL_CLASS} w-28 flex items-center justify-end shrink-0 whitespace-nowrap`;
 
 interface SearchPaneProps {
   criteria: BillingEdiSearchCriteria;
@@ -69,34 +71,40 @@ export function SearchPane({ criteria, onChange }: SearchPaneProps) {
         <div className="px-4 py-1.5">
           {/* 検索条件（3条件）を1行に配置する。
               一覧に列として存在する項目だけを条件にする */}
-          <div className="grid grid-cols-4 gap-3">
+          {/* 一覧画面の検索条件は全画面共通の5列（→ 05 一覧画面の検索条件） */}
+          <div className={SEARCH_GRID_CLASS}>
             {/* 受信日（範囲）。共通カレンダー部品で選択し、×でクリアできる。
                 開始＞終了の逆転を作らせないよう、開始の上限に終了・終了の下限に開始を渡す。 */}
-            <div className="col-span-2 flex items-center gap-2">
-              <label htmlFor="search-import-date-from" className={LABEL_CLASS}>
-                受信日
-              </label>
-              <DateMonthYearPicker
-                id="search-import-date-from"
-                ariaLabel="受信日（開始）"
-                value={criteria.importDateFrom}
-                max={criteria.importDateTo}
-                clearable
-                onChange={(value) => update('importDateFrom', value)}
-              />
-              <span className="text-sm text-gray-700 px-1">～</span>
-              <DateMonthYearPicker
-                ariaLabel="受信日（終了）"
-                value={criteria.importDateTo}
-                min={criteria.importDateFrom}
-                clearable
-                onChange={(value) => update('importDateTo', value)}
-              />
-            </div>
+            <SearchRangeField
+              label="受信日"
+              htmlFor="search-import-date-from"
+              groupLabel="検索受信日の範囲"
+              start={
+                <DateMonthYearPicker
+                  className="w-full"
+                  id="search-import-date-from"
+                  ariaLabel="受信日（開始）"
+                  value={criteria.importDateFrom}
+                  max={criteria.importDateTo}
+                  clearable
+                  onChange={(value) => update('importDateFrom', value)}
+                />
+              }
+              end={
+                <DateMonthYearPicker
+                  className="w-full"
+                  ariaLabel="受信日（終了）"
+                  value={criteria.importDateTo}
+                  min={criteria.importDateFrom}
+                  clearable
+                  onChange={(value) => update('importDateTo', value)}
+                />
+              }
+            />
 
             {/* 請求元企業 */}
             <div className="flex items-center gap-2">
-              <label htmlFor="search-payee" className={LABEL_CLASS}>
+              <label htmlFor="search-payee" className={SEARCH_LABEL_CLASS}>
                 請求元企業
               </label>
               {/* 請求元企業は取引先マスタから選ぶ（自由入力では表記ゆれで絞り込めないため） */}
@@ -116,12 +124,12 @@ export function SearchPane({ criteria, onChange }: SearchPaneProps) {
 
             {/* ステータス */}
             <div className="flex items-center gap-2">
-              <label htmlFor="search-status" className={LABEL_CLASS}>
+              <label htmlFor="search-status" className={SEARCH_LABEL_CLASS}>
                 ステータス
               </label>
               <SingleCombobox
                 id="search-status"
-                className="w-40"
+                className="min-w-0 flex-1"
                 // 未選択＝「指定なし」（条件なし）。「全て」の選択肢は持たない（→ 02 §9）。
                 // 検索条件の値は従来どおり未選択を 'all' で持つ（絞り込みの意味は変えない）
                 options={[

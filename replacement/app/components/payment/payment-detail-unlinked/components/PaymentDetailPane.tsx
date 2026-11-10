@@ -8,7 +8,7 @@ import { RequiredBadge } from '../../../ui/required-badge';
 import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
 import { MonthYearPicker } from '../../../ui/month-year-picker';
 import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { joinCodeName } from '../../../../utils/nameCode';
+import { joinCodeName } from '../../../../utils/common/nameCode';
 
 interface PaymentDetailPaneProps {
   // ステータス横のコメント履歴ボタン押下時のハンドラ
@@ -171,6 +171,7 @@ export function PaymentDetailPane({
             </label>
             <div className="w-[9.375rem]">
               <DateMonthYearPicker
+                id="occurrence-date"
                 value={occurrenceDate}
                 onChange={setOccurrenceDate}
                 clearable
@@ -190,6 +191,7 @@ export function PaymentDetailPane({
             </label>
             <div className="w-[9.375rem]">
               <MonthYearPicker
+                id="posting-month"
                 value={postingMonth}
                 onChange={setPostingMonth}
                 required
@@ -209,6 +211,7 @@ export function PaymentDetailPane({
             </label>
             <div className="w-[9.375rem]">
               <DateMonthYearPicker
+                id="payment-schedule-date"
                 value={paymentScheduleDate}
                 onChange={setPaymentScheduleDate}
                 required

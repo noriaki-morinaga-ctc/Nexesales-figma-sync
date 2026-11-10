@@ -1,31 +1,31 @@
 // 型1 マスタメンテCRUD型 画面の本体（検索条件 ＋ 一覧 ＋ 右ペイン ＋ 確認ダイアログ）。
 // 画面側は MasterScreenDef とモックの初期データを渡すだけで、全マスタ共通の標準仕様
 // （マスタ画面標準化 p.7）に沿った画面になる。モックのためデータはメモリ上で保持する。
+// 2026-10-30 画面設計標準 ver0.3・guidelines（10/28〜29）への準拠：
+// ・画面名はヘッダーに出す（ScreenTitle）。外周の余白は px-6 pt-3 pb-3、一覧画面の型（→ 05）
+// ・未保存の入力の破棄確認は RightPane（dirty）に任せ、画面では持たない（→ 02 §13.1）
+// ・モック用の権限切替は SingleCombobox（絞り込み欄なし）。shadcn の Select は使わない（→ 02 §4）
+// ・画面初期表示時に先頭の検索条件へフォーカスする（→ 06 初期フォーカス）
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   masterConfirmMessage,
   masterMessage,
 } from '../../../constants/masterMessages';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../ui/select';
+import { ScreenTitle } from '../../ui/screen-title';
+import { SingleCombobox } from '../../ui/single-combobox';
 import {
   BUTTON_STYLES,
   FORM_LABEL_CLASS,
-  SCREEN_TITLE_CLASS,
 } from '../../../../styles/commonStyles';
 import { MasterSearchCard } from './MasterSearchCard';
 import { MasterListCard } from './MasterListCard';
 import { MasterEditPane } from './MasterEditPane';
 import type {
   MasterCriteria,
+  MasterCriteriaValue,
   MasterDraft,
   MasterGridRow,
   MasterPaneMode,
@@ -41,6 +41,7 @@ import {
   draftFromRow,
   emptyDraft,
   endOfTimeOf,
+  hasUpdate,
   nextAutoNumber,
   nowString,
   periodBefore,
@@ -59,7 +60,7 @@ const ROLE_OPTIONS: { value: MockRole; label: string }[] = [
   { value: 'viewer', label: '参照のみ' },
 ];
 
-type ConfirmKind = 'delete' | 'inactivate' | 'discard';
+type ConfirmKind = 'delete' | 'inactivate';
 
 interface MasterMaintenancePageProps {
   def: MasterScreenDef;
@@ -86,8 +87,17 @@ export function MasterMaintenancePage({
   const [errors, setErrors] = useState<string[]>([]);
   const [confirm, setConfirm] = useState<{
     kind: ConfirmKind;
-    row?: MasterRow;
+    row: MasterRow;
   } | null>(null);
+
+  // 画面初期表示時に先頭の検索条件へフォーカスする（→ 06 初期フォーカス）
+  useEffect(() => {
+    const id = `${def.routeId}-search-${def.searchKeys[0] ?? ''}`;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [def]);
 
   // 検索条件を適用してから世代を集約する（絞り込みで最新世代が外れても親が欠けないようにする）
   const gridRows = useMemo<MasterGridRow[]>(
@@ -95,6 +105,7 @@ export function MasterMaintenancePage({
     [def, rows, criteria]
   );
 
+  // 未保存の入力があるか（ペインを開いた時点の値との差。RightPane の破棄確認に渡す）
   const isDirty = useMemo(
     () =>
       def.fields.some((f) => (draft[f.key] ?? '') !== (baseline[f.key] ?? '')),
@@ -116,8 +127,12 @@ export function MasterMaintenancePage({
 
   const handleCreate = () => openPane('create', emptyDraft(def), null);
 
+  // 更新ペインは変更できる項目があるマスタだけ（主キーと無効化フラグだけのマスタは登録・無効化・削除のみ。Q&A QM-033）
   const handleEdit = useCallback(
-    (row: MasterGridRow) => openPane('update', draftFromRow(def, row), row.id),
+    (row: MasterGridRow) => {
+      if (!hasUpdate(def)) return;
+      openPane('update', draftFromRow(def, row), row.id);
+    },
     [def, openPane]
   );
 
@@ -151,15 +166,14 @@ export function MasterMaintenancePage({
     setDraft((d) => withCascade(def, d, key, value));
   };
 
+  const handleCriteriaChange = (key: string, value: MasterCriteriaValue) => {
+    setCriteria((c) => withCascade(def, c, key, value));
+  };
+
+  // 閉じる：未保存の入力の確認は RightPane が行う（×・Esc・別のペインを開いたとき。画面設計標準 3.4）
   const closePane = () => {
     setIsPaneOpen(false);
     setErrors([]);
-  };
-
-  // ×で閉じる：未保存の入力があれば破棄確認を出す（画面設計標準 3.4）
-  const handleRequestClose = () => {
-    if (isDirty) setConfirm({ kind: 'discard' });
-    else closePane();
   };
 
   const handleSubmit = () => {
@@ -242,11 +256,11 @@ export function MasterMaintenancePage({
   const handleConfirm = () => {
     if (!confirm) return;
     const target = confirm.row;
-    if (confirm.kind === 'delete' && target) {
+    if (confirm.kind === 'delete') {
       // 論理削除：削除したデータは業務ユーザーに表示しない（7/30 決定1・10）
       setRows((prev) => prev.filter((r) => r.id !== target.id));
       toast.success(masterMessage('MSG-S-002', def.entityLabel));
-    } else if (confirm.kind === 'inactivate' && target) {
+    } else {
       setRows((prev) =>
         prev.map((r) =>
           r.id === target.id
@@ -260,8 +274,6 @@ export function MasterMaintenancePage({
         )
       );
       toast.success(masterMessage('MSG-S-018', def.entityLabel));
-    } else if (confirm.kind === 'discard') {
-      closePane();
     }
     setConfirm(null);
   };
@@ -273,78 +285,63 @@ export function MasterMaintenancePage({
     );
   };
 
-  // 確認ダイアログの文言は共通メッセージ一覧（1行目＝タイトル、2行目＝本文）
+  // 確認ダイアログの文言は共通メッセージ一覧（1行目＝タイトル、2行目＝本文）。実行ボタンは操作名（→ 02 §5）
   const confirmText = (() => {
     if (!confirm)
       return { title: '', description: '', label: 'OK', className: '' };
-    const key = confirm.row ? businessKeyDisplay(def, confirm.row) : '';
-    switch (confirm.kind) {
-      case 'delete':
-        return {
-          // 世代管理のマスタは適用開始も主キーのため併せて出す
-          ...masterConfirmMessage(
-            'MSG-C-001',
-            `${def.entityLabel}「${confirm.row ? deleteKeyDisplay(def, confirm.row) : ''}」`
-          ),
-          label: '削除',
-          className: BUTTON_STYLES.delete,
-        };
-      case 'inactivate':
-        return {
-          ...masterConfirmMessage('MSG-C-006', `${def.entityLabel}「${key}」`),
-          label: '無効化',
-          className: BUTTON_STYLES.primary,
-        };
-      default:
-        return {
-          ...masterConfirmMessage('MSG-C-002', '入力内容の破棄'),
-          label: '破棄して閉じる',
-          className: BUTTON_STYLES.delete,
-        };
+    if (confirm.kind === 'delete') {
+      // 世代管理のマスタは適用開始も主キーのため併せて出す
+      return {
+        ...masterConfirmMessage(
+          'MSG-C-001',
+          `${def.entityLabel}「${deleteKeyDisplay(def, confirm.row)}」`
+        ),
+        label: '削除',
+        className: BUTTON_STYLES.delete,
+      };
     }
+    return {
+      ...masterConfirmMessage(
+        'MSG-C-006',
+        `${def.entityLabel}「${businessKeyDisplay(def, confirm.row)}」`
+      ),
+      label: '無効化',
+      className: BUTTON_STYLES.primary,
+    };
   })();
 
   const currentRow = editingId
     ? rows.find((r) => r.id === editingId)
     : undefined;
 
+  // 一覧画面（検索条件＋グリッド1つ）の型：画面側に縦スクロールを出さず、グリッドの中だけをスクロールさせる（→ 05）
   return (
-    <div className="min-w-[75rem] h-full flex flex-col">
-      <div className="px-6 pt-6 pb-6 flex-1 min-h-0 flex flex-col">
-        {/* 画面タイトル ＋ 権限切替（モック用。実装では画面操作権限マスタで判定する） */}
-        <div className="px-3 py-1.5 flex items-center gap-2">
-          <h2 className={SCREEN_TITLE_CLASS}>{def.title}</h2>
-          <div className="ml-auto flex items-center gap-2">
-            <label
-              htmlFor={`${def.routeId}-role`}
-              className={`${FORM_LABEL_CLASS} whitespace-nowrap`}
-            >
-              表示権限（モック）
-            </label>
-            <Select value={role} onValueChange={(v) => setRole(v as MockRole)}>
-              <SelectTrigger
-                id={`${def.routeId}-role`}
-                className="h-8 w-52 text-sm bg-white border-gray-400 shadow-sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="min-w-300 h-full flex flex-col">
+      <div className="px-6 pt-3 pb-3 flex-1 min-h-0 flex flex-col">
+        {/* 画面名はヘッダー（システム名の右）に表示する */}
+        <ScreenTitle title={def.title} />
+        {/* モック用の権限切替（実装では画面操作権限マスタで判定する）。本文の最初の行の右端に置く */}
+        <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
+          <label
+            htmlFor={`${def.routeId}-role`}
+            className={`${FORM_LABEL_CLASS} whitespace-nowrap`}
+          >
+            表示権限（モック）
+          </label>
+          <SingleCombobox
+            id={`${def.routeId}-role`}
+            className="w-52"
+            options={ROLE_OPTIONS}
+            value={role}
+            onChange={(v) => setRole(v as MockRole)}
+            searchable={false}
+          />
         </div>
 
         <MasterSearchCard
           def={def}
           criteria={criteria}
-          onChange={(key, value) =>
-            setCriteria((c) => withCascade(def, c, key, value))
-          }
+          onChange={handleCriteriaChange}
           onClear={() => setCriteria({})}
         />
 
@@ -366,11 +363,12 @@ export function MasterMaintenancePage({
         open={isPaneOpen}
         mode={paneMode}
         draft={draft}
+        dirty={isDirty}
         errors={errors}
         current={currentRow}
         onChange={handleDraftChange}
         onSubmit={handleSubmit}
-        onClose={handleRequestClose}
+        onClose={closePane}
       />
 
       <ConfirmDialog

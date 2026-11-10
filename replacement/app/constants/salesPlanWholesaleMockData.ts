@@ -2,17 +2,15 @@
 
 // PlanDetailNetFixed.tsx / DetailTable.tsx で使用するモックデータ。
 
-import type {
-  MarginRate,
-  NetRate,
-} from '../components/shared/MarginNetRatePane';
-import type { CommentHistoryItem } from '../components/shared/CommentHistoryPane';
+import type { NetRate } from '../components/shared/sales-plan/plan-detail/MarginNetRatePane';
+import type { CommentHistoryItem } from '../components/shared/common/CommentHistoryPane';
 import {
   SUMMARY_PRODUCT_BY_VALUE,
   SUMMARY_PRODUCT_VALUES,
   SUMMARY_PRODUCT_BY_WHOLESALE_MESH,
   WHOLESALE_MESH_VALUES,
 } from './productMasters';
+import type { MarginRate } from '../types/planDetail';
 
 export interface ProductData {
   // 行の一意ID（getRowId・行削除の照合に使用。withRowId／コピー時に採番）
@@ -107,7 +105,7 @@ export type DetailFormValues = {
   discountRate: string;
 };
 
-// コメント履歴ペイン（shared/CommentHistoryPane）のモックデータ。
+// コメント履歴ペイン（shared/common/CommentHistoryPane）のモックデータ。
 // 操作（申請・引戻し・承認・差戻し）と、その操作の後の計画ステータスで表す。
 // 流れ：申請 → 引戻し → 申請 → 差戻し → 申請 → 承認
 // 共通ペインの持ち方に合わせて古い順（日時の昇順）で並べる（表示は新しい順）。

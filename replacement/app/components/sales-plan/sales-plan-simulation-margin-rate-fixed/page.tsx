@@ -1,49 +1,49 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Button } from '../../ui/button';
 import { toast } from 'sonner';
+import { Save, Undo2 } from 'lucide-react';
+
+import { Button } from '../../ui/button';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { Save, Send, Check, Undo2, CornerUpLeft } from 'lucide-react';
-import { SearchPane } from './components/SearchPane';
-import { AGGREGATION_PERIOD_FROM_ID } from '../../shared/SimulationPeriodPicker';
+import { SimulationBasicInfoPane } from '../../shared/sales-plan/simulation/SimulationBasicInfoPane';
+import { BASIC_INFO_DEALER } from '../../../constants/planBasicInfoMockData';
+import { AGGREGATION_PERIOD_FROM_ID } from '../../shared/sales-plan/simulation/SimulationPeriodPicker';
 import { AggregationPane } from './components/AggregationPane';
 import { DetailTable } from './components/DetailTable';
 import type { DetailTableHandle, ProductData } from './components/DetailTable';
 import { RightPane } from '../../ui/right-pane';
 import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
 import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
 import { Label } from '../../ui/label';
-import { ApproverSelect } from '../../shared/ApproverSelect';
 import { MonthYearPicker } from '../../ui/month-year-picker';
 import {
   isInPeriod,
   thisYearDecember,
   thisYearJanuary,
-} from '../../../utils/yearMonth';
-import { Textarea } from '../../ui/textarea';
+} from '../../../utils/common/yearMonth';
 import { NumericInput } from '../../ui/numeric-input';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanAmountText,
   formatPlanRateText,
-} from '../../../utils/planDetailNumberFormat';
+} from '../../../utils/sales-plan/common/planDetailNumberFormat';
 import { SingleCombobox } from '../../ui/single-combobox';
-import { ExpenseBlockFields } from '../../shared/ExpenseBlockFields';
-import { RequiredBadge } from '../../ui/required-badge';
-import { DetailProductSelector } from '../../shared/DetailProductSelector';
 import {
-  isProductInOriginalPlan,
+  campaignComboOptions,
+  registeredCampaignName,
+} from '../../../utils/sales-plan/simulation/simulationCampaignName';
+import { ExpenseBlockFields } from '../../shared/sales-plan/common/ExpenseBlockFields';
+import { RequiredBadge } from '../../ui/required-badge';
+import { DetailProductSelector } from '../../shared/sales-plan/common/DetailProductSelector';
+import {
+  hasSameSimulationKey,
+  simulationKeyDuplicateMessage,
   confirmBlockReason,
-} from '../../../utils/simulationConfirmRules';
-import { isNetInputMonth, tradeSystemOf } from '../../../utils/tradeSystem';
+} from '../../../utils/sales-plan/simulation/simulationConfirmRules';
+import {
+  isNetInputMonth,
+  tradeSystemOf,
+} from '../../../utils/sales-plan/simulation/tradeSystem';
 import {
   CAMPAIGN_OPTIONS,
   EMPTY_DETAIL_FORM,
@@ -60,7 +60,7 @@ import {
 } from '../../../constants/promotionCategories';
 import { promotionComboOptions } from '../../../constants/comboFieldOptions';
 import { simulationKeyItems } from '../../../constants/planDeleteItems';
-import { SimulationExpenseDeleteInfo } from '../../shared/SimulationExpenseDeleteInfo';
+import { SimulationExpenseDeleteInfo } from '../../shared/sales-plan/simulation/SimulationExpenseDeleteInfo';
 // 販促区分の必須判定は販売計画表と共有（promotionCategoryHelpers 単一ソース）。
 import { promotionValid } from '../../../constants/promotionCategoryHelpers';
 import { ScreenTitle } from '../../ui/screen-title';
@@ -104,9 +104,9 @@ const requiredMsg = (fields: string[]): string =>
   `${fields.join('・')}を入力してください。`;
 
 // 明細フォームの未入力必須項目名を列挙する。
-// 必須：サマリ商品名・計画函数・企画・確度・企画名・対象年月・販促区分（選択肢を持つ区分）、
-//       拡売費①の管理コード/管理区分/計画金額/計上年月。
-//       拡売費②は任意入力で、②に入力がある場合のみ①と同じ項目を必須とする。
+// 必須：サマリ商品名・計画函数・企画・確度・企画名・対象年月・販促区分（選択肢を持つ区分）。
+//       拡売費①②は任意入力（拡売費なしの明細もある）で、管理コード/管理区分/計画金額/計上年月の
+//       いずれかに入力がある場合のみ、その4項目を必須とする。
 //       企画名はKEYには含まないが入力必須（KEY項目は補足5-2を参照）。
 //       計画函数はギフトのみ上旬/中旬/下旬の3入力で、3つとも必須。
 // 任意：NET・納価・マージン率・売価・売上原価・社外売上高・入数・売買差益率・
@@ -145,8 +145,8 @@ const detailMissingFields = (f: any): string[] => {
       : String(f.plan ?? '').trim() === '';
   if (planMissing) m.push('計画函数');
   if (String(f.campaign ?? '').trim() === '') m.push('企画');
-  if (String(f.probability ?? '').trim() === '') m.push('確度');
   if (String(f.campaignName ?? '').trim() === '') m.push('企画名');
+  if (String(f.probability ?? '').trim() === '') m.push('確度');
   if (String(f.targetMonth ?? '').trim() === '') m.push('対象年月');
   if (!promotionValid(f)) m.push('販促区分');
   const expSuffixLabels: Array<[string, string]> = [
@@ -155,10 +155,11 @@ const detailMissingFields = (f: any): string[] => {
     ['PlannedAmount', '計画金額'],
     ['PostingMonth', '計上年月'],
   ];
-  // 拡売費①は常に必須、②は入力ありの場合のみ必須
-  const expPrefixes: Array<'exp1' | 'exp2'> = hasExp2Input(f)
-    ? ['exp1', 'exp2']
-    : ['exp1'];
+  // 拡売費①②とも、必須項目のいずれかに入力がある場合のみ必須（拡売費なしの明細もある）
+  const expPrefixes: Array<'exp1' | 'exp2'> = [
+    ...(isExp1Empty(f) ? [] : (['exp1'] as const)),
+    ...(hasExp2Input(f) ? (['exp2'] as const) : []),
+  ];
   expPrefixes.forEach((prefix) => {
     const prefixLabel = prefix === 'exp1' ? '拡売費①' : '拡売費②';
     expSuffixLabels.forEach(([suffix, label]) => {
@@ -169,15 +170,17 @@ const detailMissingFields = (f: any): string[] => {
   return m;
 };
 
-export default function SalesPlanSimulationMarginRateFixed() {
+interface SalesPlanSimulationMarginRateFixedProps {
+  // 計画詳細へ戻るときの画面遷移コールバック
+  onMenuChange?: (menuId: string) => void;
+}
+
+export default function SalesPlanSimulationMarginRateFixed({
+  onMenuChange,
+}: SalesPlanSimulationMarginRateFixedProps) {
   // 戻る・保存の確認ダイアログ表示状態
-  const [showBackConfirm, setShowBackConfirm] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [isBackConfirmShown, setIsBackConfirmShown] = useState(false);
+  const [isSaveConfirmShown, setIsSaveConfirmShown] = useState(false);
 
   // 下ペインの状態管理
   // 明細テーブルの全行（追加可否・確定排他の判定に使用）
@@ -242,8 +245,8 @@ export default function SalesPlanSimulationMarginRateFixed() {
   }, []);
 
   // 明細系右ペインの状態管理
-  const [showAddDetailPane, setShowAddDetailPane] = useState(false);
-  const [showDeleteDetailPane, setShowDeleteDetailPane] = useState(false);
+  const [isAddDetailPaneShown, setIsAddDetailPaneShown] = useState(false);
+  const [isDeleteDetailPaneShown, setIsDeleteDetailPaneShown] = useState(false);
   const [detailSection, setDetailSection] = useState<string>('');
   const [detailData, setDetailData] = useState<any>(null);
 
@@ -252,7 +255,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
 
   // 明細追加・編集フォーム
   const [addForm, setAddForm] = useState<DetailFormValues>(EMPTY_DETAIL_FORM);
-  const [addSubmitted, setAddSubmitted] = useState(false);
+  const [isAddSubmitted, setIsAddSubmitted] = useState(false);
 
   // 取引制度の判定（明細追加ペイン）。
   // 販売店・1次店/3次店（遷移元の計画詳細から引き継ぐ基本情報）と、ペインで入力された
@@ -264,13 +267,13 @@ export default function SalesPlanSimulationMarginRateFixed() {
 
   // 販売計画(集計)の「集計対象設定」右ペイン。他の右ペインと排他表示するため親で管理する。
   // （集計単位①②・除外ペアの値は集計コンポーネント側で保持するため開閉しても失われない）
-  const [showAggFilterPane, setShowAggFilterPane] = useState(false);
+  const [isAggFilterPaneShown, setIsAggFilterPaneShown] = useState(false);
 
   // すべての右ペインを閉じるヘルパー関数
   const closeAllRightPanes = () => {
-    setShowAddDetailPane(false);
-    setShowDeleteDetailPane(false);
-    setShowAggFilterPane(false);
+    setIsAddDetailPaneShown(false);
+    setIsDeleteDetailPaneShown(false);
+    setIsAggFilterPaneShown(false);
   };
 
   // ペイン元のボタン/リンクを押下するたびに開閉を切り替えるヘルパー
@@ -284,11 +287,33 @@ export default function SalesPlanSimulationMarginRateFixed() {
   // continuous=true（連続追加）はペインを開いたままフォームを初期化し、
   // false（追加）は他ペインと同様にペインを閉じる。
   const handleAddDetailSubmit = (continuous: boolean) => {
-    setAddSubmitted(true);
+    setIsAddSubmitted(true);
     // 必須項目チェック。未入力の項目名を列挙してトースト表示する。
     const addMissing = detailMissingFields(addForm);
     if (addMissing.length) {
       toast.error(requiredMsg(addMissing));
+      return;
+    }
+    // シミュレーション更新KEYが同じ明細があれば追加しない（VL-06。入力は保持する）
+    const isDuplicated = hasSameSimulationKey(
+      {
+        targetMonth: addForm.targetMonth,
+        campaign: addForm.campaign,
+        probability: addForm.probability,
+        summaryProduct: addForm.summaryProduct,
+        wholesaleMesh: addForm.wholesaleMesh,
+        section: categoryToSection(addForm.category),
+        promotion: addForm.promotion,
+        net: addForm.net,
+        planPrice: addForm.deliveryPrice,
+        // ギフトは上旬/中旬/下旬の3行1セットのため、上旬で判定する
+        period: addForm.category === 'ギフト' ? '上旬' : undefined,
+      },
+      allDetailRows,
+      (row) => isNetInputMonth(row.targetMonth)
+    );
+    if (isDuplicated) {
+      toast.error(simulationKeyDuplicateMessage('追加'));
       return;
     }
     // 合計行の直下（先頭）に新規明細を追加する。
@@ -330,15 +355,21 @@ export default function SalesPlanSimulationMarginRateFixed() {
         plan: addForm.plan.trim() || '0',
       });
     }
+    // ペインで企画名を変えた場合も、同じ対象年月・同じ企画の明細へ連動する
+    detailTableRef.current?.syncCampaignName(
+      addForm.targetMonth,
+      addForm.campaign,
+      addForm.campaignName
+    );
     setAddForm({ ...EMPTY_DETAIL_FORM, category: addForm.category });
-    setAddSubmitted(false);
-    if (!continuous) setShowAddDetailPane(false);
+    setIsAddSubmitted(false);
+    if (!continuous) setIsAddDetailPaneShown(false);
     toast.success('明細を追加しました。');
   };
 
   // 明細追加ペインを開く
   const handleOpenAddDetail = (section: string) => {
-    const isOpen = showAddDetailPane && detailSection === section;
+    const isOpen = isAddDetailPaneShown && detailSection === section;
     closeAllRightPanes();
     if (isOpen) return;
     setDetailSection(section);
@@ -346,17 +377,17 @@ export default function SalesPlanSimulationMarginRateFixed() {
       ...EMPTY_DETAIL_FORM,
       category: sectionToCategory(section),
     });
-    setAddSubmitted(false);
-    setShowAddDetailPane(true);
+    setIsAddSubmitted(false);
+    setIsAddDetailPaneShown(true);
   };
 
   // 明細削除ペインを開く
   const handleOpenDeleteDetail = (data: any) => {
-    const isOpen = showDeleteDetailPane && detailData === data;
+    const isOpen = isDeleteDetailPaneShown && detailData === data;
     closeAllRightPanes();
     if (isOpen) return;
     setDetailData(data);
-    setShowDeleteDetailPane(true);
+    setIsDeleteDetailPaneShown(true);
   };
 
   // 検索エリア（追加用）
@@ -405,7 +436,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* スクロール可能エリア */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[75rem]">
+          <div className="min-w-300">
             <div className="px-6 pt-3 pb-2">
               {/* 画面名はヘッダー（システム名の右）に表示する */}
               <ScreenTitle title="販売計画シミュレーション(マージン率固定・NET入力)" />
@@ -415,7 +446,10 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <SearchPane />
+                <SimulationBasicInfoPane
+                  tradingSystem="マージン率固定"
+                  dealer={BASIC_INFO_DEALER}
+                />
               </section>
 
               {/* 販売計画(集計)エリア */}
@@ -426,13 +460,13 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 <AggregationPane
                   campaignData={campaignSummaryRows}
                   detailRows={periodDetailRows}
-                  aggFilterPaneOpen={showAggFilterPane}
+                  aggFilterPaneOpen={isAggFilterPaneShown}
                   onToggleAggFilterPane={() =>
-                    togglePane(showAggFilterPane, () =>
-                      setShowAggFilterPane(true)
+                    togglePane(isAggFilterPaneShown, () =>
+                      setIsAggFilterPaneShown(true)
                     )
                   }
-                  onCloseAggFilterPane={() => setShowAggFilterPane(false)}
+                  onCloseAggFilterPane={() => setIsAggFilterPaneShown(false)}
                   fromPeriod={aggFromPeriod}
                   toPeriod={aggToPeriod}
                   onFromPeriodChange={setAggFromPeriod}
@@ -446,7 +480,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                   販売計画(詳細)
                 </h2>
                 {/* 白カード（→ 05 白カード） */}
-                <div className="bg-white rounded-lg border border-gray-200 shadow-md p-4">
+                <div className={`${CARD_CLASS} p-4`}>
                   <DetailTable
                     ref={detailTableRef}
                     onOpenAddDetail={handleOpenAddDetail}
@@ -477,7 +511,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
               <Button
                 variant="outline"
                 className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
-                onClick={() => setShowBackConfirm(true)}
+                onClick={() => setIsBackConfirmShown(true)}
               >
                 <Undo2 className="h-4 w-4 mr-2" />
                 計画詳細へ戻る
@@ -487,300 +521,42 @@ export default function SalesPlanSimulationMarginRateFixed() {
             <div className="flex flex-wrap gap-3 items-center">
               <Button
                 className="bg-blue-500 hover:bg-blue-600 text-white h-9 rounded-lg"
-                onClick={() => setShowSaveConfirm(true)}
+                onClick={() => setIsSaveConfirmShown(true)}
               >
                 <Save className="h-4 w-4 mr-2" />
-                保存
+                保存/反映
               </Button>
             </div>
           </div>
         </div>
-
-        {/* 計画保存ダイアログ */}
-        <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>計画保存</DialogTitle>
-              <DialogDescription>販売計画を保存します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              販売計画を保存しますがよろしいですか？
-            </div>
-            <DialogFooter>
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white py-6 rounded-lg"
-                onClick={() => setShowRegisterDialog(false)}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                保存
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画承認申請ダイアログ */}
-        <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画承認申請</DialogTitle>
-              <DialogDescription>
-                販売計画の承認を申請します。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <ApproverSelect className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="備考を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className="bg-green-500 hover:bg-green-600 text-white py-6 rounded-lg"
-                onClick={() => setShowApprovalDialog(false)}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                計画承認申請
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画引戻しダイアログ */}
-        <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画引戻し</DialogTitle>
-              <DialogDescription>
-                申請した販売計画を引き戻します。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  引戻し理由
-                </Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="引戻し理由を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className="bg-green-500 hover:bg-green-600 text-white py-6 rounded-lg"
-                onClick={() => setShowWithdrawDialog(false)}
-              >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
-                計画引戻し
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画承認ダイアログ */}
-        <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画承認</DialogTitle>
-              <DialogDescription>販売計画を承認します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">承認備考</Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="承認備考を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className="bg-green-500 hover:bg-green-600 text-white py-6 rounded-lg"
-                onClick={() => setShowApproveDialog(false)}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                承認
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 計画差戻しダイアログ */}
-        <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>計画差戻し</DialogTitle>
-              <DialogDescription>販売計画を差し戻します。</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  月次販売計画書No
-                </Label>
-                <div className="col-span-3 text-sm">SP-2025-10-001</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">対象年月</Label>
-                <div className="col-span-3 text-sm">2025年10月</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  申請担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　太郎</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  承認担当者
-                </Label>
-                <div className="col-span-3 text-sm">アサヒ　早苗</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">申請備考</Label>
-                <div className="col-span-3 text-sm">10月の販売計画</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right whitespace-nowrap">
-                  差戻し理由
-                </Label>
-                <Textarea
-                  className="col-span-3 bg-white"
-                  placeholder="差戻し理由を入力してください"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className="bg-red-500 hover:bg-red-600 text-white py-6 rounded-lg"
-                onClick={() => setShowRejectDialog(false)}
-              >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
-                差戻し
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* 企画単位集計は集計表（AggregationPane）側へ移設 */}
       </div>
 
       {/* 右ペイン：明細追加 */}
       <RightPane
-        open={showAddDetailPane}
-        onClose={() => setShowAddDetailPane(false)}
+        open={isAddDetailPaneShown}
+        onClose={() => setIsAddDetailPaneShown(false)}
         title="明細追加"
         description="明細を追加します"
-        footer={(() => {
-          // 元の販売計画表に既に存在する商品は追加不可（非活性＋理由表示）
-          const addBlocked = isProductInOriginalPlan(
-            allDetailRows,
-            addForm.summaryProduct
-          );
-          return (
-            <div className="flex flex-col items-stretch gap-1">
-              {addBlocked && (
-                <p className="text-xs text-red-600">
-                  選択した商品は元の販売計画表に既に存在するため追加できません
-                </p>
-              )}
-              <div className="flex items-center justify-end gap-[0.75rem]">
-                <Button
-                  type="button"
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={addBlocked}
-                  onClick={() => handleAddDetailSubmit(true)}
-                >
-                  連続追加
-                </Button>
-                <Button
-                  type="button"
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={addBlocked}
-                  onClick={() => handleAddDetailSubmit(false)}
-                >
-                  追加
-                </Button>
-              </div>
-            </div>
-          );
-        })()}
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleAddDetailSubmit(true)}
+            >
+              連続追加
+            </Button>
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleAddDetailSubmit(false)}
+            >
+              追加
+            </Button>
+          </div>
+        }
       >
         <div className="flex flex-col h-full">
           {/* 検索エリア */}
@@ -788,14 +564,14 @@ export default function SalesPlanSimulationMarginRateFixed() {
             <div className="space-y-3">
               {/* 対象年月。シミュレーションは対象期間が複数月にわたり、新商品に該当するかが
                   対象年月によって変わるため、商品選択より先に入力させる
-                  （対象年月 → 商品区分 → サマリ商品名 → メタブランド → 容器容量G → 新商品のみ表示）。 */}
+                  （対象年月 → 商品区分 → 新商品のみ表示 → サマリ商品名。メタブランド・容器容量Gは自動反映）。 */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">
                   対象年月 <RequiredBadge />
                 </Label>
                 <div
                   className={
-                    addSubmitted && !String(addForm.targetMonth ?? '').trim()
+                    isAddSubmitted && !String(addForm.targetMonth ?? '').trim()
                       ? 'rounded-md ring-1 ring-red-500'
                       : ''
                   }
@@ -803,14 +579,21 @@ export default function SalesPlanSimulationMarginRateFixed() {
                   {/* シミュレーション（詳細）の対象期間内のみ選択可能にする。
                       期間外の月を選べると、追加した明細が表示中の明細に表示されないため */}
                   <MonthYearPicker
+                    required
                     className="w-full"
                     value={addForm.targetMonth || ''}
+                    // 企画名は対象年月×企画ごとのため、選択中の企画の企画名を取り直す
                     onChange={(v) =>
-                      setAddForm((p) => ({ ...p, targetMonth: v }))
+                      setAddForm((p) => ({
+                        ...p,
+                        targetMonth: v,
+                        campaignName: p.campaign
+                          ? registeredCampaignName(allDetailRows, v, p.campaign)
+                          : p.campaignName,
+                      }))
                     }
                     min={detailFromPeriod}
                     max={detailToPeriod}
-                    required={false}
                     clearable
                   />
                 </div>
@@ -864,12 +647,8 @@ export default function SalesPlanSimulationMarginRateFixed() {
                     net: m.net,
                   }))
                 }
-                onChangeMetaBrand={(v) =>
-                  setAddForm((prev) => ({ ...prev, metaBrand: v }))
-                }
-                onChangeContainerCapacity={(v) =>
-                  setAddForm((prev) => ({ ...prev, containerCapacityG: v }))
-                }
+                // メタブランド・容器容量Gは常に非活性（サマリ商品名の選択で自動反映。絞り込みには使わない）
+                autoFillOnly
                 onClearPrimary={() =>
                   setAddForm((prev) => ({
                     ...prev,
@@ -879,7 +658,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                     containerCapacityG: '',
                   }))
                 }
-                submitted={addSubmitted}
+                submitted={isAddSubmitted}
                 newProductBaseMonth={addForm.targetMonth}
                 requireNewProductBaseMonth
                 // 商品区分が「新商品」なら、対象年月の入力後に『新商品のみ表示』を初期チェック（課題No.0374）
@@ -898,22 +677,52 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 </Label>
                 <div
                   className={
-                    addSubmitted && !String(addForm.campaign ?? '').trim()
+                    isAddSubmitted && !String(addForm.campaign ?? '').trim()
                       ? 'rounded-md ring-1 ring-red-500'
                       : ''
                   }
                 >
                   <SingleCombobox
-                    options={CAMPAIGN_OPTIONS.map((c) => ({
-                      value: c,
-                      label: c,
-                    }))}
+                    ariaRequired
+                    // 使用中の企画は企画名を併記する
+                    options={campaignComboOptions(
+                      CAMPAIGN_OPTIONS,
+                      allDetailRows,
+                      addForm.targetMonth
+                    )}
                     value={addForm.campaign}
-                    onChange={(v) => setAddForm((p) => ({ ...p, campaign: v }))}
+                    // 同じ対象年月・同じ企画に登録済みの企画名を設定する（無ければ空欄）
+                    onChange={(v) =>
+                      setAddForm((p) => ({
+                        ...p,
+                        campaign: v,
+                        campaignName: registeredCampaignName(
+                          allDetailRows,
+                          p.targetMonth,
+                          v
+                        ),
+                      }))
+                    }
                     placeholder="企画を選択"
                     clearable
                   />
                 </div>
+              </div>
+
+              {/* 企画名：企画に付随する名称。KEYには含まないが入力必須 */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">
+                  企画名 <RequiredBadge />
+                </Label>
+                <Input
+                  aria-required="true"
+                  value={addForm.campaignName}
+                  onChange={(e) =>
+                    setAddForm((p) => ({ ...p, campaignName: e.target.value }))
+                  }
+                  placeholder="企画名を入力"
+                  className={`${TEXT_INPUT_CLASS} w-full ${isAddSubmitted && !String(addForm.campaignName ?? '').trim() ? 'ring-1 ring-red-500' : ''}`}
+                />
               </div>
 
               {/* 確度 */}
@@ -930,13 +739,14 @@ export default function SalesPlanSimulationMarginRateFixed() {
                     <>
                       <div
                         className={
-                          addSubmitted &&
+                          isAddSubmitted &&
                           !String(addForm.probability ?? '').trim()
                             ? 'rounded-md ring-1 ring-red-500'
                             : ''
                         }
                       >
                         <SingleCombobox
+                          ariaRequired
                           options={options}
                           value={addForm.probability}
                           onChange={(v) =>
@@ -954,21 +764,6 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 })()}
               </div>
 
-              {/* 企画名：企画に付随する名称。KEYには含まないが入力必須 */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-gray-700">
-                  企画名 <RequiredBadge />
-                </Label>
-                <Input
-                  value={addForm.campaignName}
-                  onChange={(e) =>
-                    setAddForm((p) => ({ ...p, campaignName: e.target.value }))
-                  }
-                  placeholder="企画名を入力"
-                  className={`${TEXT_INPUT_CLASS} w-full ${addSubmitted && !String(addForm.campaignName ?? '').trim() ? 'ring-1 ring-red-500' : ''}`}
-                />
-              </div>
-
               {/* 販促区分（任意） */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">
@@ -978,6 +773,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 addForm.category === '特殊商品' ? (
                   // 特殊商品・ギフトは販促区分が区分名で固定のため非活性表示
                   <Input
+                    aria-required="true"
                     value={addForm.category}
                     readOnly
                     className={`${TEXT_INPUT_CLASS} w-full bg-gray-100 text-gray-600 cursor-default`}
@@ -985,12 +781,13 @@ export default function SalesPlanSimulationMarginRateFixed() {
                 ) : hasPromotionOptions(addForm.category) ? (
                   <div
                     className={
-                      addSubmitted && !addForm.promotion.trim()
+                      isAddSubmitted && !addForm.promotion.trim()
                         ? 'rounded-md ring-1 ring-red-500'
                         : ''
                     }
                   >
                     <SingleCombobox
+                      ariaRequired
                       options={promotionComboOptions(
                         getPromotionLabels(addForm.category)
                       )}
@@ -1007,6 +804,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                   </div>
                 ) : (
                   <Input
+                    aria-required="true"
                     value={PROMOTION_NONE_LABEL}
                     readOnly
                     className={`${TEXT_INPUT_CLASS} w-full bg-gray-100 text-gray-600 cursor-default`}
@@ -1045,6 +843,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                           {label}
                         </span>
                         <NumericInput
+                          aria-required="true"
                           value={addForm[key]}
                           /* 計画函数は整数のみ入力可 */
                           maxFractionDigits={0}
@@ -1056,7 +855,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                           }
                           placeholder="計画函数"
                           className={
-                            addSubmitted && !String(addForm[key] ?? '').trim()
+                            isAddSubmitted && !String(addForm[key] ?? '').trim()
                               ? 'w-full bg-white border-gray-400 shadow-sm ring-1 ring-red-500 focus:ring-2 focus:ring-blue-500'
                               : 'w-full bg-white border-gray-400 shadow-sm focus:ring-2 focus:ring-blue-500'
                           }
@@ -1071,6 +870,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                     計画函数 <RequiredBadge />
                   </Label>
                   <NumericInput
+                    aria-required="true"
                     value={addForm.plan}
                     /* 計画函数は整数のみ入力可 */
                     maxFractionDigits={0}
@@ -1082,7 +882,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
                     }
                     placeholder="計画函数を入力"
                     className={
-                      addSubmitted && !String(addForm.plan ?? '').trim()
+                      isAddSubmitted && !String(addForm.plan ?? '').trim()
                         ? 'w-full bg-white border-gray-400 shadow-sm ring-1 ring-red-500 focus:ring-2 focus:ring-blue-500'
                         : 'w-full bg-white border-gray-400 shadow-sm focus:ring-2 focus:ring-blue-500'
                     }
@@ -1260,8 +1060,8 @@ export default function SalesPlanSimulationMarginRateFixed() {
                   prefix="exp1"
                   form={addForm}
                   setForm={setAddForm}
-                  submitted={addSubmitted}
-                  required={true}
+                  submitted={isAddSubmitted}
+                  required={!isExp1Empty(addForm)}
                   campaignRequired={false}
                 />
               </div>
@@ -1273,9 +1073,8 @@ export default function SalesPlanSimulationMarginRateFixed() {
                   prefix="exp2"
                   form={addForm}
                   setForm={setAddForm}
-                  submitted={addSubmitted}
-                  required={true}
-                  shouldValidateRequired={hasExp2Input(addForm)}
+                  submitted={isAddSubmitted}
+                  required={hasExp2Input(addForm)}
                   campaignRequired={false}
                   disabled={isExp1Empty(addForm)}
                 />
@@ -1287,8 +1086,8 @@ export default function SalesPlanSimulationMarginRateFixed() {
 
       {/* 右ペイン：明細削除確認（共通部品 DeleteConfirmPane） */}
       <DeleteConfirmPane
-        open={showDeleteDetailPane}
-        onClose={() => setShowDeleteDetailPane(false)}
+        open={isDeleteDetailPaneShown}
+        onClose={() => setIsDeleteDetailPaneShown(false)}
         title="明細削除の確認"
         description="明細を削除します"
         // 削除対象は業務KEY項目（補足5-2）で示し、拡売費①②の内訳を children で続ける
@@ -1298,7 +1097,7 @@ export default function SalesPlanSimulationMarginRateFixed() {
           if (detailData?.id != null) {
             detailTableRef.current?.deleteRow(detailData);
           }
-          setShowDeleteDetailPane(false);
+          setIsDeleteDetailPaneShown(false);
           toast.success('明細を削除しました。');
         }}
       >
@@ -1307,27 +1106,31 @@ export default function SalesPlanSimulationMarginRateFixed() {
 
       {/* 戻る（画面移動）の確認 */}
       <ConfirmDialog
-        open={showBackConfirm}
+        open={isBackConfirmShown}
         title="画面移動の確認"
         confirmLabel="移動"
         description="入力中のデータが破棄されます。本当によろしいですか？"
-        onConfirm={() => setShowBackConfirm(false)}
-        onCancel={() => setShowBackConfirm(false)}
+        onConfirm={() => {
+          setIsBackConfirmShown(false);
+          // 遷移元の計画詳細へ戻る（未保存の入力は破棄する）
+          onMenuChange?.('plan-detail-margin-rate-fixed');
+        }}
+        onCancel={() => setIsBackConfirmShown(false)}
       />
 
       {/* 保存の確認 */}
       <ConfirmDialog
-        open={showSaveConfirm}
+        open={isSaveConfirmShown}
         title="保存の確認"
         confirmLabel="保存"
         description="シミュレーションを保存します。対象となるすべての販売計画表のデータを更新します。本当によろしいですか？"
         onConfirm={() => {
-          setShowSaveConfirm(false);
+          setIsSaveConfirmShown(false);
           // 保存後は帯の色と編集セルの黄色強調を消す（計画詳細と同じ）
           detailTableRef.current?.clearSavedMarks();
           toast.success('シミュレーションを保存しました。');
         }}
-        onCancel={() => setShowSaveConfirm(false)}
+        onCancel={() => setIsSaveConfirmShown(false)}
       />
     </div>
   );

@@ -88,6 +88,8 @@ export function MonthPicker({
         <button
           // 入力欄の目印（画面表示時の初期フォーカスの対象にする → App.tsx）
           data-input-control
+          // data-copy-text：表示中の月（CopyableArea の Ctrl+C／右クリック「コピー」で使う → 02 §15.1）
+          data-copy-text={hasValue ? triggerLabel : undefined}
           type="button"
           disabled={disabled}
           className={cn(
@@ -95,7 +97,7 @@ export function MonthPicker({
             className
           )}
         >
-          <span className={hasValue ? '' : 'text-gray-400'}>{triggerLabel}</span>
+          <span className={hasValue ? '' : 'text-gray-500'}>{triggerLabel}</span>
           <CalendarIcon className="h-4 w-4 text-gray-600" />
         </button>
       </PopoverTrigger>

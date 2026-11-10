@@ -6,6 +6,9 @@ import type {
   TemplateRow,
 } from './marketingFileUploadTypes';
 
+// 日時の表示は共通（→ shared/upload/uploadUtils.ts）
+export { formatDateTime } from '../../shared/upload/uploadUtils';
+
 // ===== ファイルアップロード画面のユーティリティ関数 =====
 
 // 2桁（または指定桁）のゼロ埋め
@@ -33,14 +36,6 @@ export function nowIso(): string {
     `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
     `${tzSign}${tzHour}:${tzMin}`
   );
-}
-
-// ISO形式の日時を「YYYY/MM/DD HH:mm:ss」形式に整形する
-export function formatDateTime(iso: string): string {
-  if (!iso) return '';
-  const matched = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-  if (!matched) return iso;
-  return `${matched[1]}/${matched[2]}/${matched[3]} ${matched[4]}:${matched[5]}:${matched[6]}`;
 }
 
 // ファイル形式のバリデーション（エラー時はメッセージ、正常時は null）

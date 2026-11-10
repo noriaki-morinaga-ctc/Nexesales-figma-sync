@@ -37,6 +37,11 @@ interface ConfirmDialogProps {
    * commonStyles の BUTTON_STYLES（approve 等）を渡す。
    */
   confirmClassName?: string;
+  /**
+   * 実行する操作が無い警告（お知らせ）にする。キャンセルを出さず、ボタンは confirmLabel（例：閉じる）の1つだけ。
+   * 例：未保存のまま操作したときに「先に保存してください」と知らせる（→ 02 §5）。
+   */
+  acknowledgeOnly?: boolean;
 }
 
 /**
@@ -55,6 +60,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "キャンセル",
   confirmClassName,
+  acknowledgeOnly = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog
@@ -82,9 +88,11 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>
-            {cancelLabel}
-          </AlertDialogCancel>
+          {!acknowledgeOnly && (
+            <AlertDialogCancel onClick={onCancel}>
+              {cancelLabel}
+            </AlertDialogCancel>
+          )}
           <AlertDialogAction onClick={onConfirm} className={confirmClassName}>
             {confirmLabel}
           </AlertDialogAction>

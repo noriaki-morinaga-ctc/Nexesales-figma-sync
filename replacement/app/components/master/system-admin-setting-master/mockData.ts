@@ -1,8 +1,13 @@
 // システム管理者設定マスタ：画面定義（型1 マスタメンテCRUD型）とモックデータ。
 // tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/system-admin-setting-master.json）。項目はエンティティ定義に合わせる。
-// システム管理者設定マスタ（型1・無効化フラグ型）。エンティティ一覧表・定義書 10/22 版「システム管理者設定マスタ」（採算組織末端組織コード＋社員コード）。
+// システム管理者設定マスタ（型1・無効化フラグ型）。エンティティ一覧表・定義書 10/22 版「システム管理者設定マスタ」は採算組織末端組織コード＋社員コードだが、
+// Q&A QM-032 の回答（2026-10-30。登録時に末端組織の登録は不要）により主キーは社員コードだけ。事業場・部署は社員を絞り込むための項目で保存しない（一覧は社員マスタの所属から表示）。
+// 変更できる項目が無いため更新ペインは設けない（QM-033。登録・無効化・削除だけ）。定義書への反映は依頼中。
 
 import {
+  DEPT_CODE_BY_STAFF_CODE,
+  OFFICE_CODE_BY_DEPT_CODE,
+  OFFICE_CODE_NAME,
   PROFIT_ORG_DEPT_CODE_NAME,
   STAFF_CODE_NAME,
 } from '../../../constants/masterCodeNameOptions';
@@ -14,14 +19,22 @@ export const SYSTEM_ADMIN_SETTING_DEF: MasterScreenDef = {
   entityLabel: 'システム管理者',
   fields: [
     {
-      key: 'orgUnit',
-      label: '採算組織末端組織',
+      key: 'office',
+      label: '事業場',
       kind: 'combo',
-      pk: true,
-      required: true,
+      options: OFFICE_CODE_NAME,
+      codeLabel: '事業場コード',
+      nameLabel: '事業場名称',
+    },
+    {
+      key: 'dept',
+      label: '部署',
+      kind: 'combo',
       options: PROFIT_ORG_DEPT_CODE_NAME,
-      codeLabel: '採算組織末端組織コード',
-      nameLabel: '採算組織末端組織名称',
+      codeLabel: '部署コード',
+      nameLabel: '部署名称',
+      parentKey: 'office',
+      parentOf: OFFICE_CODE_BY_DEPT_CODE,
     },
     {
       key: 'staff',
@@ -32,9 +45,11 @@ export const SYSTEM_ADMIN_SETTING_DEF: MasterScreenDef = {
       options: STAFF_CODE_NAME,
       codeLabel: '社員コード',
       nameLabel: '社員名称',
+      parentKey: 'dept',
+      parentOf: DEPT_CODE_BY_STAFF_CODE,
     },
   ],
-  searchKeys: ['orgUnit', 'staff'],
+  searchKeys: ['office', 'dept', 'staff'],
   inactivation: true,
 };
 
@@ -43,7 +58,9 @@ const CREATED_AT = '2026/02/10 10:00';
 export const SYSTEM_ADMIN_SETTING_ROWS: MasterRow[] = [
   {
     id: 'system-admin-setting-master-1',
-    orgUnit: PROFIT_ORG_DEPT_CODE_NAME[0]?.code ?? '',
+    office:
+      OFFICE_CODE_BY_DEPT_CODE[DEPT_CODE_BY_STAFF_CODE['1000101'] ?? ''] ?? '',
+    dept: DEPT_CODE_BY_STAFF_CODE['1000101'] ?? '',
     staff: '1000101',
     inactive: false,
     createdBy: '営戦 花子',
@@ -53,7 +70,9 @@ export const SYSTEM_ADMIN_SETTING_ROWS: MasterRow[] = [
   },
   {
     id: 'system-admin-setting-master-2',
-    orgUnit: PROFIT_ORG_DEPT_CODE_NAME[0]?.code ?? '',
+    office:
+      OFFICE_CODE_BY_DEPT_CODE[DEPT_CODE_BY_STAFF_CODE['1000102'] ?? ''] ?? '',
+    dept: DEPT_CODE_BY_STAFF_CODE['1000102'] ?? '',
     staff: '1000102',
     inactive: false,
     createdBy: '営戦 花子',
@@ -63,7 +82,9 @@ export const SYSTEM_ADMIN_SETTING_ROWS: MasterRow[] = [
   },
   {
     id: 'system-admin-setting-master-3',
-    orgUnit: PROFIT_ORG_DEPT_CODE_NAME[1]?.code ?? '',
+    office:
+      OFFICE_CODE_BY_DEPT_CODE[DEPT_CODE_BY_STAFF_CODE['1000103'] ?? ''] ?? '',
+    dept: DEPT_CODE_BY_STAFF_CODE['1000103'] ?? '',
     staff: '1000103',
     inactive: false,
     createdBy: '営戦 花子',
@@ -73,7 +94,9 @@ export const SYSTEM_ADMIN_SETTING_ROWS: MasterRow[] = [
   },
   {
     id: 'system-admin-setting-master-4',
-    orgUnit: PROFIT_ORG_DEPT_CODE_NAME[2]?.code ?? '',
+    office:
+      OFFICE_CODE_BY_DEPT_CODE[DEPT_CODE_BY_STAFF_CODE['1000104'] ?? ''] ?? '',
+    dept: DEPT_CODE_BY_STAFF_CODE['1000104'] ?? '',
     staff: '1000104',
     inactive: true,
     createdBy: '営戦 花子',

@@ -4,8 +4,8 @@ import * as React from 'react';
 // 集計表・明細表・拡売費計画など、複数のエリアで共通利用する。
 
 interface UseResizableHeightOptions {
-  /** 初期の高さ(px) */
-  defaultHeight?: number;
+  /** 初期の高さ(px)。画面の高さから求める場合は関数で渡してよい（初回だけ呼ぶ） */
+  defaultHeight?: number | (() => number);
   /** 最小の高さ(px) */
   minHeight?: number;
   /** 最大の高さ(px) */
@@ -40,15 +40,17 @@ export function useResizableHeight({
     const handleMouseMove = (e: MouseEvent) => {
       const delta = e.clientY - startYRef.current;
       const newHeight = startHeightRef.current + delta;
-      if (newHeight >= minHeight && newHeight <= maxHeight) {
-        setHeight(newHeight);
-      }
+      // 下限・上限を超えたら端の値にそろえる（止めると、速く動かしたときに端まで届かない）
+      setHeight(Math.min(maxHeight, Math.max(minHeight, newHeight)));
     };
     const handleMouseUp = () => setIsResizing(false);
 
+    // ドラッグ中は文字の選択を止める
+    document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     return () => {
+      document.body.style.userSelect = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -61,15 +63,21 @@ interface ResizeHandleProps {
   /** ドラッグ開始ハンドラ（useResizableHeight から取得） */
   onMouseDown: (e: React.MouseEvent) => void;
   className?: string;
+  /** 読み上げる名前（例：拡売費一覧の高さを変更）。既定は「ドラッグして高さを変更」 */
+  ariaLabel?: string;
 }
 
 // 下端に表示するドラッグハンドル。relative な親要素の中で使用する。
 export function ResizeHandle({
   onMouseDown,
   className = '',
+  ariaLabel = 'ドラッグして高さを変更',
 }: ResizeHandleProps) {
   return (
     <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={ariaLabel}
       onMouseDown={onMouseDown}
       className={`absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-blue-300 transition-colors border-t-2 border-gray-300 flex items-center justify-center ${className}`}
       title="ドラッグして高さを変更"

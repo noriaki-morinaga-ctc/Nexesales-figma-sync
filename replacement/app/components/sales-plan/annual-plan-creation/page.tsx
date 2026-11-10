@@ -1,23 +1,25 @@
 // 年間計画（補助機能）。量販/卸を統一した1画面。
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Button } from '../../ui/button';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { Save, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
-import {
-  SingleComboboxCellEditor,
-  toComboOptions,
-} from '../../ui/single-combobox-cell-editor';
 import type {
   ColDef,
   ColGroupDef,
   FilterChangedEvent,
+  GridApi,
   ICellRendererParams,
 } from 'ag-grid-community';
+
+import { Button } from '../../ui/button';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
+import {
+  SingleComboboxCellEditor,
+  toComboOptions,
+} from '../../ui/single-combobox-cell-editor';
 import { MultiCombobox } from '../../ui/multi-combobox';
 import { RightPane } from '../../ui/right-pane';
-import { PlanSearchPane } from '../../shared/PlanSearchPane';
+import { PlanSearchPane } from '../../shared/sales-plan/plan-detail/PlanSearchPane';
 import {
   GRID_COLORS,
   GRID_DEFAULT_COL_DEF,
@@ -27,16 +29,20 @@ import {
   gridFilterContextMenuItems,
   existingFuncCellStyle,
   withHeaderTooltips,
+  useChangedCells,
   useFormulaSourceHighlight,
   type FormulaDefs,
+  useGridColumnState,
 } from '../../grid';
-import { makeDetailTooltip } from '../../../utils/formulaCellHelpers';
+import { makeDetailTooltip } from '../../../utils/sales-plan/common/formulaCellHelpers';
 import { SingleCombobox } from '../../ui/single-combobox';
 import { generateRowData } from '../../../constants/annualPlanMockData';
+import { promotionComboOptions } from '../../../constants/comboFieldOptions';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   FORM_LABEL_CLASS,
+  CARD_CLASS,
 } from '../../../../styles/commonStyles';
 import {
   getPromotionLabels,
@@ -226,11 +232,98 @@ const ANNUAL_CONTAINER_OPTIONS = [
   { label: 'ギフト', value: 'ギフト', code: 'CG011' },
 ];
 
+// 行選択の設定（単一行・クリック選択・チェックボックスなし）。
+// 毎レンダーで新しいオブジェクトを渡さないよう定数にする（→ 02 §7.1）。
+const ANNUAL_ROW_SELECTION = {
+  mode: 'singleRow',
+  enableClickSelection: true,
+  checkboxes: false,
+} as const;
+
 // 選択値（value）から表示名（label）を引く。選択中の条件を具体値で表示するのに使う。
 const labelOfOption = (
   options: { label: string; value: string }[],
   value: string
 ): string => options.find((option) => option.value === value)?.label ?? value;
+
+// 同一値のセルを縦結合するための行スパン計算
+// keyFn でグループ判定し、グループ先頭行では連続行数、それ以外は1を返す
+// 表示順（ソート・フィルタ後）を基準にするため api.getDisplayedRowAtIndex を使用
+// state を参照しない純粋な関数のため、列定義の参照を固定できるようモジュールスコープに置く（→ 02 §7.1）
+const getMergeRowSpan = (params: any, keyFn: (row: any) => string): number => {
+  const api = params.api;
+  const node = params.node;
+  if (!api || !node || !node.data) return 1;
+  const currentKey = keyFn(node.data);
+
+  // ピン留め上部行（合計行）の結合
+  if (node.rowPinned === 'top') {
+    const count = api.getPinnedTopRowCount();
+    // 自身のピン留め行内での位置を特定
+    let idx = -1;
+    for (let i = 0; i < count; i++) {
+      if (api.getPinnedTopRow(i) === node) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return 1;
+    const prev = idx > 0 ? api.getPinnedTopRow(idx - 1) : null;
+    if (prev && prev.data && keyFn(prev.data) === currentKey) {
+      return 1;
+    }
+    let span = 1;
+    while (idx + span < count) {
+      const next = api.getPinnedTopRow(idx + span);
+      if (next && next.data && keyFn(next.data) === currentKey) {
+        span++;
+      } else {
+        break;
+      }
+    }
+    return span;
+  }
+
+  // 通常行（ボディ）の結合
+  const index = node.rowIndex;
+  if (index == null || index < 0) return 1;
+  // 直前行が同一グループなら結合済み（先頭ではない）のためスパンしない
+  const prev = api.getDisplayedRowAtIndex(index - 1);
+  if (prev && !prev.rowPinned && prev.data && keyFn(prev.data) === currentKey) {
+    return 1;
+  }
+  // 連続する同一グループの行数をカウント（+行で追加された行も自動的に含まれる）
+  let span = 1;
+  while (true) {
+    const next = api.getDisplayedRowAtIndex(index + span);
+    if (
+      next &&
+      !next.rowPinned &&
+      next.data &&
+      keyFn(next.data) === currentKey
+    ) {
+      span++;
+    } else {
+      break;
+    }
+  }
+  return span;
+};
+
+// 結合キー：計画／実績から前年実績までの行（商品ごとの1セット）。
+// メタブランド・容器容量G・サマリ商品・一般卸メッシュは、このセットの単位でだけ結合し、
+// それ以上の単位（同じメタブランドの別商品など）では結合しない（10/20手売りセッション 決定事項24）。
+const productSetMergeKey = (row: any) =>
+  `${row?.metaBrand ?? ''}__${row?.containerCapacity ?? ''}__${
+    row?.summaryProduct ?? ''
+  }__${row?.wholesaleMesh ?? ''}`;
+const productSetRowSpan = (params: any) =>
+  getMergeRowSpan(params, productSetMergeKey);
+// ギフトの3行1セット（giftSetId）単位の結合キー。ギフト以外は行ごとに一意（結合しない）。
+const giftSetMergeKey = (row: any) =>
+  row?.giftSetId ?? `row__${row?.id ?? row?.yearType ?? ''}`;
+const giftSetRowSpan = (params: any) =>
+  getMergeRowSpan(params, giftSetMergeKey);
 
 interface AnnualPlanCreationProps {
   // 戻る等の画面遷移用コールバック（販売計画表から遷移してくる）
@@ -258,7 +351,7 @@ export default function AnnualPlanCreation({
     string[]
   >([]);
   // 条件選択の右ペイン開閉（販売計画(集計)の集計対象選択と同様のスライドイン）
-  const [showConditionPane, setShowConditionPane] = useState(false);
+  const [isConditionPaneShown, setIsConditionPaneShown] = useState(false);
 
   // 条件（メタブランド／容器容量G）が選択されているか。
   // 未選択のときは計画表を空表示にする（初期表示は全件ではなく空白）。
@@ -268,6 +361,20 @@ export default function AnnualPlanCreation({
   // 未保存の編集があるか（保存ボタンの活性制御・遷移時のアラート用）
   const [, setIsDirty] = useState(false);
 
+  // 編集セルの変更ハイライト（黄）。変更の追跡・判定は共通フックに任せ、
+  // 色付けは共通の cellClassRules（ag-cell-changed）が context.isCellChanged を見て行う（→ 02 §7.2）。
+  // 保存確定時と、条件変更で入力値を初期化したときに resetChangedCells でクリアする。
+  const { isCellChanged, trackCellChange, resetChangedCells } =
+    useChangedCells();
+  const gridContext = useMemo(() => ({ isCellChanged }), [isCellChanged]);
+  // グリッド API（変更ハイライトをクリアした後の再描画に使う）
+  const gridApiRef = useRef<GridApi | null>(null);
+  // 変更ハイライトをすべてクリアし、表示中のセルの強調を外す
+  const clearChangedCells = () => {
+    resetChangedCells();
+    gridApiRef.current?.refreshCells({ force: true });
+  };
+
   // 選択内容が同一か（順序は問わない）
   const isSameSelection = (a: string[], b: string[]): boolean =>
     a.length === b.length && a.every((v) => b.includes(v));
@@ -275,12 +382,12 @@ export default function AnnualPlanCreation({
   // ペインを開いたときに下書きを確定値で初期化する。
   // 確定せずに閉じた場合は編集内容を破棄し、次に開くと確定値から編集し直す。
   useEffect(() => {
-    if (!showConditionPane) return;
+    if (!isConditionPaneShown) return;
     setDraftMetaBrands(selectedMetaBrands);
     setDraftContainerCapacities(selectedContainerCapacities);
     // 開いた時点の確定値のみを取り込むため、確定値は依存に含めない
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showConditionPane]);
+  }, [isConditionPaneShown]);
 
   // 下書きを確定値へ反映してペインを閉じる。条件が更新されるのはこのタイミングのみ。
   // 条件が変わると明細の入力値は初期化される（変更が無い場合は閉じるだけ）。
@@ -288,12 +395,13 @@ export default function AnnualPlanCreation({
     const unchanged =
       isSameSelection(draftMetaBrands, selectedMetaBrands) &&
       isSameSelection(draftContainerCapacities, selectedContainerCapacities);
-    setShowConditionPane(false);
+    setIsConditionPaneShown(false);
     if (unchanged) return;
     setSelectedMetaBrands(draftMetaBrands);
     setSelectedContainerCapacities(draftContainerCapacities);
-    // 入力値（明細）を初期化
+    // 入力値（明細）を初期化。初期化した入力値の変更ハイライトも消す
     setRowData(generateRowData());
+    clearChangedCells();
     setIsDirty(false);
     toast.info('条件を変更し、入力値をリセットしました。');
   };
@@ -374,534 +482,476 @@ export default function AnnualPlanCreation({
     return [totals, prevYearTotals];
   };
 
-  // 同一値のセルを縦結合するための行スパン計算
-  // keyFn でグループ判定し、グループ先頭行では連続行数、それ以外は1を返す
-  // 表示順（ソート・フィルタ後）を基準にするため api.getDisplayedRowAtIndex を使用
-  const getMergeRowSpan = (
-    params: any,
-    keyFn: (row: any) => string
-  ): number => {
-    const api = params.api;
-    const node = params.node;
-    if (!api || !node || !node.data) return 1;
-    const currentKey = keyFn(node.data);
-
-    // ピン留め上部行（合計行）の結合
-    if (node.rowPinned === 'top') {
-      const count = api.getPinnedTopRowCount();
-      // 自身のピン留め行内での位置を特定
-      let idx = -1;
-      for (let i = 0; i < count; i++) {
-        if (api.getPinnedTopRow(i) === node) {
-          idx = i;
-          break;
-        }
-      }
-      if (idx < 0) return 1;
-      const prev = idx > 0 ? api.getPinnedTopRow(idx - 1) : null;
-      if (prev && prev.data && keyFn(prev.data) === currentKey) {
-        return 1;
-      }
-      let span = 1;
-      while (idx + span < count) {
-        const next = api.getPinnedTopRow(idx + span);
-        if (next && next.data && keyFn(next.data) === currentKey) {
-          span++;
-        } else {
-          break;
-        }
-      }
-      return span;
-    }
-
-    // 通常行（ボディ）の結合
-    const index = node.rowIndex;
-    if (index == null || index < 0) return 1;
-    // 直前行が同一グループなら結合済み（先頭ではない）のためスパンしない
-    const prev = api.getDisplayedRowAtIndex(index - 1);
-    if (
-      prev &&
-      !prev.rowPinned &&
-      prev.data &&
-      keyFn(prev.data) === currentKey
-    ) {
-      return 1;
-    }
-    // 連続する同一グループの行数をカウント（+行で追加された行も自動的に含まれる）
-    let span = 1;
-    while (true) {
-      const next = api.getDisplayedRowAtIndex(index + span);
-      if (
-        next &&
-        !next.rowPinned &&
-        next.data &&
-        keyFn(next.data) === currentKey
-      ) {
-        span++;
-      } else {
-        break;
-      }
-    }
-    return span;
-  };
-
-  // 結合キー：計画／実績から前年実績までの行（商品ごとの1セット）。
-  // メタブランド・容器容量G・サマリ商品・一般卸メッシュは、このセットの単位でだけ結合し、
-  // それ以上の単位（同じメタブランドの別商品など）では結合しない（10/20手売りセッション 決定事項24）。
-  const productSetMergeKey = (row: any) =>
-    `${row?.metaBrand ?? ''}__${row?.containerCapacity ?? ''}__${
-      row?.summaryProduct ?? ''
-    }__${row?.wholesaleMesh ?? ''}`;
-  const productSetRowSpan = (params: any) =>
-    getMergeRowSpan(params, productSetMergeKey);
-  // ギフトの3行1セット（giftSetId）単位の結合キー。ギフト以外は行ごとに一意（結合しない）。
-  const giftSetMergeKey = (row: any) =>
-    row?.giftSetId ?? `row__${row?.id ?? row?.yearType ?? ''}`;
-  const giftSetRowSpan = (params: any) =>
-    getMergeRowSpan(params, giftSetMergeKey);
-
-  const columnDefs: (ColDef | ColGroupDef)[] = [
-    {
-      headerName: 'メタブランド',
-      field: 'metaBrand',
-      width: 120,
-      // 先頭列は grid.css で中央寄せが強制されるため、左寄せクラスで上書きする
-      cellClass: 'ag-cell-left-pinned',
-      colSpan: (params) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return 4;
-        }
-        return 1;
-      },
-      rowSpan: productSetRowSpan,
-      cellStyle: (params) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+  // 列定義。state を参照しない（結合判定・書式・背景はすべて行データから決まる）ため、
+  // 初回だけ作って参照を固定する。毎レンダーで作り直すと列が再読込され、
+  // Undo/Redo の履歴が消える（→ 02 §7.1）。
+  const columnDefs = useMemo<(ColDef | ColGroupDef)[]>(
+    () => [
+      {
+        headerName: 'メタブランド',
+        field: 'metaBrand',
+        width: 96,
+        // 先頭列は grid.css で中央寄せが強制されるため、左寄せクラスで上書きする
+        cellClass: 'ag-cell-left-pinned',
+        colSpan: (params) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return 4;
+          }
+          return 1;
+        },
+        rowSpan: productSetRowSpan,
+        cellStyle: (params) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return {
+              backgroundColor: GRID_COLORS.total,
+              fontWeight: 'bold',
+            };
+          }
           return {
-            backgroundColor: GRID_COLORS.total,
+            backgroundColor: GRID_COLORS.readonly,
+          };
+        },
+        cellRenderer: (params: ICellRendererParams) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return GRAND_TOTAL_LABEL;
+          }
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return '';
+          }
+          return params.value || '';
+        },
+      },
+      {
+        headerName: '容器容量G',
+        field: 'containerCapacity',
+        width: 88,
+        rowSpan: productSetRowSpan,
+        // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
+        cellClass: (params) =>
+          params.data?.metaBrand === GRAND_TOTAL_LABEL
+            ? 'cell-center'
+            : 'cell-left-vmiddle',
+        cellStyle: (params) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return {
+              backgroundColor: GRID_COLORS.total,
+            };
+          }
+          return {
+            backgroundColor: GRID_COLORS.readonly,
+          };
+        },
+        cellRenderer: (params: ICellRendererParams) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return '';
+          }
+          return params.value || '';
+        },
+      },
+      {
+        headerName: 'サマリ商品',
+        field: 'summaryProduct',
+        width: 160,
+        rowSpan: productSetRowSpan,
+        // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
+        cellClass: (params) =>
+          params.data?.metaBrand === GRAND_TOTAL_LABEL
+            ? 'cell-center'
+            : 'cell-left-vmiddle',
+        cellStyle: (params) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return {
+              backgroundColor: GRID_COLORS.total,
+              fontWeight: 'bold',
+            };
+          }
+          return {
+            backgroundColor: GRID_COLORS.readonly,
+          };
+        },
+        cellRenderer: (params: ICellRendererParams) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return '';
+          }
+          return params.value || '';
+        },
+      },
+      {
+        headerName: '一般卸メッシュ',
+        field: 'wholesaleMesh',
+        width: 104,
+        // 計画／実績から前年実績までの1セットで結合する（ギフトの3行もこのセットに含まれる）
+        rowSpan: productSetRowSpan,
+        // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
+        cellClass: (params) =>
+          params.data?.metaBrand === GRAND_TOTAL_LABEL
+            ? 'cell-center'
+            : 'cell-left-vmiddle',
+        cellStyle: (params) => {
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return {
+              backgroundColor: GRID_COLORS.total,
+            };
+          }
+          return { backgroundColor: GRID_COLORS.readonly };
+        },
+        cellRenderer: (params: ICellRendererParams) => {
+          if (params.data?.summaryProduct === GRAND_TOTAL_LABEL) {
+            return '';
+          }
+          return params.value || '';
+        },
+      },
+      {
+        headerName: '当年／前年',
+        field: 'yearType',
+        width: 88,
+        rowSpan: giftSetRowSpan,
+        cellStyle: (params) => {
+          // 合計行は集計色（薄青）
+          if (params.data.metaBrand === GRAND_TOTAL_LABEL) {
+            return {
+              backgroundColor: GRID_COLORS.total,
+              fontWeight: 'bold',
+            };
+          }
+          // 計画／実績（計画値）＝白、前年実績（実績値）＝灰で区別
+          if (params.value === '計画／実績') {
+            return {
+              backgroundColor: GRID_COLORS.planValue,
+              fontWeight: 'bold',
+            };
+          }
+          return {
+            backgroundColor: GRID_COLORS.actualValue,
             fontWeight: 'bold',
           };
-        }
-        return {
-          backgroundColor: GRID_COLORS.readonly,
-        };
+        },
       },
-      cellRenderer: (params: ICellRendererParams) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return GRAND_TOTAL_LABEL;
-        }
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return '';
-        }
-        return params.value || '';
-      },
-    },
-    {
-      headerName: '容器容量G',
-      field: 'containerCapacity',
-      width: 110,
-      rowSpan: productSetRowSpan,
-      // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
-      cellClass: (params) =>
-        params.data?.metaBrand === GRAND_TOTAL_LABEL
-          ? 'cell-center'
-          : 'cell-left-vmiddle',
-      cellStyle: (params) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return {
-            backgroundColor: GRID_COLORS.total,
-          };
-        }
-        return {
-          backgroundColor: GRID_COLORS.readonly,
-        };
-      },
-      cellRenderer: (params: ICellRendererParams) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return '';
-        }
-        return params.value || '';
-      },
-    },
-    {
-      headerName: 'サマリ商品',
-      field: 'summaryProduct',
-      width: 200,
-      rowSpan: productSetRowSpan,
-      // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
-      cellClass: (params) =>
-        params.data?.metaBrand === GRAND_TOTAL_LABEL
-          ? 'cell-center'
-          : 'cell-left-vmiddle',
-      cellStyle: (params) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return {
-            backgroundColor: GRID_COLORS.total,
-            fontWeight: 'bold',
-          };
-        }
-        return {
-          backgroundColor: GRID_COLORS.readonly,
-        };
-      },
-      cellRenderer: (params: ICellRendererParams) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return '';
-        }
-        return params.value || '';
-      },
-    },
-    {
-      headerName: '一般卸メッシュ',
-      field: 'wholesaleMesh',
-      width: 130,
-      // 計画／実績から前年実績までの1セットで結合する（ギフトの3行もこのセットに含まれる）
-      rowSpan: productSetRowSpan,
-      // 結合セル（rowSpan）内のテキストを行の高さ中央に配置（メタブランド列と統一）
-      cellClass: (params) =>
-        params.data?.metaBrand === GRAND_TOTAL_LABEL
-          ? 'cell-center'
-          : 'cell-left-vmiddle',
-      cellStyle: (params) => {
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return {
-            backgroundColor: GRID_COLORS.total,
-          };
-        }
-        return { backgroundColor: GRID_COLORS.readonly };
-      },
-      cellRenderer: (params: ICellRendererParams) => {
-        if (params.data?.summaryProduct === GRAND_TOTAL_LABEL) {
-          return '';
-        }
-        return params.value || '';
-      },
-    },
-    {
-      headerName: '当年／前年',
-      field: 'yearType',
-      width: 110,
-      rowSpan: giftSetRowSpan,
-      cellStyle: (params) => {
-        // 合計行は集計色（薄青）
-        if (params.data.metaBrand === GRAND_TOTAL_LABEL) {
-          return {
-            backgroundColor: GRID_COLORS.total,
-            fontWeight: '600',
-          };
-        }
-        // 計画／実績（計画値）＝白、前年実績（実績値）＝灰で区別
-        if (params.value === '計画／実績') {
-          return {
-            backgroundColor: GRID_COLORS.planValue,
-            fontWeight: '600',
-          };
-        }
-        return {
-          backgroundColor: GRID_COLORS.actualValue,
-          fontWeight: '600',
-        };
-      },
-    },
-    {
-      headerName: '商品区分',
-      field: 'productCategory',
-      width: 100,
-      rowSpan: giftSetRowSpan,
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は灰背景（編集不可）
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 計画／実績も編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-      cellEditor: SingleComboboxCellEditor,
-      cellEditorPopup: true,
-      cellEditorParams: {
-        comboOptions: toComboOptions(CATEGORY_LABELS_ANNUAL),
-      },
-      valueFormatter: withPrevYearDash(),
-    },
-    {
-      headerName: '販促区分',
-      field: 'promotion',
-      width: 180,
-      rowSpan: giftSetRowSpan,
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は灰背景（編集不可）
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 計画／実績も編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-      cellEditor: SingleComboboxCellEditor,
-      cellEditorPopup: true,
-      // 商品区分に対応する販促区分のみを選択肢として表示
-      cellEditorParams: (params: any) => ({
-        comboOptions: toComboOptions(
-          getPromotionLabels(params.data?.productCategory ?? '')
-        ),
-      }),
-      // 特殊商品は販促区分リストが無いため '-' を表示
-      valueFormatter: withPrevYearDash((params: any) =>
-        params.data?.productCategory === '特殊商品'
-          ? PROMOTION_NONE_LABEL
-          : (params.value ?? '')
-      ),
-    },
-    {
-      // 販売期間：ギフトは上旬・中旬・下旬の3行1セットで表示する（計画詳細と同じ。
-      // 第14回手売りセッション 決定事項8）。自動表示・編集不可で、ギフト以外は空欄。
-      // セル結合の対象外（行ごとに表示）。
-      headerName: '販売期間',
-      field: 'salePeriod',
-      width: 90,
-      editable: false,
-      cellStyle: (params) => {
-        // 合計行は他の列と同じ非活性（灰）背景
-        if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        // 前年実績（実績値）は灰背景、それ以外も編集不可のため非活性（灰）背景
-        if (params.data?.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        return { backgroundColor: GRID_COLORS.readonly };
-      },
-    },
-    {
-      headerName: '納価',
-      field: 'deliveryPrice',
-      width: 70,
-      rowSpan: giftSetRowSpan,
-      type: 'numericColumn',
-      headerClass: 'jbr-header-left',
-      valueFormatter: withPrevYearDash((params) =>
-        params.value == null ? '' : String(params.value)
-      ),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は灰背景（編集不可）
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 計画／実績も編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-    },
-    {
-      headerName: '売価',
-      field: 'sellingPrice',
-      width: 70,
-      rowSpan: giftSetRowSpan,
-      type: 'numericColumn',
-      headerClass: 'jbr-header-left',
-      valueFormatter: withPrevYearDash((params) =>
-        params.value == null ? '' : String(params.value)
-      ),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は他の灰セルと同じ灰背景
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 計画／実績も編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-    },
-    {
-      headerName: '値入率',
-      field: 'discountRate',
-      width: 80,
-      rowSpan: giftSetRowSpan,
-      type: 'numericColumn',
-      headerClass: 'jbr-header-left',
-      valueFormatter: withPrevYearDash((params) =>
-        params.value !== null && params.value !== undefined
-          ? `${params.value.toFixed(2)}%`
-          : ''
-      ),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は他の灰セルと同じ灰背景
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 値入率は編集不可のため非活性（灰）背景。背景未指定だとレンジ選択の
-        // 青ハイライトが値入率列だけに透けて見えるため、背景を明示する
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-    },
-    {
-      headerName: 'NET',
-      field: 'net',
-      width: 80,
-      rowSpan: giftSetRowSpan,
-      type: 'numericColumn',
-      headerClass: 'jbr-header-left',
-      valueFormatter: withPrevYearDash((params) =>
-        params.value !== null && params.value !== undefined
-          ? params.value.toFixed(2)
-          : ''
-      ),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は他の灰セルと同じ灰背景
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // NETは計画／実績であっても編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-    },
-    {
-      headerName: 'マージン率',
-      field: 'marginRate',
-      width: 100,
-      rowSpan: giftSetRowSpan,
-      headerClass: 'jbr-header-left',
-      valueFormatter: withPrevYearDash(),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
-          return { backgroundColor: GRID_COLORS.readonly, color: '#888' };
-        }
-        // 前年実績（実績値）は灰背景（編集不可）
-        if (params.data.yearType === '前年実績') {
-          return { backgroundColor: GRID_COLORS.actualValue };
-        }
-        // 計画／実績も編集不可のため非活性（灰）背景
-        if (params.data.yearType === '計画／実績') {
-          return { backgroundColor: GRID_COLORS.readonly };
-        }
-        return {};
-      },
-      editable: false,
-    },
-    {
-      headerName: '函数',
-      headerClass: 'ag-center-header',
-      marryChildren: true,
-      // 1〜12月の列は構成が同一のため MONTH_COLUMNS から生成する。
-      // 実績反映月（実績で塗り替え済みの月）は変更不可のため非活性（灰・編集不可）とし、
-      // 実績反映セルであることが分かるよう枠線（existingFuncCellStyle）で示す。
-      children: MONTH_COLUMNS.map(({ field, headerName }) => {
-        const isActualReflected = ACTUAL_REFLECTED_MONTHS.includes(field);
-        return {
-          headerName,
-          field,
-          width: 80,
-          type: 'numericColumn',
-          // ギフトの上旬・下旬の実績反映月は空欄（月の実績は中旬の行に表示する）
-          valueFormatter: (params: any) =>
-            isGiftEmptyCell(params.data, field)
-              ? ''
-              : formatCaseCount(params.value),
-          cellStyle: (params: any) => {
-            const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-            if (isTotalRow) {
-              return {
-                backgroundColor: GRID_COLORS.total,
-                fontWeight: 'bold',
-              };
-            }
-            // ギフトの上旬・下旬の実績反映月は入力不可（灰・空欄）
-            if (isGiftEmptyCell(params.data, field)) {
-              return { backgroundColor: GRID_COLORS.readonly };
-            }
-            if (params.data.yearType === '計画／実績') {
-              // 実績反映月は変更不可（灰背景・枠線）。それ以外は白背景（編集可）
-              return isActualReflected
-                ? existingFuncCellStyle({
-                    backgroundColor: GRID_COLORS.readonly,
-                  })
-                : { backgroundColor: GRID_COLORS.planValue };
-            }
-            // 前年実績（実績値）は灰背景（編集不可）
-            if (params.data.yearType === '前年実績') {
-              return { backgroundColor: GRID_COLORS.actualValue };
-            }
+      {
+        headerName: '商品区分',
+        field: 'productCategory',
+        width: 80,
+        rowSpan: giftSetRowSpan,
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は灰背景（編集不可）
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 計画／実績も編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
             return { backgroundColor: GRID_COLORS.readonly };
-          },
-          editable: (params: any) => {
-            // 実績反映月は実績で塗り替えられるため編集不可
-            // （ギフトの上旬・下旬の空欄セルも実績反映月のため、ここで入力不可になる）
-            if (isActualReflected) return false;
-            const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-            const isPlan = params.data.yearType === '計画／実績';
-            return !isTotalRow && isPlan;
-          },
-        } as ColDef;
-      }),
-    },
-    {
-      headerName: '合計',
-      field: 'total',
-      width: 100,
-      type: 'numericColumn',
-      valueFormatter: (params) => formatCaseCount(params.value),
-      cellStyle: (params) => {
-        const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
-        if (isTotalRow) {
+          }
+          return {};
+        },
+        editable: false,
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: {
+          comboOptions: toComboOptions(CATEGORY_LABELS_ANNUAL),
+        },
+        valueFormatter: withPrevYearDash(),
+      },
+      {
+        headerName: '販促区分',
+        field: 'promotion',
+        width: 144,
+        rowSpan: giftSetRowSpan,
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は灰背景（編集不可）
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 計画／実績も編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+        cellEditor: SingleComboboxCellEditor,
+        cellEditorPopup: true,
+        // 商品区分に対応する販促区分のみを選択肢として表示
+        cellEditorParams: (params: any) => ({
+          // 名称（上）・コード（下）の2行で、両方の行で絞り込める共通の選択肢（→ 02 §9）
+          comboOptions: promotionComboOptions(
+            getPromotionLabels(params.data?.productCategory ?? '')
+          ),
+        }),
+        // 特殊商品は販促区分リストが無いため '-' を表示
+        valueFormatter: withPrevYearDash((params: any) =>
+          params.data?.productCategory === '特殊商品'
+            ? PROMOTION_NONE_LABEL
+            : (params.value ?? '')
+        ),
+      },
+      {
+        // 販売期間：ギフトは上旬・中旬・下旬の3行1セットで表示する（計画詳細と同じ。
+        // 第14回手売りセッション 決定事項8）。自動表示・編集不可で、ギフト以外は空欄。
+        // セル結合の対象外（行ごとに表示）。
+        headerName: '販売期間',
+        field: 'salePeriod',
+        width: 72,
+        editable: false,
+        cellStyle: (params) => {
+          // 合計行は他の列と同じ非活性（灰）背景
+          if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          // 前年実績（実績値）は灰背景、それ以外も編集不可のため非活性（灰）背景
+          if (params.data?.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          return { backgroundColor: GRID_COLORS.readonly };
+        },
+      },
+      {
+        headerName: '納価',
+        field: 'deliveryPrice',
+        width: 56,
+        rowSpan: giftSetRowSpan,
+        type: 'numericColumn',
+        valueFormatter: withPrevYearDash((params) =>
+          params.value == null ? '' : String(params.value)
+        ),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は灰背景（編集不可）
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 計画／実績も編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+      },
+      {
+        headerName: '売価',
+        field: 'sellingPrice',
+        width: 56,
+        rowSpan: giftSetRowSpan,
+        type: 'numericColumn',
+        valueFormatter: withPrevYearDash((params) =>
+          params.value == null ? '' : String(params.value)
+        ),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は他の灰セルと同じ灰背景
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 計画／実績も編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+      },
+      {
+        headerName: '値入率',
+        field: 'discountRate',
+        width: 64,
+        rowSpan: giftSetRowSpan,
+        type: 'numericColumn',
+        valueFormatter: withPrevYearDash((params) =>
+          params.value !== null && params.value !== undefined
+            ? `${params.value.toFixed(2)}%`
+            : ''
+        ),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は他の灰セルと同じ灰背景
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 値入率は編集不可のため非活性（灰）背景。背景未指定だとレンジ選択の
+          // 青ハイライトが値入率列だけに透けて見えるため、背景を明示する
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+      },
+      {
+        headerName: 'NET',
+        field: 'net',
+        width: 64,
+        rowSpan: giftSetRowSpan,
+        type: 'numericColumn',
+        valueFormatter: withPrevYearDash((params) =>
+          params.value !== null && params.value !== undefined
+            ? params.value.toFixed(2)
+            : ''
+        ),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は他の灰セルと同じ灰背景
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // NETは計画／実績であっても編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+      },
+      {
+        headerName: 'マージン率',
+        field: 'marginRate',
+        width: 80,
+        rowSpan: giftSetRowSpan,
+        valueFormatter: withPrevYearDash(),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              color: GRID_COLORS.mutedText,
+            };
+          }
+          // 前年実績（実績値）は灰背景（編集不可）
+          if (params.data.yearType === '前年実績') {
+            return { backgroundColor: GRID_COLORS.actualValue };
+          }
+          // 計画／実績も編集不可のため非活性（灰）背景
+          if (params.data.yearType === '計画／実績') {
+            return { backgroundColor: GRID_COLORS.readonly };
+          }
+          return {};
+        },
+        editable: false,
+      },
+      {
+        headerName: '函数',
+        marryChildren: true,
+        // 1〜12月の列は構成が同一のため MONTH_COLUMNS から生成する。
+        // 実績反映月（実績で塗り替え済みの月）は変更不可のため非活性（灰・編集不可）とし、
+        // 実績反映セルであることが分かるよう枠線（existingFuncCellStyle）で示す。
+        children: MONTH_COLUMNS.map(({ field, headerName }) => {
+          const isActualReflected = ACTUAL_REFLECTED_MONTHS.includes(field);
+          return {
+            headerName,
+            field,
+            width: 64,
+            type: 'numericColumn',
+            // ギフトの上旬・下旬の実績反映月は空欄（月の実績は中旬の行に表示する）
+            valueFormatter: (params: any) =>
+              isGiftEmptyCell(params.data, field)
+                ? ''
+                : formatCaseCount(params.value),
+            cellStyle: (params: any) => {
+              const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+              if (isTotalRow) {
+                return {
+                  backgroundColor: GRID_COLORS.total,
+                  fontWeight: 'bold',
+                };
+              }
+              // ギフトの上旬・下旬の実績反映月は入力不可（灰・空欄）
+              if (isGiftEmptyCell(params.data, field)) {
+                return { backgroundColor: GRID_COLORS.readonly };
+              }
+              if (params.data.yearType === '計画／実績') {
+                // 実績反映月は変更不可（灰背景・枠線）。それ以外は白背景（編集可）
+                return isActualReflected
+                  ? existingFuncCellStyle({
+                      backgroundColor: GRID_COLORS.readonly,
+                    })
+                  : { backgroundColor: GRID_COLORS.planValue };
+              }
+              // 前年実績（実績値）は灰背景（編集不可）
+              if (params.data.yearType === '前年実績') {
+                return { backgroundColor: GRID_COLORS.actualValue };
+              }
+              return { backgroundColor: GRID_COLORS.readonly };
+            },
+            editable: (params: any) => {
+              // 実績反映月は実績で塗り替えられるため編集不可
+              // （ギフトの上旬・下旬の空欄セルも実績反映月のため、ここで入力不可になる）
+              if (isActualReflected) return false;
+              const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+              const isPlan = params.data.yearType === '計画／実績';
+              return !isTotalRow && isPlan;
+            },
+          } as ColDef;
+        }),
+      },
+      {
+        headerName: '合計',
+        field: 'total',
+        width: 80,
+        type: 'numericColumn',
+        valueFormatter: (params) => formatCaseCount(params.value),
+        cellStyle: (params) => {
+          const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
+          if (isTotalRow) {
+            return {
+              backgroundColor: GRID_COLORS.readonly,
+              fontWeight: 'bold',
+            };
+          }
           return {
             backgroundColor: GRID_COLORS.readonly,
             fontWeight: 'bold',
           };
-        }
-        return {
-          backgroundColor: GRID_COLORS.readonly,
-          fontWeight: '600',
-        };
+        },
       },
-    },
-  ];
+    ],
+    []
+  );
+  // ヘッダーツールチップを付けた列定義（参照を固定して AgGridReact に渡す）
+  const gridColumnDefs = useMemo(
+    () => withHeaderTooltips(columnDefs),
+    [columnDefs]
+  );
 
-  const getRowId = (params: any) => {
+  // 行ID。参照を固定する（→ 02 §7.1）。
+  const getRowId = useCallback((params: any) => {
     if (params.data?.id) {
       return params.data.id;
     }
@@ -909,7 +959,7 @@ export default function AnnualPlanCreation({
       return `total-${params.data.yearType}`;
     }
     return `${params.data?.wholesaleMesh}-${params.data?.yearType}`;
-  };
+  }, []);
 
   // 条件（メタブランド）でグリッド表示行を即時フィルタ（リアルタイム反映）。
   // 条件未選択（初期表示）は全件ではなく空表示とする。
@@ -936,6 +986,11 @@ export default function AnnualPlanCreation({
     setFilteredRowIds(ids);
   };
 
+  // 合計行の再計算トークン。函数セルの編集で増やし、合計行だけを再計算させる。
+  // 編集値は AG Grid が行データ（node.data）へ直接反映するため、rowData の参照は
+  // 差し替えない（差し替えると Undo/Redo の履歴が消える。→ 02 §7.1）。
+  const [totalsToken, setTotalsToken] = useState(0);
+
   // 合計行（ピン留め上部行）。条件未選択時は計画表ごと空表示にする。
   // 列フィルタ中は、フィルタを通過した行だけで合計する。
   const totals = useMemo(() => {
@@ -951,18 +1006,15 @@ export default function AnnualPlanCreation({
       console.error('Error calculating totals:', error);
       return [];
     }
-  }, [displayedRowData, isConditionSelected, filteredRowIds]);
-
-  // 編集されたセル（行ID::列ID）の集合。編集後に黄色＋オレンジ枠で強調する。
-  const changedCellsRef = useRef<Set<string>>(new Set());
-  // 各セルの元値（初回編集時に記録）。元値に戻したら強調を解除するため。
-  const originalCellValuesRef = useRef<Map<string, string>>(new Map());
-  const cellChangeKey = (params: any) =>
-    `${params.node?.id}::${params.column?.getColId?.() ?? params.colDef?.field}`;
-  const isCellChanged = (params: any) => {
-    if (params.node?.rowPinned) return false;
-    return changedCellsRef.current.has(cellChangeKey(params));
-  };
+    // totalsToken は値を使わず、函数編集時の再計算のきっかけとしてのみ依存に置く
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    displayedRowData,
+    isConditionSelected,
+    filteredRowIds,
+    totalsToken,
+    getRowId,
+  ]);
 
   // 計算式セルのホバーで算出元セルの枠線を強調し、計算式ツールチップを表示するフック
   const formulaHL = useFormulaSourceHighlight<any>(ANNUAL_FORMULA_DEFS, {
@@ -972,19 +1024,11 @@ export default function AnnualPlanCreation({
   // セル編集で未保存状態にし、編集済みセルを記録して黄色＋オレンジ枠で強調
   const handleCellValueChanged = (params: any) => {
     setIsDirty(true);
-    const key = cellChangeKey(params);
-    if (!originalCellValuesRef.current.has(key)) {
-      originalCellValuesRef.current.set(key, String(params.oldValue ?? ''));
-    }
-    const orig = originalCellValuesRef.current.get(key) ?? '';
-    if (String(params.newValue ?? '') === orig) {
-      changedCellsRef.current.delete(key);
-    } else {
-      changedCellsRef.current.add(key);
-    }
+    // 元値と異なれば強調に追加、元値へ戻したら解除する
+    trackCellChange(params);
 
     // 函数（月次）セルの編集時は、当該行の年間合計を再計算し、
-    // rowData の状態を更新して「全商品合計（計画／実績）」を動的に再集計する。
+    // 合計行の再計算トークンを進めて「全商品合計（計画／実績）」を動的に再集計する。
     const field = params.column?.getColId?.() ?? params.colDef?.field;
     const isMonthEdit = MONTH_FIELDS.includes(field);
     if (isMonthEdit) {
@@ -995,8 +1039,8 @@ export default function AnnualPlanCreation({
         (sum, f) => sum + (Number(params.data[f]) || 0),
         0
       );
-      // 新しい配列参照に差し替えて totals（useMemo）を再計算させる
-      setRowData((prev) => [...prev]);
+      // 合計行（totals）を再計算させる。rowData の参照は変えない（Undo 履歴を保つ）
+      setTotalsToken((token) => token + 1);
     }
 
     // 編集行を再描画（年間合計列・変更強調を反映）。月次編集時は行全体を更新。
@@ -1007,13 +1051,35 @@ export default function AnnualPlanCreation({
     });
   };
 
+  // 既定の列設定。共通の cellClassRules（変更ハイライト ag-cell-changed・空値 cell-empty）に
+  // 画面独自のルール（ギフト結合セルの縦中央寄せ・計算式の算出元強調）をマージする（→ 02 §7.2 例外）。
+  // 参照を固定して渡す（→ 02 §7.1）。
+  const gridDefaultColDef = useMemo<ColDef>(
+    () => ({
+      ...GRID_DEFAULT_COL_DEF,
+      cellClassRules: {
+        ...GRID_DEFAULT_COL_DEF.cellClassRules,
+        // ギフトの3行1セットで結合する列は縦中央寄せにする
+        'gift-merged': (params) =>
+          !!params.data?.giftSetId &&
+          GIFT_MERGED_FIELDS.includes(params.colDef?.field ?? ''),
+        ...formulaHL.cellClassRules,
+      },
+      // 計算式セルは計算式（式＋実値）を、それ以外はセル値をツールチップ表示
+      tooltipValueGetter: formulaHL.tooltipValueGetter,
+    }),
+    [formulaHL]
+  );
+
   // 戻る・保存の確認ダイアログ表示状態
-  const [showBackConfirm, setShowBackConfirm] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [isBackConfirmShown, setIsBackConfirmShown] = useState(false);
+  const [isSaveConfirmShown, setIsSaveConfirmShown] = useState(false);
 
   // 保存（旧「反映」）。現状はモックのため未保存フラグを解除する。
   const handleSave = () => {
     setIsDirty(false);
+    // 保存確定で変更ハイライトをクリアする（→ 02 §7.2）
+    clearChangedCells();
     toast.success('年間計画を保存しました。');
   };
 
@@ -1028,6 +1094,17 @@ export default function AnnualPlanCreation({
     );
   };
 
+  // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）
+  const planGridColumnStateProps = useGridColumnState(
+    '年間計画作成.計画.columnState',
+    {
+      // グリッド独自の初期化は、フックが列の状態を復元した後に呼ぶ
+      onGridReady: (params) => {
+        gridApiRef.current = params.api;
+        formulaHL.captureApi(params.api);
+      },
+    }
+  );
   return (
     <div className="flex h-full w-full overflow-hidden bg-gray-100">
       {/* メインコンテンツ */}
@@ -1035,7 +1112,7 @@ export default function AnnualPlanCreation({
         <div className="flex flex-col h-full bg-gray-100">
           {/* Scrollable Content */}
           <div className="flex-1 overflow-x-auto overflow-y-auto bg-gray-100">
-            <div className="min-w-[75rem]">
+            <div className="min-w-300">
               <div className="px-6 pt-3 pb-2">
                 {/* 画面名はヘッダー（システム名の右）に表示する */}
                 <ScreenTitle title="年間計画作成" />
@@ -1056,7 +1133,7 @@ export default function AnnualPlanCreation({
                 />
 
                 {/* 条件エリア（対象年＋条件選択ボタン。詳細条件は右ペインで設定） */}
-                <div className="bg-white rounded-lg border border-gray-200 shadow-md p-4 mb-3">
+                <div className={`${CARD_CLASS} p-4 mb-3`}>
                   <div className="flex items-center gap-3 flex-wrap">
                     {/* 対象年 */}
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -1082,9 +1159,9 @@ export default function AnnualPlanCreation({
                     {/* 条件選択（押下で右ペインを表示。販売計画(集計)の集計対象選択と同様） */}
                     <button
                       type="button"
-                      onClick={() => setShowConditionPane((v) => !v)}
+                      onClick={() => setIsConditionPaneShown((v) => !v)}
                       className={`flex items-center gap-2 h-8 px-3 rounded-lg border-2 border-blue-600 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap ${
-                        showConditionPane
+                        isConditionPaneShown
                           ? 'bg-blue-600 text-white'
                           : 'bg-white text-blue-600 hover:bg-blue-50'
                       }`}
@@ -1142,7 +1219,7 @@ export default function AnnualPlanCreation({
                     減算値 8.25rem = ヘッダ・フッタ・対象年/条件選択バー等の固定高。
                     最下部までスクロールした状態で本カードが画面高にちょうど収まる値。 */}
                 <div
-                  className="bg-white rounded-lg border border-gray-200 shadow-md mb-3"
+                  className={`${CARD_CLASS} mb-3`}
                   style={{
                     height: 'calc(100vh - 8.25rem)',
                     minHeight: '25rem',
@@ -1150,23 +1227,13 @@ export default function AnnualPlanCreation({
                 >
                   {/* 支払申請一覧参照と同じ共通テーマ（GRID_THEME）を使用。
                       theme= は指定せず App.tsx の provideGlobalGridOptions に委譲する。
-                      縦罫線・通常行の横罫線は共通テーマ（columnBorder/rowBorder）で付与する。
+                      通常行の横罫線は共通テーマ（rowBorder）で付与する（明細の縦罫線は引かない → 02 §7「罫線」）。
                       ただしセル結合（rowSpan）した背の高いセルは、配下の行の横罫線を覆い隠して
                       しまうため、結合セルの下辺罫線が消える。これを補うため全セルに border-bottom
                       を明示して結合セルの横罫線を表示する。 */}
                   <style>{`
                     .annual-plan-grid .ag-cell {
                       border-bottom: 1px solid var(--grid-grid-line);
-                    }
-                    /* ヘッダー文字を左寄せ（データ列の右寄せは維持） */
-                    .annual-plan-grid .ag-header-cell-label,
-                    .annual-plan-grid .ag-header-group-cell-label {
-                      justify-content: flex-start;
-                    }
-                    /* numericColumn 等で右寄せ（row-reverse）になるヘッダーを左寄せに上書き */
-                    .annual-plan-grid .jbr-header-left .ag-header-cell-label {
-                      flex-direction: row !important;
-                      justify-content: flex-start !important;
                     }
                     /* ギフト（上旬・中旬・下旬の3行1セット）で結合した背の高いセルを縦中央に配置する。
                        縦方向 flex の主軸で中央寄せし、横は stretch で各セルの text-align を活かす
@@ -1177,41 +1244,21 @@ export default function AnnualPlanCreation({
                       justify-content: center;
                       align-items: stretch;
                     }
-                    /* 編集済みセル：黄色＋オレンジ枠（gridStyles.ts 準拠） */
-                    .annual-plan-grid .ag-cell.jbr-cell-changed {
-                      background-color: ${GRID_COLORS.changedBg} !important;
-                      border: 1px solid ${GRID_COLORS.changedBorder} !important;
-                    }
                   `}</style>
                   <div className="h-full annual-plan-grid">
                     <AgGridReact
+                      {...planGridColumnStateProps}
                       rowData={displayedRowData}
-                      columnDefs={withHeaderTooltips(columnDefs)}
-                      defaultColDef={{
-                        ...GRID_DEFAULT_COL_DEF,
-                        cellClassRules: {
-                          'jbr-cell-changed': (params: any) =>
-                            isCellChanged(params),
-                          // ギフトの3行1セットで結合する列は縦中央寄せにする
-                          'gift-merged': (params: any) =>
-                            !!params.data?.giftSetId &&
-                            GIFT_MERGED_FIELDS.includes(params.colDef?.field),
-                          ...formulaHL.cellClassRules,
-                          // 値が無いセルの「-」をグレーにする（共通の既定列設定のルールを引き継ぐ）
-                          'cell-empty':
-                            GRID_DEFAULT_COL_DEF.cellClassRules!['cell-empty'],
-                        },
-                        // 計算式セルは計算式（式＋実値）を、それ以外はセル値をツールチップ表示
-                        tooltipValueGetter: formulaHL.tooltipValueGetter,
-                      }}
+                      columnDefs={gridColumnDefs}
+                      defaultColDef={gridDefaultColDef}
+                      // 変更ハイライトの判定（共通 cellClassRule が参照する）
+                      context={gridContext}
                       getContextMenuItems={gridFilterContextMenuItems}
                       statusBar={GRID_STATUS_BAR}
                       getRowId={getRowId}
                       pinnedTopRowData={totals}
                       onFilterChanged={handleFilterChanged}
                       onCellValueChanged={handleCellValueChanged}
-                      // 計算式セルのホバーで算出元セルの枠線を強調（共通フック）
-                      onGridReady={(params) => formulaHL.captureApi(params.api)}
                       onCellMouseOver={formulaHL.onCellMouseOver}
                       onCellMouseOut={formulaHL.onCellMouseOut}
                       // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
@@ -1225,11 +1272,7 @@ export default function AnnualPlanCreation({
                       {...GRID_BASE_PROPS}
                       suppressFieldDotNotation={true}
                       suppressCellFocus={false}
-                      rowSelection={{
-                        mode: 'singleRow',
-                        enableClickSelection: true,
-                        checkboxes: false,
-                      }}
+                      rowSelection={ANNUAL_ROW_SELECTION}
                     />
                   </div>
                 </div>
@@ -1244,7 +1287,7 @@ export default function AnnualPlanCreation({
                 {/* 計画詳細に戻る（計画詳細のフッターと同じデザイン） */}
                 <Button
                   variant="outline"
-                  onClick={() => setShowBackConfirm(true)}
+                  onClick={() => setIsBackConfirmShown(true)}
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
                 >
                   <Undo2 className="h-4 w-4 mr-2" />
@@ -1254,11 +1297,11 @@ export default function AnnualPlanCreation({
 
               <div className="flex flex-wrap gap-3 items-center">
                 <Button
-                  onClick={() => setShowSaveConfirm(true)}
+                  onClick={() => setIsSaveConfirmShown(true)}
                   className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} py-6`}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  保存
+                  保存/反映
                 </Button>
               </div>
             </div>
@@ -1270,21 +1313,21 @@ export default function AnnualPlanCreation({
           条件はメタブランドと容器容量Gのみとする（新商品・除外条件は年間計画では不要）。
           条件は1件選択するたびではなく、プルダウンを閉じて確定した時点で1回だけ確認する。 */}
       <RightPane
-        open={showConditionPane}
-        onClose={() => setShowConditionPane(false)}
+        open={isConditionPaneShown}
+        onClose={() => setIsConditionPaneShown(false)}
         title="条件選択"
         description="メタブランド・容器容量G で対象を絞り込みます"
         initialWidth={26}
         minWidth={22}
         maxWidth={40}
         footer={
-          <div className="flex items-center justify-end gap-[0.75rem]">
+          <div className="flex items-center justify-end gap-3">
             {/* 「すべてリセット」は設けない。条件を変えるときは選び直す（10/20手売りセッション 決定事項34） */}
             {/* 条件が更新されるのは、この確定を押下したタイミングのみ */}
             <button
               type="button"
               onClick={handleSubmitCondition}
-              className="inline-flex items-center h-8 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors"
+              className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} inline-flex items-center h-8 px-4 text-sm font-medium`}
             >
               確定
             </button>
@@ -1315,28 +1358,28 @@ export default function AnnualPlanCreation({
 
       {/* 戻る（画面移動）の確認 */}
       <ConfirmDialog
-        open={showBackConfirm}
+        open={isBackConfirmShown}
         title="画面移動の確認"
         confirmLabel="移動"
         description="入力中のデータが破棄されます。本当によろしいですか？"
         onConfirm={() => {
-          setShowBackConfirm(false);
+          setIsBackConfirmShown(false);
           handleBack();
         }}
-        onCancel={() => setShowBackConfirm(false)}
+        onCancel={() => setIsBackConfirmShown(false)}
       />
 
       {/* 保存の確認 */}
       <ConfirmDialog
-        open={showSaveConfirm}
+        open={isSaveConfirmShown}
         title="保存の確認"
         confirmLabel="保存"
         description="年間計画を保存します。対象となるすべての販売計画表のデータを更新します。本当によろしいですか？"
         onConfirm={() => {
-          setShowSaveConfirm(false);
+          setIsSaveConfirmShown(false);
           handleSave();
         }}
-        onCancel={() => setShowSaveConfirm(false)}
+        onCancel={() => setIsSaveConfirmShown(false)}
       />
     </div>
   );
