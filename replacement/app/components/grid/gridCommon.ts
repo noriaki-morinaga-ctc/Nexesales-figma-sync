@@ -12,21 +12,56 @@ import type {
   SuppressKeyboardEventParams,
   GetContextMenuItemsParams,
   MenuItemDef,
+  ColTypeDef,
+  DefaultMenuItem,
   DataTypeDefinitions,
   FilterOpenedEvent,
   CellClassParams,
+  CellStyle,
+  RowStyle,
+  HeaderClassParams,
+  HeaderStyle,
 } from 'ag-grid-community';
 import { themeBalham } from 'ag-grid-community';
 import { toast } from 'sonner';
+
 import {
   GridDisplayedRowsStatusPanel,
   YearMonthFilterInput,
 } from './GridComponents';
-import { GRID_COLORS } from '../../../styles/gridStyles';
+import { GRID_COLORS } from '@/styles/gridStyles';
 import { AG_GRID_LOCALE_JA } from './gridLocale';
 import { exportGridAllRows } from './gridExportAll';
-import { EditableComboboxCellEditor } from '../ui/editable-combobox-cell-editor';
-import { SingleComboboxCellEditor } from '../ui/single-combobox-cell-editor';
+import { EditableComboboxCellEditor } from '@/app/components/ui/editable-combobox-cell-editor';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
+
+// 変更ハイライト（ag-cell-changed）を付けるかの判定。グリッドの context の isCellChanged（useChangedCells）を見る（→ 02 §7.2）。
+// GRID_DEFAULT_COL_DEF の cellClassRules で使う。defaultColDef を画面で持つ表は、列の cellClassRules にこれを入れる
+export const CELL_CHANGED_CLASS_RULE = (p: any): boolean =>
+  !!p.context?.isCellChanged?.(p);
+
+// cellStyle の関数の型を AG Grid に合わせる（中身は変えない）。
+// AG Grid はセルに書式を当てるとき、値が undefined・null の指定を飛ばす（_addStylesToElement）。
+// 「条件に合わないときは undefined」と書いた書式も正しく動くが、型（CellStyle）は undefined を許さないため、
+// ここで型だけを合わせる。列の cellStyle に直接書く関数のほか、複数の列で使う書式の関数
+// （getDataCellStyle(params, …) など、引数が2つ以上のもの）の定義にも使える。
+export function asCellStyle<A extends unknown[]>(
+  fn: (
+    ...args: A
+  ) => Record<string, string | number | undefined | null> | null | undefined
+): (...args: A) => CellStyle {
+  return fn as unknown as (...args: A) => CellStyle;
+}
+
+// getRowStyle の関数の型を AG Grid に合わせる（中身は変えない。asCellStyle と同じ理由）。
+// 行の書式も、値が undefined・null の指定は AG Grid が飛ばす。
+export function asRowStyle<A extends unknown[]>(
+  fn: (
+    ...args: A
+  ) => Record<string, string | number | undefined | null> | null | undefined
+): (...args: A) => RowStyle {
+  return fn as unknown as (...args: A) => RowStyle;
+}
 
 // ── グリッド共通テーマ（全画面共通）───────────────────────────────
 // 高さ・余白・フォント・背景をテーマ側に集約し、各画面のグリッドで共有する。
@@ -138,7 +173,7 @@ export const GRID_COLUMN_TYPES: Record<string, ColDef> = {
 };
 
 // フィルタを持たないグリッド（defaultColDef で filter: false）用。型による列タイプを空にする
-export const GRID_NO_FILTER_COLUMN_TYPES: Record<string, ColDef> = {
+export const GRID_NO_FILTER_COLUMN_TYPES: Record<string, ColTypeDef> = {
   gridNumberFilter: {},
   gridDateFilter: {},
 };
@@ -283,8 +318,11 @@ function exportAllSubMenu(params: GetContextMenuItemsParams): MenuItemDef {
 // あわせて標準の「エクスポート」を全件エクスポートへ差し替える（全画面共通仕様）。
 export function gridFilterContextMenuItems(
   params: GetContextMenuItemsParams
-): (string | MenuItemDef)[] {
-  const defaultItems = (params.defaultItems ?? []) as (string | MenuItemDef)[];
+): (DefaultMenuItem | MenuItemDef)[] {
+  const defaultItems = (params.defaultItems ?? []) as (
+    | DefaultMenuItem
+    | MenuItemDef
+  )[];
   // 標準項目 'export' を全件エクスポート版に差し替える。
   // 切り取り・貼り付けはセルを編集できるグリッド（シングル画面）だけに出す（画面設計標準 4.1）。
   // 参照専用のグリッド（コレクション画面の一覧等）では値を変えられないため出さない。
@@ -377,6 +415,8 @@ export function formatEmptyAsDash(params: ValueFormatterParams): string {
 //   フィルターを使うグリッドは <AgGridReact getContextMenuItems={gridFilterContextMenuItems} />
 //   をセットで指定し、セル右クリックからフィルターを開けるようにすること。
 export const GRID_DEFAULT_COL_DEF: ColDef = {
+  // 見出しで入力できる列を見分ける（編集できない列の見出しをグレーにする。→ gridHeaderStyle）
+  headerStyle: gridHeaderStyle,
   sortable: true,
   resizable: true,
   filter: true,
@@ -404,7 +444,7 @@ export const GRID_DEFAULT_COL_DEF: ColDef = {
   // 読取専用グリッドは isCellChanged 未設定のため常に false（＝副作用なし）。
   // ※画面独自に defaultColDef.cellClassRules を指定する場合は、本ルールをマージすること。
   cellClassRules: {
-    'ag-cell-changed': (p: any) => !!p.context?.isCellChanged?.(p),
+    'ag-cell-changed': CELL_CHANGED_CLASS_RULE,
     // 値が無いセルの「-」をグレーにする（画面設計標準 3.11・4.2 ⑥。色は grid.css .ag-cell.cell-empty）
     // 判定は表示する文字で行う（値が空でも valueFormatter で文字を出す列をグレーにしない）
     'cell-empty': (p: any) => isEmptyCellDisplay(p),
@@ -412,6 +452,57 @@ export const GRID_DEFAULT_COL_DEF: ColDef = {
   // 値が無いセルはグレーの半角「-」を表示する（列で独自の valueFormatter を持つ列はそちらが優先）
   valueFormatter: formatEmptyAsDash,
 };
+
+// 数値のセルの入力値の解析（AG Grid 公式 valueParser）。UI/UX UX-089 → 02 §7「入力値のチェック」。
+// 数字以外（「あ」など）を入れたときは編集前の値へ戻す（0 として受け付けない）。空欄は空欄、
+// カンマ区切り・小数は許す。値の型は編集前に合わせる（数値の列は数値、文字で持つ列は文字）。
+export function revertNonNumericValueParser(params: {
+  newValue: unknown;
+  oldValue: unknown;
+}): unknown {
+  const raw = String(params.newValue ?? '')
+    .trim()
+    .replace(/,/g, '');
+  if (raw === '') return '';
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return params.oldValue;
+  return typeof params.oldValue === 'number' ? n : String(n);
+}
+
+// 見出しの折り返し（UI/UX UX-078 → 02 §7「見出しの高さ」）。列の幅に収まらない見出しは折り返し、
+// 見出しの行の高さを中身に合わせる。列の幅は値（数値）に合わせ、見出しの文字のために広げない。
+// 行の高さは共通テーマ（rowHeight 2.25rem）のまま。計画の表の defaultColDef に広げて使う。
+// ※ 複数の段にまたがる見出し（グループの無い先頭列など）は、その列だけ autoHeaderHeight: false にする
+//   （またがる見出しの高さを測って段が伸び続けるため → UX-062）。
+export const GRID_WRAP_HEADER_COL_DEF: ColDef = {
+  wrapHeaderText: true,
+  autoHeaderHeight: true,
+};
+
+// 段にまたがる見出しの高さの自動調整を外す（UI/UX UX-078 → 02 §7「見出しの高さ」）。
+// GRID_WRAP_HEADER_COL_DEF（autoHeaderHeight）を使う表で、グループに入っていない列など
+// 一番下の段まで届かない深さの列は、見出しが複数の段にまたがる。その列の高さを測ると段が
+// 伸び続けるため、その列だけ autoHeaderHeight: false にする（折り返しはそのまま）。
+// 返す配列は useMemo で包み、参照を安定させること（→ 02 §7.1）。
+export function withSpanSafeHeaderHeight<TData>(
+  defs: (ColDef<TData> | ColGroupDef<TData>)[]
+): (ColDef<TData> | ColGroupDef<TData>)[] {
+  const depthOf = (d: ColDef<TData> | ColGroupDef<TData>): number =>
+    'children' in d && d.children
+      ? 1 + Math.max(0, ...d.children.map(depthOf))
+      : 1;
+  const maxDepth = Math.max(0, ...defs.map(depthOf));
+  const walk = (
+    list: (ColDef<TData> | ColGroupDef<TData>)[],
+    level: number
+  ): (ColDef<TData> | ColGroupDef<TData>)[] =>
+    list.map((d) => {
+      if ('children' in d && d.children)
+        return { ...d, children: walk(d.children, level + 1) };
+      return level < maxDepth ? { ...d, autoHeaderHeight: false } : d;
+    });
+  return walk(defs, 1);
+}
 
 // ── 明細グリッドの既定の縦幅（画面をまたいで統一）─────────────────
 // 基準は 支払詳細(自販機) の「支払明細情報」カード本体の高さ。
@@ -459,7 +550,7 @@ export const GRID_STATUS_BAR = {
 };
 
 // グリッドの端で Tab した時に、フォーカスをグリッド外（Tab方向の次／前のフォーカス可能要素）へ移す。
-// AG Grid の tabToNextCell は null を返してもセルに留まるため（グリッド外へは抜けない）、
+// AG Grid の tabToNextCell は true を返すとセルに留まるため（グリッド外へは抜けない）、
 // DOM上のフォーカス可能要素を自前で探して移動させる（＝グリッド直後のフッタ等へ抜けられるようにする）。
 function focusOutsideGrid(backwards: boolean): void {
   const active = document.activeElement as HTMLElement | null;
@@ -496,6 +587,38 @@ function hasEditableColumn(api: GridApi): boolean {
   return api.getAllDisplayedColumns().some((c) => !!c.getColDef().editable);
 }
 
+// 見出しの配色で、入力できる列を見分けられるようにする（UI/UX UX-050 → 02 §7「ヘッダーの配色」）。
+// 編集できる列があるグリッドでは、編集できない列と、配下に編集できる列が無い列グループの見出しを
+// グレーにする。編集できる列と、それを含む親の列グループの見出しは共通テーマの薄い青＋紺のまま。
+// 参照専用のグリッド（編集できる列が無い）は全列を共通テーマの色のままにする。
+// 編集できる＝colDef.editable が true か関数（行によって編集できる列も含む）。
+// 公式の headerStyle に使う。列は GRID_DEFAULT_COL_DEF、列グループはグローバルの defaultColGroupDef
+//（gridSetup.ts）で全グリッドに付く。列や列グループで headerStyle を書くときは
+// withGridHeaderStyle で本関数と合わせる。
+export function gridHeaderStyle(
+  params: HeaderClassParams
+): HeaderStyle | undefined {
+  if (params.floatingFilter) return undefined;
+  if (!hasEditableColumn(params.api)) return undefined;
+  const leafColumns = params.columnGroup
+    ? params.columnGroup.getLeafColumns()
+    : params.column
+      ? [params.column]
+      : [];
+  if (leafColumns.some((c) => !!c.getColDef().editable)) return undefined;
+  return {
+    backgroundColor: GRID_COLORS.headerReadonlyBackground,
+    color: GRID_COLORS.headerReadonlyText,
+  };
+}
+
+// 列・列グループで独自の headerStyle（区切り線など）を書くときに、gridHeaderStyle の配色と合わせる。
+export function withGridHeaderStyle(
+  extra: HeaderStyle
+): (params: HeaderClassParams) => HeaderStyle {
+  return (params) => ({ ...gridHeaderStyle(params), ...extra });
+}
+
 // Tab／Shift+Tab を「活性（編集可能）セルのみ」へ移動する共通コールバック（移動のみ＝編集は開始しない）。
 // ・公式コールバック tabToNextCell を使用。既定の移動先から Tab 方向（backwards で逆）へ走査し、
 //   最初の編集可能セルを返す（行末／行頭で行送り）。
@@ -507,14 +630,15 @@ function hasEditableColumn(api: GridApi): boolean {
 //   フォーカスを抜けさせる（focusOutsideGrid）。これによりTabがグリッド内に閉じ込められない。
 function tabToNextEditableCell(
   params: TabToNextCellParams
-): CellPosition | null {
+): CellPosition | boolean {
   const { nextCellPosition, backwards, api } = params;
 
   // nextCellPosition が無い＝グリッドの端（次/前にセルが無い）。グリッド外へ抜ける。
   if (!nextCellPosition) {
     api.stopEditing();
     setTimeout(() => focusOutsideGrid(!!backwards), 0);
-    return null;
+    // 公式：true＝今のセルに留まる（フォーカスは上で外へ移す）
+    return true;
   }
 
   const cols = api.getAllDisplayedColumns();
@@ -551,7 +675,8 @@ function tabToNextEditableCell(
   // 走査しても編集可能セルが無い → セルに留めずグリッド外（フッタ等）へ抜ける。
   api.stopEditing();
   setTimeout(() => focusOutsideGrid(!!backwards), 0);
-  return null;
+  // 公式：true＝今のセルに留まる（フォーカスは上で外へ移す）
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@
 // マウスオーバーで「項目名 ＝ 式 ＝ 実値 ＝ 結果」を表示する。
 // 2画面（請求EDI取込・AIC入力）は同じ列・同じ式のため、算出とツールチップ文言を
 // ここに集約して画面間で食い違わないようにする。
-import type { BillingDetailRow } from '../../../constants/billingMockData';
+import type { BillingDetailRow } from '@/app/types/billing';
 import {
   formatBillingUnitPrice,
   roundBillingNumber,

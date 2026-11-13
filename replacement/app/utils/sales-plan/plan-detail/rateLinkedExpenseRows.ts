@@ -7,8 +7,8 @@
 //
 // 【想定】種別は施策区分・施策コードで識別する方針（2026-10-08 ASD回答）だが、施策の値が未定のため、
 // サマリ商品名の欄に「年契基本分」「取組強化マージン」と表示する。メタブランドは空欄とする。
-import type { NonProductExpenseData } from '../../../types/nonProductExpense';
-import { addMonths } from '../../common/yearMonth';
+import type { NonProductExpenseData } from '@/app/types/nonProductExpense';
+import { addMonths } from '@/app/utils/common/yearMonth';
 
 // 右ペインで設定する経費の反映先（管理区分・管理コードは「コード:名称」）
 export interface RateLinkedExpenseSetting {

@@ -1,28 +1,28 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { RightPane } from '../../../ui/right-pane';
-import { Button } from '../../../ui/button';
-import { NumericInput } from '../../../ui/numeric-input';
-import { Label } from '../../../ui/label';
-import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { Button } from '@/app/components/ui/button';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { Label } from '@/app/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../../ui/single-combobox';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
-import { RequiredBadge } from '../../../ui/required-badge';
+} from '@/app/components/ui/single-combobox';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 import {
   campaignClassComboOptions,
   campaignCodeComboOptions,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/constants/comboFieldOptions';
+import { EXPENSE_CAMPAIGN_CODE_OPTIONS } from '@/app/constants/expenseRelations';
 import {
-  EXPENSE_CAMPAIGN_CODE_OPTIONS,
   fillFromCampaignClass,
   fillFromCampaignCode,
   isCampaignCodeInClass,
-} from '../../../../constants/expenseRelations';
-import type { MarginRate } from '../../../../types/planDetail';
+} from '@/app/utils/common/expenseRelations';
+import type { MarginRate } from '@/app/types/planDetail';
 
 // 年契基本分・センターフィ率・取組強化マージン率で共通利用する率入力ペイン。
 // 算出方法（納品金額／社外売上高／直接入力）・反映方法（商流別／メタブランド別）を
@@ -813,9 +813,10 @@ export function CenterFeeAnnualContractIncentiveRatePane({
             </div>
           )}
 
-          {/* 管理区分・管理コード（全ペイン。算出方法によらず表示する）。
-              担当者が選択し、対象月以降の将来月にも反映する想定。
-              センターフィも初期値（マスタ管理者が設定した値）を上書きして選択できる。 */}
+          {/* 管理区分・管理コード・施策区分・施策コード・計上月は1つの枠にまとめる（Figma 1997532796）。
+              算出方法によらず表示する。管理区分・管理コードは担当者が選択し、対象月以降の将来月にも反映する想定
+              （センターフィも初期値〔マスタ管理者が設定した値〕を上書きして選択できる）。
+              施策（年契基本分・取組強化マージンのみ）は対象月以降の将来月にも反映し、計上月は対象月のみに適用する想定。 */}
           <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-300">
             <div className="space-y-2">
               <Label
@@ -849,11 +850,6 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                 ariaRequired
               />
             </div>
-          </div>
-
-          {/* 施策（年契基本分・取組強化マージンのみ）・計上月（全ペイン）。算出方法によらず表示する。
-              施策は対象月以降の将来月にも反映し、計上月は対象月のみに適用する想定。 */}
-          <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-300">
             {showCampaign && (
               <>
                 <div className="space-y-2">

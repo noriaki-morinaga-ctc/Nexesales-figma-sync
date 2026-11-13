@@ -6,20 +6,23 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { RotateCcw, Undo2 } from 'lucide-react';
 
-import { Checkbox } from '../../ui/checkbox';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { Label } from '../../ui/label';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { useResizableHeight, ResizeHandle } from '../../ui/resizable-panel';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { Label } from '@/app/components/ui/label';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
 import { BasicInfo } from './components/BasicInfo';
 import { ErrorList } from './components/ErrorList';
 import { BillingDetailList } from './components/BillingDetailList';
 import type {
   BillingEdiErrorSummary,
   BillingEdiImportRow,
-} from '../../../constants/billingEdiMockData';
-import { targetCountOf } from '../../../utils/payment/billing/billingEdiImport';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/types/billingEdi';
+import { targetCountOf } from '@/app/utils/payment/billing/billingEdiImport';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface BillingEdiDetailProps {
   // 一覧の行データ（App.tsx が state で保持）
@@ -178,7 +181,7 @@ export default function BillingEdiDetail({
         {/* 画面名はヘッダー（システム名の右）に表示する */}
         <ScreenTitle title="請求EDI取込結果詳細" />
 
-        {/* 基本情報（振替詳細と同じ 4カラムグリッド構成。カテゴリごとに横並び） */}
+        {/* 基本情報（振替詳細と同じ5列グリッド構成。カテゴリごとに横並び） */}
         <CollapsibleCard title="基本情報">
           <div className="p-4">
             <BasicInfo row={source} />

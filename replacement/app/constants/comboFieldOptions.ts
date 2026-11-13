@@ -15,25 +15,26 @@
 // ・施策コード … 名称（施策区分とは別物。名称からコードを一意に逆引きするため独自ダミー名称）
 // ・メタブランド / 容器容量G … マスタに code/name が実在するためそのまま使用
 
-import type { SingleComboboxOption } from '../components/ui/single-combobox';
+import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
 import {
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
   EXPENSE_MANAGEMENT_CLASS_OPTIONS,
   EXPENSE_ACCOUNT_ITEM_OPTIONS,
   EXPENSE_CAMPAIGN_CLASS_OPTIONS,
   EXPENSE_CAMPAIGN_CODE_OPTIONS,
-  campaignClassFromCode,
 } from './expenseRelations';
 import {
-  META_BRAND_MASTER,
-  CONTAINER_CAPACITY_MASTER,
-  EXPENSE_SUMMARY_PRODUCT_OPTIONS,
   SUMMARY_PRODUCT_VALUES,
   WHOLESALE_MESH_OPTIONS,
 } from './productMasters';
 import { PROMOTION_LABELS_BY_CATEGORY } from './promotionCategories';
-import { joinCodeName } from '../utils/common/nameCode';
-import { expenseSummaryProductOptionCode } from '../utils/common/summaryProductSearch';
+import {
+  campaignClassCodeOf,
+  campaignCodeNameOf,
+  managementClassCodeOf,
+  managementCodeNameOf,
+  productCodeFromValue,
+} from '@/app/utils/common/comboFieldOptions';
 
 // 2桁ゼロ詰め（区分値: 10,20,30…）
 const seq2 = (i: number): string => String((i + 1) * 10).padStart(2, '0');
@@ -41,7 +42,7 @@ const seq2 = (i: number): string => String((i + 1) * 10).padStart(2, '0');
 // ── コード対応マップ（決定的ダミー） ─────────────────────────
 
 // 管理区分 → 区分値（名称が value。区分値は順序で採番）
-const MANAGEMENT_CLASS_CODE: Record<string, string> =
+export const MANAGEMENT_CLASS_CODE: Record<string, string> =
   EXPENSE_MANAGEMENT_CLASS_OPTIONS.reduce(
     (m, o, i) => ((m[o.value] = seq2(i)), m),
     {} as Record<string, string>
@@ -63,14 +64,14 @@ const ACCOUNT_ITEM_CODE: Record<string, string> = ACCOUNT_ITEM_NAMES.reduce(
 );
 
 // 施策区分 → 区分値
-const CAMPAIGN_CLASS_CODE: Record<string, string> =
+export const CAMPAIGN_CLASS_CODE: Record<string, string> =
   EXPENSE_CAMPAIGN_CLASS_OPTIONS.reduce(
     (m, o, i) => ((m[o.value] = seq2(i)), m),
     {} as Record<string, string>
   );
 
 // 管理コード → 名称（管理区分とは別物。独自のダミー名称を割り当てる）
-const MANAGEMENT_CODE_NAME: Record<string, string> = {
+export const MANAGEMENT_CODE_NAME: Record<string, string> = {
   RA001: '店頭定番販促',
   RA002: 'チラシ協賛A',
   RB001: '新規導入販促',
@@ -92,7 +93,7 @@ const MANAGEMENT_CODE_NAME: Record<string, string> = {
 
 // 施策コード → 名称（施策区分とは別物。コードごとに一意のダミー名称を割り当てる）。
 // 名称からコードを一意に逆引きできる必要があるため、区分名の流用はしない。
-const CAMPAIGN_CODE_NAME: Record<string, string> = {
+export const CAMPAIGN_CODE_NAME: Record<string, string> = {
   SN001: '新商品導入キャンペーン',
   SN002: '新規棚獲得施策',
   SN003: '新商品Web告知',
@@ -129,37 +130,6 @@ const SUMMARY_PRODUCT_CODE: Record<string, string> =
     {} as Record<string, string>
   );
 
-// 一覧に無い商品名（拡売費版や新規行）でも決定的にコードを返すフォールバック。
-const productCodeFromValue = (value: string): string => {
-  if (SUMMARY_PRODUCT_CODE[value]) return SUMMARY_PRODUCT_CODE[value];
-  const s = String(value ?? '');
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return `P${String((Math.abs(h) % 9000) + 1000).padStart(4, '0')}`;
-};
-
-// ── 名称⇄コードの相互変換（拡売費計画グリッドの区分／名称の分割列で使う） ──
-
-// 管理区分の名称（保持値）から区分値を返す。
-export function managementClassCodeOf(name: string): string {
-  return MANAGEMENT_CLASS_CODE[name] ?? '';
-}
-
-// 管理コード（保持値）から名称を返す。
-export function managementCodeNameOf(code: string): string {
-  return MANAGEMENT_CODE_NAME[code] ?? '';
-}
-
-// 施策区分の名称（保持値）から区分値を返す。
-export function campaignClassCodeOf(name: string): string {
-  return CAMPAIGN_CLASS_CODE[name] ?? '';
-}
-
-// 施策コード（保持値）から名称を返す。
-export function campaignCodeNameOf(code: string): string {
-  return CAMPAIGN_CODE_NAME[code] ?? '';
-}
-
 // ── 逆引き（コード／名称セルで選択した値から、行が保持する値へ戻す） ──
 
 const invert = (map: Record<string, string>): Record<string, string> =>
@@ -168,30 +138,10 @@ const invert = (map: Record<string, string>): Record<string, string> =>
     {} as Record<string, string>
   );
 
-const MANAGEMENT_CLASS_NAME_BY_CODE = invert(MANAGEMENT_CLASS_CODE);
-const MANAGEMENT_CODE_BY_NAME = invert(MANAGEMENT_CODE_NAME);
-const CAMPAIGN_CLASS_NAME_BY_CODE = invert(CAMPAIGN_CLASS_CODE);
-const CAMPAIGN_CODE_BY_NAME = invert(CAMPAIGN_CODE_NAME);
-
-// 管理区分の区分値から名称を返す。
-export function managementClassNameOf(classCode: string): string {
-  return MANAGEMENT_CLASS_NAME_BY_CODE[classCode] ?? '';
-}
-
-// 管理コード名称からコードを返す。
-export function managementCodeOfName(name: string): string {
-  return MANAGEMENT_CODE_BY_NAME[name] ?? '';
-}
-
-// 施策区分の区分値から名称を返す。
-export function campaignClassNameOf(classCode: string): string {
-  return CAMPAIGN_CLASS_NAME_BY_CODE[classCode] ?? '';
-}
-
-// 施策コード名称からコードを返す。
-export function campaignCodeOfName(name: string): string {
-  return CAMPAIGN_CODE_BY_NAME[name] ?? '';
-}
+export const MANAGEMENT_CLASS_NAME_BY_CODE = invert(MANAGEMENT_CLASS_CODE);
+export const MANAGEMENT_CODE_BY_NAME = invert(MANAGEMENT_CODE_NAME);
+export const CAMPAIGN_CLASS_NAME_BY_CODE = invert(CAMPAIGN_CLASS_CODE);
+export const CAMPAIGN_CODE_BY_NAME = invert(CAMPAIGN_CODE_NAME);
 
 // ── 2行目テキスト（承認プレビューに合わせ、種別ラベルを前置） ────────
 const secondLine = (kind: string, value: string): string =>
@@ -329,122 +279,20 @@ export const summaryProductComboOptions = (
     code: secondLine('商品コード', productCodeFromValue(value)),
   }));
 
-// 支払詳細の拡売費の明細追加ペインのサマリ商品: 名称(上)・「コード／メタブランド：容器容量G」(下)
-// 2行目は計画詳細の拡売費追加ペインと同じ体裁（expenseSummaryProductOptionCode）とし、
-// 先頭のコードは拡売費一覧のサマリ商品列と同じ商品コードにして、商品コードでも
-// 検索できるようにする。未選択（ー（指定なし））はコードを持たない。
-// 新商品には NEW バッジを付ける。
-export const expenseSummaryProductComboOptions = (): SingleComboboxOption[] =>
-  EXPENSE_SUMMARY_PRODUCT_OPTIONS.map((option) => ({
-    value: option.value,
-    label: option.label ?? option.value,
-    code:
-      option.value === '-'
-        ? undefined
-        : expenseSummaryProductOptionCode(
-            productCodeFromValue(option.value),
-            option.metaBrand,
-            option.containerCapacityG
-          ),
-    badge: option.isNew ? 'NEW' : undefined,
-  }));
-
-// メタブランド: 名称(上)・コード(下)（マスタ実値）
-export const metaBrandComboOptions = (
-  values?: string[]
-): SingleComboboxOption[] => {
-  const source = values
-    ? META_BRAND_MASTER.filter((b) => values.includes(b.value))
-    : META_BRAND_MASTER;
-  return source.map((b) => ({ value: b.value, label: b.name, code: b.code }));
-};
-
-// 容器容量G: 名称(上)・コード(下)（マスタ実値）
-export const containerComboOptions = (): SingleComboboxOption[] =>
-  CONTAINER_CAPACITY_MASTER.map((c) => ({
-    value: c.value,
-    label: c.name,
-    code: c.code,
-  }));
-
-// ── 削除ペイン等の「コード:名称」表示ヘルパー ─────────────────
-// 計画詳細の削除確認ペインは、基本情報エリア（joinCodeName）と同じ「コード:名称」表記で揃える。
-// 名称が空なら「-」、コードが引けなければ名称のみを返す。
-const codeWithName = (code: string, name: string): string => {
-  const trimmedName = name.trim();
-  if (!trimmedName) return '-';
-  return joinCodeName(code.trim(), trimmedName);
-};
-
-// サマリ商品名：商品コード:名称。
-export const summaryProductCodeName = (value?: string): string =>
-  codeWithName(productCodeFromValue(String(value ?? '')), String(value ?? ''));
-
-// メタブランド：コード:名称（マスタ実値）。
-export const metaBrandCodeName = (value?: string): string => {
-  const name = String(value ?? '');
-  const code = META_BRAND_MASTER.find((b) => b.value === name)?.code ?? '';
-  return codeWithName(code, name);
-};
-
-// 販促区分：販促コード:名称。特殊商品・ギフトは区分名で固定表示（区分名の販促コードを付与）。
-export const promotionCodeName = (data: any): string => {
-  const category = data?.productCategory ?? '';
-  const name =
-    category === '特殊商品' || category === 'ギフト'
-      ? category
-      : String(data?.promotion ?? '').trim();
-  return codeWithName(PROMOTION_CODE[name] ?? '', name);
-};
-
 // 商品コード参照（年間計画の新商品リスト等、value=コードで持つ画面向け）
-export { productCodeFromValue, PROMOTION_CODE, SUMMARY_PRODUCT_CODE };
-
-// ── 名称からコード値・区分値を引く（計画詳細の明細グリッドのコード列で使う） ──
-// PJルール（6/4 共通セッション 決定事項15）：コード値・区分値を持つ項目は、
-// 名称とは別の列でコード値・区分値を保持する。いずれもモック用のダミー値。
-
-// メタブランドコード（マスタ実値）
-export const metaBrandCodeOf = (name?: string): string =>
-  META_BRAND_MASTER.find((b) => b.value === String(name ?? ''))?.code ?? '';
-
-// 容器容量Gコード（マスタ実値）
-export const containerCapacityCodeOf = (name?: string): string =>
-  CONTAINER_CAPACITY_MASTER.find((c) => c.value === String(name ?? ''))?.code ??
-  '';
+export { PROMOTION_CODE, SUMMARY_PRODUCT_CODE };
 
 // 一般卸メッシュコード（一覧順に WM0001 から採番。一覧に無い名称は決定的に採番）
-const WHOLESALE_MESH_CODE: Record<string, string> =
+export const WHOLESALE_MESH_CODE: Record<string, string> =
   WHOLESALE_MESH_OPTIONS.reduce(
     (m, o, i) => ((m[o.value] = `WM${String(i + 1).padStart(4, '0')}`), m),
     {} as Record<string, string>
   );
-export const wholesaleMeshCodeOf = (name?: string): string => {
-  const s = String(name ?? '').trim();
-  if (!s) return '';
-  if (WHOLESALE_MESH_CODE[s]) return WHOLESALE_MESH_CODE[s];
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return `WM${String((Math.abs(h) % 9000) + 1000).padStart(4, '0')}`;
-};
-
 // 商品区分の区分値
-const PRODUCT_CATEGORY_CODE: Record<string, string> = {
+export const PRODUCT_CATEGORY_CODE: Record<string, string> = {
   定番商品: '01',
   新商品: '02',
   特売: '03',
   特殊商品: '04',
   ギフト: '05',
-};
-export const productCategoryCodeOf = (category?: string): string =>
-  PRODUCT_CATEGORY_CODE[String(category ?? '')] ?? '';
-
-// 販促区分の区分値（特殊商品・ギフトは区分名で固定表示のため、区分名の販促コードを返す）
-export const promotionCodeOf = (data: any): string => {
-  const category = data?.productCategory ?? '';
-  const name =
-    category === '特殊商品' || category === 'ギフト'
-      ? category
-      : String(data?.promotion ?? '').trim();
-  return PROMOTION_CODE[name] ?? '';
 };

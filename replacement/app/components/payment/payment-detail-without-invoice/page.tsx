@@ -32,11 +32,13 @@ import {
   PlusCircle,
   CornerUpLeft,
   Stamp,
+  Plus,
+  Copy,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
 
-import { Button } from '../../ui/button';
+import { Button } from '@/app/components/ui/button';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -46,13 +48,13 @@ import {
   useGridColumnState,
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
-} from '../../grid';
+} from '@/app/components/grid';
 import {
   AdditionalPaymentBasicInfoPane,
   BASIC_INFO,
-} from '../../shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
-import { SPLIT_IN_ENTRY_ROWS } from '../../../constants/additionalEntrySplitMockData';
-import { SPLIT_IN_ENTRY_COL_DEFS } from '../../shared/payment/payment-detail/splitInEntryColDefs';
+} from '@/app/components/shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
+import { SPLIT_IN_ENTRY_ROWS } from '@/mocks/common/additionalEntrySplit';
+import { SPLIT_IN_ENTRY_COL_DEFS } from '@/app/components/shared/payment/payment-detail/splitInEntryColDefs';
 import {
   PaymentDetailPane,
   PAYMENT_DETAIL_STATUS,
@@ -62,39 +64,42 @@ import {
   type PaymentDetailPaneValues,
 } from './components/PaymentDetailPane';
 import { AggregationPane } from './components/AggregationPane';
-import { aggregateSummaryDetails } from '../../../utils/payment/payment-detail/paymentSummaryAggregate';
-import {
-  DetailTable,
-  type DetailTableHandle,
-  type EntryRow,
-} from './components/DetailTable';
+import { aggregateSummaryDetails } from '@/app/utils/payment/payment-detail/paymentSummaryAggregate';
+import { DetailTable, type DetailTableHandle } from './components/DetailTable';
+import type {
+  WithoutInvoiceEntryRow as EntryRow,
+  PaymentNonProductExpensePaneHandle,
+  ExpenseRow,
+  ExpenseBasicInfo,
+} from '@/app/types/paymentDetail';
 import {
   createEmptyAmountBreakdown,
   type AmountBreakdown,
-} from '../../../utils/payment/payment-detail/paymentAmountBreakdown';
-import { buildWithoutInvoicePaymentItems } from '../../../utils/payment/payment-detail/paymentBreakdownItems';
-import { paymentFooterActionStateOf } from '../../../utils/payment/payment-detail/paymentFooterActions';
+} from '@/app/utils/payment/payment-detail/paymentAmountBreakdown';
+import { buildWithoutInvoicePaymentItems } from '@/app/utils/payment/payment-detail/paymentBreakdownItems';
+import {
+  paymentFooterActionStateOf,
+  NO_PAYMENT_TITLE,
+} from '@/app/utils/payment/payment-detail/paymentFooterActions';
 import {
   WITHOUT_INVOICE_DEFAULT_ROUND,
   WITHOUT_INVOICE_PAYMENT_ROUNDS,
   createWithoutInvoiceEntryRows,
   createWithoutInvoiceExpenseRows,
-} from '../../../constants/paymentWithoutInvoiceMockData';
+} from '@/mocks/payment/payment-detail-without-invoice';
+import { PaymentNonProductExpensePane } from '@/app/components/shared/payment/payment-detail/PaymentNonProductExpensePane';
 import {
-  PaymentNonProductExpensePane,
   createEmptyExpenseRows,
   createQuotedExpenseRows,
-  type PaymentNonProductExpensePaneHandle,
-  type ExpenseRow,
-} from '../../shared/payment/payment-detail/PaymentNonProductExpensePane';
+} from '@/app/utils/payment/payment-detail/nonProductExpenseRows';
 // 支払回数の切替・追加（支払詳細の各画面で共通）。
-import { usePaymentRounds } from '../../shared/payment/payment-detail/usePaymentRounds';
-import { PaymentRoundConfirmDialog } from '../../shared/payment/payment-detail/PaymentRoundConfirmDialog';
+import { usePaymentRounds } from '@/app/components/shared/payment/payment-detail/usePaymentRounds';
+import { PaymentRoundConfirmDialog } from '@/app/components/shared/payment/payment-detail/PaymentRoundConfirmDialog';
 import {
   ALL_PLAN_AREA_CODES,
   PaymentPlanSelectionPane,
   PlanAreaField,
-} from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
+} from '@/app/components/shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   QuoteSelectionPane,
   QUOTE_TARGET_MONTH_FROM,
@@ -103,7 +108,7 @@ import {
   QUOTE_PAYEE_OPTIONS,
   type QuoteSelectionPaneHandle,
   QUOTE_SELECTION_CONFIG,
-} from './components/quoteSelectionConfig';
+} from './constants';
 // 下ペイン共通フッタのボタンで使用する共通スタイル。
 import {
   BUTTON_STYLES,
@@ -111,39 +116,44 @@ import {
   FORM_LABEL_CLASS,
   FORM_VALUE_CLASS,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 
 // ★分割機能：画面から見えないよう一時的にコメントアウト（復旧時はコメントを外す）
 // // 分割情報（費用負担部署）編集ペインの選択肢と入力部品。
-// import { COST_BEARING_DEPT_OPTIONS } from '../../../constants/costBearingDeptMaster';
-// import { SingleCombobox } from '../../ui/single-combobox';
-import { SingleCombobox } from '../../ui/single-combobox';
+// import { COST_BEARING_DEPT_OPTIONS } from '@/app/constants/costBearingDeptMaster';
+// import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 
 import {
   AllocationPane,
   type AllocationPaneHandle,
   type AllocationPaneSource,
-} from '../../shared/payment/payment-detail/AllocationPane';
-import { RightPane } from '../../ui/right-pane';
-import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
+} from '@/app/components/shared/payment/payment-detail/AllocationPane';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { CommentHistoryPane } from '@/app/components/shared/common/CommentHistoryPane';
 import {
   AddExpensePane,
   type AddExpensePaneHandle,
 } from './components/AddExpensePane';
-import { BottomPane } from '../../ui/bottom-pane';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs';
 
 import {
   campaignClassCode,
   managementClassCode,
   managementCodeName,
-} from '../../../constants/paymentComboFieldOptions';
-import { campaignClassFromCode } from '../../../constants/expenseRelations';
-import { swapNameCode } from '../../../utils/common/nameCode';
-import { ScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import type { ExpenseBasicInfo } from '../../../types/paymentDetail';
+} from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import { campaignClassFromCode } from '@/app/utils/common/expenseRelations';
+import { swapNameCode } from '@/app/utils/common/nameCode';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // ── モックデータ ────────────────────────────────────────────
 
@@ -511,7 +521,7 @@ interface PaymentRoundDataSet {
   expenseRows: ExpenseRow[]; // 拡売費の明細行
 }
 
-// 1回分のデータセットを新規生成する（回ごとに中身の異なるモック明細 → constants/paymentWithoutInvoiceMockData）。
+// 1回分のデータセットを新規生成する（回ごとに中身の異なるモック明細 → src/mocks/payment/payment-detail-without-invoice）。
 // 支払回数1＝追加口と拡売費（AIC入力・手入力）、2・3＝拡売費（AIC入力・手入力）。
 // 2・3回目は追加口の明細を持たない。
 const createRoundDataSet = (round: string): PaymentRoundDataSet => ({
@@ -545,14 +555,7 @@ const createEmptyRoundDataSet = (): PaymentRoundDataSet => ({
   expenseRows: createEmptyExpenseRows(),
 });
 
-interface PaymentDetailWithoutInvoiceProps {
-  // 画面切替（基本情報の販売計画書No リンクから計画詳細へ遷移する）。
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function PaymentDetailWithoutInvoice({
-  onMenuChange,
-}: PaymentDetailWithoutInvoiceProps) {
+export default function PaymentDetailWithoutInvoice() {
   const [isCommentHistoryPaneShown, setIsCommentHistoryPaneShown] =
     useState(false);
   // フッターのコメント入力（差戻し理由など。支払詳細(その他)と同様）
@@ -1168,7 +1171,7 @@ export default function PaymentDetailWithoutInvoice({
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <AdditionalPaymentBasicInfoPane onMenuChange={onMenuChange} />
+                <AdditionalPaymentBasicInfoPane />
               </section>
 
               {/* 支払情報サマリエリア */}
@@ -1218,7 +1221,8 @@ export default function PaymentDetailWithoutInvoice({
                     onClick={rounds.requestAddRound}
                     aria-label="支払回数追加"
                   >
-                    ＋支払回数追加
+                    <Plus className="h-4 w-4" />
+                    支払回数追加
                   </button>
                   {/* 支払情報引用（支払回数追加ボタンの右に配置）。
                       押下で引用明細選択ペイン（下ペイン）のみを開く。
@@ -1229,6 +1233,7 @@ export default function PaymentDetailWithoutInvoice({
                     onClick={handleQuote}
                     aria-label="支払情報引用"
                   >
+                    <Copy className="h-4 w-4" />
                     支払情報引用
                   </button>
                 </div>
@@ -1565,7 +1570,7 @@ export default function PaymentDetailWithoutInvoice({
                 disabled={!footerActions.noPayment}
                 className="btn-action-base btn-action-outline"
                 aria-label={isNoPayment ? '支払無しを解除' : '支払無しにする'}
-                title="当月は支払が発生しない伝票にします。理由は画面下部のコメントへ入力してください"
+                title={NO_PAYMENT_TITLE.comment}
               >
                 <Ban className="h-4 w-4" />
                 {isNoPayment ? '支払無しを解除' : '支払無し'}
@@ -1574,23 +1579,12 @@ export default function PaymentDetailWithoutInvoice({
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
               {/* コメント欄（支払詳細(その他)と同一の複数行テキストエリア） */}
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label
-                  htmlFor="payment-c-comment"
-                  className="text-sm text-gray-600 whitespace-nowrap"
-                >
-                  コメント
-                </label>
-                <textarea
-                  id="payment-c-comment"
-                  value={commentInput}
-                  disabled={!footerActions.comment}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder="コメントを入力（差戻し理由など）"
-                  rows={2}
-                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-                />
-              </div>
+              <FooterCommentField
+                id="payment-c-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+                disabled={!footerActions.comment}
+              />
               <button
                 className="btn-action-base btn-action-red"
                 aria-label="差戻し"

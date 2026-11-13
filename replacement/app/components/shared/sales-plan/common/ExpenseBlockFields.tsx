@@ -1,17 +1,17 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Label } from '../../../ui/label';
-import { Textarea } from '../../../ui/textarea';
-import { NumericInput } from '../../../ui/numeric-input';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
+import { Label } from '@/app/components/ui/label';
+import { Textarea } from '@/app/components/ui/textarea';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
+} from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 import {
   EXPENSE_CAMPAIGN_CODE_OPTIONS,
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
-} from '../../../../constants/salesPlanWholesaleMockData';
+} from '@/app/constants/expenseRelations';
 import {
   isManagementCodeInClass,
   isCampaignCodeInClass,
@@ -19,8 +19,8 @@ import {
   fillFromManagementClass,
   fillFromCampaignCode,
   fillFromCampaignClass,
-  type ExpenseCodePatch,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
+import type { ExpenseCodePatch } from '@/app/types/master';
 import {
   managementCodeComboOptions,
   managementClassComboOptions,
@@ -30,6 +30,8 @@ import {
   managementCodeNameComboOptions,
   campaignClassCodeComboOptions,
   campaignCodeNameComboOptions,
+} from '@/app/constants/comboFieldOptions';
+import {
   managementClassCodeOf,
   managementClassNameOf,
   managementCodeNameOf,
@@ -38,7 +40,7 @@ import {
   campaignClassNameOf,
   campaignCodeNameOf,
   campaignCodeOfName,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 
 // 拡売費追加・編集・コピーフォームの拡売費入力ブロック（共通）。
 // prefix で exp1*/exp2* のフォーム値へ振り分ける（販売計画表・シミュレーション共用）。
@@ -322,10 +324,10 @@ export function ExpenseBlockFields({
         </div>
       </div>
 
-      {/* 摘要1(社内用) */}
+      {/* 摘要1（社内用） */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-gray-700">
-          摘要1(社内用)
+          摘要1（社内用）
         </Label>
         <Textarea
           value={val('Description')}

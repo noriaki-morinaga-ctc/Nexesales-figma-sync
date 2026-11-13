@@ -11,16 +11,17 @@ import type {
   ICellRendererParams,
 } from 'ag-grid-community';
 
-import { Button } from '../../ui/button';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { Button } from '@/app/components/ui/button';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import {
   SingleComboboxCellEditor,
   toComboOptions,
-} from '../../ui/single-combobox-cell-editor';
-import { MultiCombobox } from '../../ui/multi-combobox';
-import { RightPane } from '../../ui/right-pane';
-import { PlanSearchPane } from '../../shared/sales-plan/plan-detail/PlanSearchPane';
+} from '@/app/components/ui/single-combobox-cell-editor';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { PlanSearchPane } from '@/app/components/shared/sales-plan/plan-detail/PlanSearchPane';
 import {
+  viewportGridHeight,
   GRID_COLORS,
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -33,23 +34,26 @@ import {
   useFormulaSourceHighlight,
   type FormulaDefs,
   useGridColumnState,
-} from '../../grid';
-import { makeDetailTooltip } from '../../../utils/sales-plan/common/formulaCellHelpers';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { generateRowData } from '../../../constants/annualPlanMockData';
-import { promotionComboOptions } from '../../../constants/comboFieldOptions';
+  asCellStyle,
+} from '@/app/components/grid';
+import { makeDetailTooltip } from '@/app/utils/sales-plan/common/formulaCellHelpers';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { generateRowData } from '@/mocks/sales-plan/annual-plan-creation';
+import { promotionComboOptions } from '@/app/constants/comboFieldOptions';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   FORM_LABEL_CLASS,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
-  getPromotionLabels,
   PROMOTION_NONE_LABEL,
   CATEGORY_LABELS_ANNUAL,
-} from '../../../constants/promotionCategories';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/constants/promotionCategories';
+import { getPromotionLabels } from '@/app/utils/sales-plan/common/promotionCategories';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { planBasicInfoOf } from '@/mocks/common/planBasicInfo';
 
 // 函数（月次計画）列。年間合計・全商品合計の再集計にも使用する。
 const MONTH_COLUMNS: { field: string; headerName: string }[] = [
@@ -326,8 +330,6 @@ const giftSetRowSpan = (params: any) =>
   getMergeRowSpan(params, giftSetMergeKey);
 
 interface AnnualPlanCreationProps {
-  // 戻る等の画面遷移用コールバック（販売計画表から遷移してくる）
-  onMenuChange?: (menuId: string) => void;
   // 遷移元の計画詳細から引き継ぐ取引制度。基本情報の表示内容（取引制度・販売店・
   // 三次店企業）がこの値で切り替わるため、遷移元と一致させる必要がある。
   // メニューから直接開いた場合は既定のマージン率固定とする。
@@ -335,9 +337,10 @@ interface AnnualPlanCreationProps {
 }
 
 export default function AnnualPlanCreation({
-  onMenuChange,
   tradingSystem = 'マージン率固定',
 }: AnnualPlanCreationProps) {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 対象年（条件）。対象計画（計画／実績・前年実績）の表示対象を決める。
   const [selectedYear, setSelectedYear] = useState<string>('2024');
   // 確定済みの条件（プルダウンを閉じて反映された値）。グリッドの絞り込みに使う。
@@ -500,7 +503,7 @@ export default function AnnualPlanCreation({
           return 1;
         },
         rowSpan: productSetRowSpan,
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return {
               backgroundColor: GRID_COLORS.total,
@@ -510,7 +513,7 @@ export default function AnnualPlanCreation({
           return {
             backgroundColor: GRID_COLORS.readonly,
           };
-        },
+        }),
         cellRenderer: (params: ICellRendererParams) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return GRAND_TOTAL_LABEL;
@@ -558,7 +561,7 @@ export default function AnnualPlanCreation({
           params.data?.metaBrand === GRAND_TOTAL_LABEL
             ? 'cell-center'
             : 'cell-left-vmiddle',
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return {
               backgroundColor: GRID_COLORS.total,
@@ -568,7 +571,7 @@ export default function AnnualPlanCreation({
           return {
             backgroundColor: GRID_COLORS.readonly,
           };
-        },
+        }),
         cellRenderer: (params: ICellRendererParams) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return '';
@@ -633,7 +636,7 @@ export default function AnnualPlanCreation({
         field: 'productCategory',
         width: 80,
         rowSpan: giftSetRowSpan,
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -650,7 +653,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
         cellEditor: SingleComboboxCellEditor,
         cellEditorPopup: true,
@@ -664,7 +667,7 @@ export default function AnnualPlanCreation({
         field: 'promotion',
         width: 144,
         rowSpan: giftSetRowSpan,
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -681,7 +684,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
         cellEditor: SingleComboboxCellEditor,
         cellEditorPopup: true,
@@ -728,7 +731,7 @@ export default function AnnualPlanCreation({
         valueFormatter: withPrevYearDash((params) =>
           params.value == null ? '' : String(params.value)
         ),
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -745,7 +748,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
       },
       {
@@ -757,7 +760,7 @@ export default function AnnualPlanCreation({
         valueFormatter: withPrevYearDash((params) =>
           params.value == null ? '' : String(params.value)
         ),
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -774,7 +777,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
       },
       {
@@ -788,7 +791,7 @@ export default function AnnualPlanCreation({
             ? `${params.value.toFixed(2)}%`
             : ''
         ),
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -806,7 +809,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
       },
       {
@@ -820,7 +823,7 @@ export default function AnnualPlanCreation({
             ? params.value.toFixed(2)
             : ''
         ),
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -837,7 +840,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
       },
       {
@@ -846,7 +849,7 @@ export default function AnnualPlanCreation({
         width: 80,
         rowSpan: giftSetRowSpan,
         valueFormatter: withPrevYearDash(),
-        cellStyle: (params) => {
+        cellStyle: asCellStyle((params) => {
           const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
           if (isTotalRow) {
             return {
@@ -863,7 +866,7 @@ export default function AnnualPlanCreation({
             return { backgroundColor: GRID_COLORS.readonly };
           }
           return {};
-        },
+        }),
         editable: false,
       },
       {
@@ -871,7 +874,7 @@ export default function AnnualPlanCreation({
         marryChildren: true,
         // 1〜12月の列は構成が同一のため MONTH_COLUMNS から生成する。
         // 実績反映月（実績で塗り替え済みの月）は変更不可のため非活性（灰・編集不可）とし、
-        // 実績反映セルであることが分かるよう枠線（existingFuncCellStyle）で示す。
+        // 実績反映セルであることが分かるよう左上の三角（existingFuncCellStyle）で示す。
         children: MONTH_COLUMNS.map(({ field, headerName }) => {
           const isActualReflected = ACTUAL_REFLECTED_MONTHS.includes(field);
           return {
@@ -1083,11 +1086,11 @@ export default function AnnualPlanCreation({
     toast.success('年間計画を保存しました。');
   };
 
-  // 計画詳細に戻る（遷移元の計画詳細へ画面遷移。10/20手売りセッション 決定事項35）。
+  // 計画詳細へ戻る（遷移元の計画詳細へ画面遷移。10/20手売りセッション 決定事項35）。
   // 遷移元は引き継いだ取引制度で判別する（NET固定は計画詳細(NET固定)、それ以外は
   // 計画詳細(マージン率固定・NET入力)）。
   const handleBack = () => {
-    onMenuChange?.(
+    navigate(
       tradingSystem === 'NET固定'
         ? 'plan-detail-net-fixed'
         : 'plan-detail-margin-rate-fixed'
@@ -1125,7 +1128,7 @@ export default function AnnualPlanCreation({
                     対象年は条件エリアで選択する）。取引制度の値自体は販売店・三次店企業の
                     出し分けに使うため引き続き渡す。 */}
                 <PlanSearchPane
-                  tradingSystem={tradingSystem}
+                  basicInfo={planBasicInfoOf(tradingSystem)}
                   showTargetYearMonth={false}
                   showStatus={false}
                   showTradingSystemAndChannel={false}
@@ -1193,16 +1196,15 @@ export default function AnnualPlanCreation({
 
                     {/* 実績反映済みセルの凡例。計画詳細(マージン率固定・NET入力)の
                         年間集計と同じく「サンプル → 説明」の順で表示する。
-                        函数の実績反映月は灰背景＋青枠（existingFuncCellStyle）で
+                        函数の実績反映月は灰背景＋左上の三角（existingFuncCellStyle）で
                         編集不可を示すため、サンプルも同じ体裁にする。
                         函数は桁区切りを付けない表示のためサンプルは「XXX」とする。 */}
                     <div className="ml-auto flex items-center gap-1 text-sm">
                       <span
                         className="text-black px-2 py-1 font-medium"
-                        style={{
+                        style={existingFuncCellStyle({
                           backgroundColor: GRID_COLORS.readonly,
-                          boxShadow: `inset 0 0 0 2px ${GRID_COLORS.existingFuncBorder}`,
-                        }}
+                        })}
                       >
                         XXX
                       </span>
@@ -1221,7 +1223,7 @@ export default function AnnualPlanCreation({
                 <div
                   className={`${CARD_CLASS} mb-3`}
                   style={{
-                    height: 'calc(100vh - 8.25rem)',
+                    height: viewportGridHeight(8.25),
                     minHeight: '25rem',
                   }}
                 >
@@ -1284,21 +1286,21 @@ export default function AnnualPlanCreation({
           <div className="bg-white border-t border-gray-200 px-6 py-2 flex-shrink-0">
             <div className="flex flex-wrap gap-3 justify-between">
               <div>
-                {/* 計画詳細に戻る（計画詳細のフッターと同じデザイン） */}
+                {/* 計画詳細へ戻る（計画詳細のフッターと同じデザイン） */}
                 <Button
                   variant="outline"
                   onClick={() => setIsBackConfirmShown(true)}
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
                 >
                   <Undo2 className="h-4 w-4 mr-2" />
-                  計画詳細に戻る
+                  計画詳細へ戻る
                 </Button>
               </div>
 
               <div className="flex flex-wrap gap-3 items-center">
                 <Button
                   onClick={() => setIsSaveConfirmShown(true)}
-                  className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} py-6`}
+                  className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} h-9`}
                 >
                   <Save className="h-4 w-4 mr-2" />
                   保存/反映

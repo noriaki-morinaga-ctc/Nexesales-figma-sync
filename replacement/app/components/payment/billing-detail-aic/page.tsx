@@ -7,20 +7,21 @@
 import { useEffect, useState } from 'react';
 import { Undo2, Save, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { BUTTON_STYLES } from '../../../../styles/commonStyles';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { BillingBasicInfoPane } from '../../shared/payment/billing/BillingBasicInfoPane';
+import { BUTTON_STYLES } from '@/styles/commonStyles';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { BillingBasicInfoPane } from '@/app/components/shared/payment/billing/BillingBasicInfoPane';
 import { DetailTable } from './components/DetailTable';
 import {
   BILLING_DETAIL_BY_DATA_SOURCE,
   BILLING_LIST,
-  NEW_BILLING_ID,
+} from '@/mocks/common/billing';
+import { NEW_BILLING_ID } from '@/app/constants/billing';
+import {
   createEmptyBillingDetailRows,
   isBillingDetailStatusLocked,
-  type BillingDetailRow,
-  type BillingRow,
-} from '../../../constants/billingMockData';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/utils/payment/billing/billing';
+import type { BillingDetailRow, BillingRow } from '@/app/types/billing';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface BillingDetailAicProps {
   // 請求一覧で選択された入力単位（AIC入力分）。

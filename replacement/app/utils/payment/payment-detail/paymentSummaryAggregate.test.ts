@@ -12,6 +12,7 @@ import {
   totalSplitOut,
   type SummaryDetailTotals,
   type SummaryEntryRow,
+  type SummaryValueRow,
   type SummaryExpenseRow,
 } from './paymentSummaryAggregate';
 
@@ -288,7 +289,7 @@ describe('summaryPayValuesOf', () => {
 });
 
 describe('fillSummaryRowValues', () => {
-  const rows = [
+  const rows: SummaryValueRow[] = [
     {
       key: 'payFunc',
       kind: 'count' as const,
@@ -354,6 +355,6 @@ describe('fillSummaryRowValues', () => {
       { promoNetUnapproved: 0 }
     );
     expect(net.vals.pay).toBe('0');
-    expect(net.vals.yoy).toBe('');
+    expect((net.vals as Record<string, string>).yoy).toBe('');
   });
 });

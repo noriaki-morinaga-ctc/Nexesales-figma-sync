@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { summaryProductComboOptions } from './comboFieldOptions';
 import {
   expenseSummaryProductComboOptions,
   productCodeFromValue,
-  summaryProductComboOptions,
-} from './comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 import { EXPENSE_SUMMARY_PRODUCT_OPTIONS } from './productMasters';
-import { matchesSearchQuery } from '../utils/common/searchNormalize';
+import { matchesSearchQuery } from '@/app/utils/common/searchNormalize';
 
 // SingleCombobox と同じ条件（名称・コード・値のいずれかに部分一致）で候補を絞り込む。
 const search = (

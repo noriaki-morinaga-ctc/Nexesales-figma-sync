@@ -1,80 +1,40 @@
-import { useState, useEffect, useRef } from 'react';
-import { Toaster } from 'sonner';
+import { useState, useRef, useCallback } from 'react';
+import { LicenseManager } from 'ag-grid-enterprise';
 
-// AG Grid Enterprise モジュールをグローバルに登録（全コンポーネントで利用可能にする）
-import {
-  ModuleRegistry,
-  AllCommunityModule,
-  provideGlobalGridOptions,
-} from 'ag-grid-community';
-import { AllEnterpriseModule, LicenseManager } from 'ag-grid-enterprise';
-
-import { ConfirmDialogHost } from './components/ui/confirm-dialog';
 import { useInitialFocus } from './components/ui/use-initial-focus';
+import { AppProviders } from './components/shared/layout/AppProviders';
 
 import { Header } from './components/shared/layout/Header';
-import { ScreenTitleProvider } from './components/ui/screen-title';
-import {
-  ROUTES,
-  DEFAULT_ROUTE,
-  type RouteContext,
-  type MenuChangePayload,
-} from './routes';
+import { ROUTES, DEFAULT_ROUTE, type RouteContext } from './routes';
+import type { MenuChangePayload } from './types/navigation';
 import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
-import {
-  createEmptyBilling,
-  type BillingRow,
-} from './constants/billingMockData';
+import { createEmptyBilling } from '@/mocks/common/billing';
+import type { BillingRow } from '@/app/types/billing';
 import {
   matchesErrorSummary,
   originalValueOf,
 } from './utils/payment/billing/billingEdiImport';
 import {
   ASSIGN_OPTIONS,
-  ASSIGN_TARGET_BY_FIELD,
   BILLING_EDI_ROWS,
   RETAILER_ASSIGN_OPTIONS,
   SUMMARY_PRODUCT_CODE,
   SUMMARY_PRODUCT_NAME,
-  type AssignTarget,
-  type BillingEdiDetailRow,
-  type BillingEdiImportRow,
-} from './constants/billingEdiMockData';
+} from '@/mocks/common/billingEdi';
 import {
-  AG_GRID_LOCALE_JA,
-  GRID_THEME,
-  GRID_COLUMN_TYPES,
-  GRID_DATA_TYPE_DEFINITIONS,
-  gridFilterContextMenuItems,
-  attachFilterInputClearButtons,
-  installNumberInputWheelGuard,
-} from './components/grid';
+  ASSIGN_TARGET_BY_FIELD,
+  type AssignTarget,
+} from '@/app/constants/billingEdi';
+import type {
+  BillingEdiDetailRow,
+  BillingEdiImportRow,
+} from '@/app/types/billingEdi';
+import { setupAgGrid } from './components/grid';
 
 LicenseManager.setLicenseKey('AG_GRID_LICENSE_KEY');
 
-ModuleRegistry.registerModules([AllCommunityModule, AllEnterpriseModule]);
-
-// AG Grid グローバル設定（日本語ロケール＋共通テーマ）
-// theme を全グリッドのデフォルトとして登録。各グリッドで theme= を指定しなければ
-// この GRID_THEME が自動適用される（個別指定があればそちらが優先）。
-provideGlobalGridOptions({
-  localeText: AG_GRID_LOCALE_JA, // 全グリッド共通の日本語ロケール
-  theme: GRID_THEME, // 全画面共通グリッドテーマ
-  // 右クリックメニューの共通化（フィルタ項目の追加＋エクスポートの全件出力化）。
-  // グリッド側で getContextMenuItems= を指定しない場合はこれが適用される
-  //（個別指定があればそちらが優先。指定する場合も同じ関数を渡すこと）。
-  getContextMenuItems: gridFilterContextMenuItems,
-  // 列フィルタの種類を値の型で決める（数値・日付は専用フィルタ、文字は選択式。→ grid/gridCommon）
-  dataTypeDefinitions: GRID_DATA_TYPE_DEFINITIONS,
-  columnTypes: GRID_COLUMN_TYPES,
-  // 数値・テキストフィルタの入力欄に×（クリア）を付ける（年月フィルタと同じ操作。→ grid/gridCommon）
-  onFilterOpened: attachFilterInputClearButtons,
-  // 列幅で省略されたときだけツールチップを出す（画面設計標準 4.2 ⑥）。
-  // 計算式をツールチップで見せるグリッドは、画面側で tooltipShowMode="standard" にする
-  tooltipShowMode: 'whenTruncated',
-});
-// 数値の入力欄でホイールによる値の増減を止める（画面設計標準 4.6）
-installNumberInputWheelGuard();
+// AG Grid の全画面共通の設定（モジュール・テーマ・ロケール・右クリックメニュー・列フィルタ等。→ grid/gridSetup）
+setupAgGrid();
 // AG Grid v33+ 新しいTheming APIを使用（CSSファイルは不要）
 // 古いgrid.cssとag-theme-alpine.cssは削除
 
@@ -222,19 +182,6 @@ export default function App() {
     QuoteBasicInfo | undefined
   >(undefined);
 
-  // AG Gridのレガシーテーマスタイルを完全に削除
-  useEffect(() => {
-    // 既存のag-grid関連のlinkタグを削除
-    const links = document.querySelectorAll(
-      'link[href*="ag-grid"], link[href*="ag-theme"]'
-    );
-    links.forEach((link) => link.remove());
-
-    // 既存のag-grid関連のstyleタグを削除
-    const styles = document.querySelectorAll('style[data-ag-grid]');
-    styles.forEach((style) => style.remove());
-  }, []);
-
   // 年間計画作成へ引き継ぐ取引制度。年間計画作成の基本情報は遷移元の計画詳細と
   // 同一表示にする必要があり、取引制度で内容（販売店・三次店企業）が変わるため保持する。
   const [annualPlanTradingSystem, setAnnualPlanTradingSystem] =
@@ -282,7 +229,7 @@ export default function App() {
   };
 
   // 請求EDI取込結果詳細の再取込指示。エラーサマリ1件が単位（ファイル丸ごとの再取込は行わない）。
-  // その行のエラーをすべて指示し終えたときだけ、一覧のステータスを「再取込指示済」に更新する。
+  // 指示したエラーを明細から取り除き、エラーの残る明細が無くなれば一覧のステータスを「正常」にする（残れば「エラー」のまま）。
   const handleReimportBillingEdiSummary = (
     rowId: string,
     summaryId: string
@@ -418,37 +365,41 @@ export default function App() {
     );
   };
 
-  const handleMenuChange = (menuId: string, payload?: MenuChangePayload) => {
-    // 遷移元から受け取ったペイロードを用途ごとに振り分ける。
-    // 年間計画は取引制度のみ、引用フローは基本情報4項目を持つため、キーで判別する。
-    if (payload) {
-      if ('tradingSystem' in payload) {
-        setAnnualPlanTradingSystem(payload.tradingSystem);
-      } else {
-        setQuoteBasicInfo(payload);
+  // 画面の切り替え。画面・ヘッダーへは AppProviders（AppNavigationProvider）で渡す（→ ui/use-app-navigation）。
+  // state の更新関数だけを使うため、描画のたびに作り直さない
+  const handleMenuChange = useCallback(
+    (menuId: string, payload?: MenuChangePayload) => {
+      // 遷移元から受け取ったペイロードを用途ごとに振り分ける。
+      // 年間計画は取引制度のみ、引用フローは基本情報4項目を持つため、キーで判別する。
+      if (payload) {
+        if ('tradingSystem' in payload) {
+          setAnnualPlanTradingSystem(payload.tradingSystem);
+        } else {
+          setQuoteBasicInfo(payload);
+        }
       }
-    }
-    // メニューから請求詳細を開いた場合は一覧での選択を引き継がない
-    // （データ種別が食い違った入力単位を表示しないよう、両画面とも未選択に戻す）
-    if (menuId === 'billing-detail-edi' || menuId === 'billing-detail-aic') {
-      setSelectedBilling(undefined);
-    }
-    // メニューから請求EDI取込結果詳細を開いた場合は一覧での選択を引き継がない
-    if (menuId === 'billing-edi-detail') {
-      setSelectedBillingEdiId(undefined);
-    }
-    // メニューから請求EDI取込一覧を開き直した場合は仮データを初期状態へ戻す。
-    // 再取込指示でエラー→再取込指示済に変えた行も元のステータスに復帰させ、
-    // 何度でも同じ操作を試せるようにする（モック都合。実システムでは行わない）。
-    if (menuId === 'billing-edi-list') {
-      setBillingEdiRows(BILLING_EDI_ROWS);
-      setSelectedBillingEdiId(undefined);
-    }
-    setCurrentPage(menuId);
-  };
+      // メニューから請求詳細を開いた場合は一覧での選択を引き継がない
+      // （データ種別が食い違った入力単位を表示しないよう、両画面とも未選択に戻す）
+      if (menuId === 'billing-detail-edi' || menuId === 'billing-detail-aic') {
+        setSelectedBilling(undefined);
+      }
+      // メニューから請求EDI取込結果詳細を開いた場合は一覧での選択を引き継がない
+      if (menuId === 'billing-edi-detail') {
+        setSelectedBillingEdiId(undefined);
+      }
+      // メニューから請求EDI取込一覧を開き直した場合は仮データを初期状態へ戻す。
+      // 再取込指示でエラーを取り除いた行も元の状態に戻し、
+      // 何度でも同じ操作を試せるようにする（モック都合。実システムでは行わない）。
+      if (menuId === 'billing-edi-list') {
+        setBillingEdiRows(BILLING_EDI_ROWS);
+        setSelectedBillingEdiId(undefined);
+      }
+      setCurrentPage(menuId);
+    },
+    []
+  );
 
   const routeContext: RouteContext = {
-    onMenuChange: handleMenuChange,
     quoteBasicInfo,
     annualPlanTradingSystem,
     selectedBilling,
@@ -473,13 +424,11 @@ export default function App() {
 
   return (
     // 画面名は各画面の ScreenTitle からヘッダーへ渡す（本文には画面名の見出しを置かない）
-    <ScreenTitleProvider>
+    // 共通の Provider・トースト・確認ダイアログの表示役は AppProviders にまとめる
+    <AppProviders navigate={handleMenuChange}>
       <div className="flex flex-col h-screen bg-app-background">
-        <Toaster position="top-right" richColors />
-        {/* React の外（グリッドの共通処理）から出す確認ダイアログの表示役（→ ui/confirm-dialog の requestConfirm） */}
-        <ConfirmDialogHost />
         {/* Header */}
-        <Header onMenuChange={handleMenuChange} />
+        <Header />
 
         {/* Scrollable Content */}
         <main
@@ -489,6 +438,6 @@ export default function App() {
           {route.render(routeContext)}
         </main>
       </div>
-    </ScreenTitleProvider>
+    </AppProviders>
   );
 }

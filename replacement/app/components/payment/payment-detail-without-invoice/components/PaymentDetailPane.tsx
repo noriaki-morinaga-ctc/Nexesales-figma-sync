@@ -1,26 +1,26 @@
 // Todo：朴：C追加口・拡売費支払モック修正中
 import { useState, forwardRef, useImperativeHandle } from 'react';
 import { History, ReceiptText } from 'lucide-react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
-import { joinCodeName } from '../../../../utils/common/nameCode';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { joinCodeName } from '@/app/utils/common/nameCode';
 import {
   calcExpensePaymentScheduleDate,
   firstDayOfMonth,
   lastDayOfMonth,
   latestOpenAccountingMonth,
   toSlashYearMonth,
-} from '../../../../utils/payment/payment-detail/paymentScheduleDate';
-import { BASIC_INFO } from '../../../shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { valueOrEmpty } from '../../../ui/empty-value';
-import { WITHOUT_INVOICE_DATA_SOURCE_COLUMNS } from '../../../../constants/dataSource';
+} from '@/app/utils/payment/payment-detail/paymentScheduleDate';
+import { BASIC_INFO } from '@/app/components/shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
+import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
+import { WITHOUT_INVOICE_DATA_SOURCE_COLUMNS } from '@/app/constants/dataSource';
 import {
   PaymentAmountBreakdownTable,
   type PaymentAmountBreakdownItem,
-} from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
+} from '@/app/components/shared/payment/payment-detail/PaymentAmountBreakdownTable';
 
 // 支払情報の入力値（支払回数ごとのデータセットとして親＝PaymentDetailWithoutInvoice が保持する）。
 // 支払全体の備考は持たない（支払無しなどの理由はフッターのコメント欄に書く）。

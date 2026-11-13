@@ -18,13 +18,13 @@
 // ※ 管理利益は補足3-1 のフル定義（計画詳細と同一）で算出するため、詳細グリッドの簡易
 //   「管理利益額（＝社外売上高−拡売費①②）」とは値が異なる。
 
-import type { AggTreeNodeRef } from '../../../constants/aggregationTree';
-import type { AggAmounts } from '../common/aggregationCalc';
-import { computeMonthsRange } from '../common/aggregationCalc';
-import { RATE_SETTINGS } from '../../../constants/aggregationSourceData';
-import { DEFAULT_AGGREGATION_SOURCE } from '../../../constants/defaultAggregationSource';
-import { makeTreeValueFor } from '../common/aggregationTreeValue';
-import { managementClassFromCode } from '../../../constants/expenseRelations';
+import type { AggTreeNodeRef } from '@/app/types/aggregation';
+import type { AggAmounts } from '@/app/utils/sales-plan/common/aggregationCalc';
+import { computeMonthsRange } from '@/app/utils/sales-plan/common/aggregationCalc';
+import { RATE_SETTINGS } from '@/app/constants/aggregationSourceData';
+import type { AggregationSource } from '@/app/types/aggregation';
+import { makeTreeValueFor } from '@/app/utils/sales-plan/common/aggregationTreeValue';
+import { managementClassFromCode } from '@/app/utils/common/expenseRelations';
 
 // 集計に必要な項目のみ参照する緩い行型（ProductData と構造互換）。
 export interface SimulationDetailRow {
@@ -84,30 +84,52 @@ const selectedProbabilities = (sel: ConfidenceSelection): Set<string> => {
   return s;
 };
 
-// 計画詳細（マージン率固定）と同じダミーデータ・計算式から求めた、対社外売上高の構成比。
-// これを詳細グリッドの実集計値へ適用して中間項目を按分する（詳細グリッドが持たない項目の補完）。
-const MOCK: AggAmounts = computeMonthsRange(
-  DEFAULT_AGGREGATION_SOURCE,
-  [...Array(12).keys()],
-  {}
-);
-const ratioToExt = (part: number): number =>
-  MOCK.extSales ? part / MOCK.extSales : 0;
-const R_VOLUME_ADD = ratioToExt(MOCK.volumeAdd); // 量経追加口 / 社外売上高
-const R_CONDITION = ratioToExt(MOCK.condition); // 条件口 / 社外売上高
-const R_COST = ratioToExt(MOCK.cost); // 売上原価 / 社外売上高
-const R_LOC_FILL = ratioToExt(MOCK.locFill); // ロケ補填 / 社外売上高
-// 拡売費（売上連動＋直接固定）の内訳比率。実拡売費①②合計を同じ比率で按分する。
-const PROMO_TOTAL = MOCK.salesLinked + MOCK.directFixed;
-const SHARE_SALES_LINKED = PROMO_TOTAL ? MOCK.salesLinked / PROMO_TOTAL : 0;
-const SHARE_VENDING_IN_FIXED = MOCK.directFixed
-  ? MOCK.vendingRelated / MOCK.directFixed
-  : 0;
+// 詳細グリッドが持たない中間項目を按分するための構成比（対社外売上高の比と、拡売費の内訳比）。
+// 画面が渡す（モックでは計画詳細(マージン率固定)と同じダミーデータから求める。実システムでは API から受け取る）。
+export interface SimulationRatios {
+  /** 量経追加口 / 社外売上高 */
+  volumeAdd: number;
+  /** 条件口 / 社外売上高 */
+  condition: number;
+  /** 売上原価 / 社外売上高 */
+  cost: number;
+  /** ロケ補填 / 社外売上高 */
+  locFill: number;
+  /** 売上連動拡売費 / 拡売費（売上連動＋直接固定） */
+  salesLinkedShare: number;
+  /** 自販機関連費 / 直接固定費 */
+  vendingInFixedShare: number;
+}
+
+// 集計ソースの12か月分の集計から構成比を求める。
+export const simulationRatiosOf = (
+  source: AggregationSource
+): SimulationRatios => {
+  const total: AggAmounts = computeMonthsRange(
+    source,
+    [...Array(12).keys()],
+    {}
+  );
+  const ratioToExt = (part: number): number =>
+    total.extSales ? part / total.extSales : 0;
+  const promoTotal = total.salesLinked + total.directFixed;
+  return {
+    volumeAdd: ratioToExt(total.volumeAdd),
+    condition: ratioToExt(total.condition),
+    cost: ratioToExt(total.cost),
+    locFill: ratioToExt(total.locFill),
+    salesLinkedShare: promoTotal ? total.salesLinked / promoTotal : 0,
+    vendingInFixedShare: total.directFixed
+      ? total.vendingRelated / total.directFixed
+      : 0,
+  };
+};
 
 // 選択確度で絞った明細行を合算し、補足3-1 のフルP/L（AggAmounts）を再構成する（テスト用に export）。
 export const aggregateSimulationDetail = (
   rows: SimulationDetailRow[],
   sel: ConfidenceSelection,
+  ratios: SimulationRatios,
   options: SimulationAggregateOptions = {}
 ): AggAmounts => {
   const probs = selectedProbabilities(sel);
@@ -137,19 +159,19 @@ export const aggregateSimulationDetail = (
   }
 
   // 詳細グリッドが持たない中間項目は、計画詳細のダミーデータ由来の構成比で按分（補足3-1 計算式）。
-  const volumeAdd = extSales * R_VOLUME_ADD;
-  const condition = extSales * R_CONDITION;
-  const cost = extSales * R_COST;
+  const volumeAdd = extSales * ratios.volumeAdd;
+  const condition = extSales * ratios.condition;
+  const cost = extSales * ratios.cost;
   const sales = extSales - volumeAdd - condition; // 売上高＝社外売上高−量経追加口−条件口
   const netProfit = sales - cost; // 売上総利益＝売上高−売上原価
   const centerFee = extSales * RATE_SETTINGS.centerFeeRate; // センターフィ＝社外売上高×率
-  const locFill = extSales * R_LOC_FILL;
+  const locFill = extSales * ratios.locFill;
   const variableCost = centerFee + locFill; // 変動費＝センターフィ＋ロケ補填
   const tradeProfit = netProfit - variableCost; // 売買差益＝売上総利益−変動費
   // 実入力の拡売費①②合計を、売上連動／直接固定（さらに固定費／自販機関連費）へ計画詳細比率で按分。
-  const salesLinked = promo * SHARE_SALES_LINKED;
+  const salesLinked = promo * ratios.salesLinkedShare;
   const directFixed = promo - salesLinked;
-  const vendingRelated = directFixed * SHARE_VENDING_IN_FIXED;
+  const vendingRelated = directFixed * ratios.vendingInFixedShare;
   const fixed = directFixed - vendingRelated;
   const mgmtProfit = tradeProfit - directFixed; // 管理利益＝売買差益−直接固定費（補足3-1）
 
@@ -201,7 +223,11 @@ export const aggregateSimulationDetail = (
 export const makeSimulationTreeValueFor = (
   rows: SimulationDetailRow[],
   sel: ConfidenceSelection,
+  ratios: SimulationRatios,
   displayUnit: 'yen' | 'thousand' = 'yen',
   options: SimulationAggregateOptions = {}
 ): ((row: AggTreeNodeRef, columnKey: string) => string | number) =>
-  makeTreeValueFor(aggregateSimulationDetail(rows, sel, options), displayUnit);
+  makeTreeValueFor(
+    aggregateSimulationDetail(rows, sel, ratios, options),
+    displayUnit
+  );

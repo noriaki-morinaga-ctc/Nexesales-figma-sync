@@ -15,7 +15,7 @@
 import {
   SUMMARY_PRODUCT_OPTIONS,
   WHOLESALE_MESH_OPTIONS,
-} from '../../../constants/productMasters';
+} from '@/app/constants/productMasters';
 import {
   DEFAULT_STORE_KEY,
   CHANNEL_CLASS_BY_META_BRAND,
@@ -26,7 +26,7 @@ import {
   CHILLED_PATTERN_SUFFIX,
   CONDITION_UNIT_PRICE_BY_PATTERN,
   DEFAULT_CONDITION_UNIT_PRICE,
-} from '../../../constants/conditionUnitPriceMaster';
+} from '@/app/constants/conditionUnitPriceMaster';
 
 export { DEFAULT_STORE_KEY };
 

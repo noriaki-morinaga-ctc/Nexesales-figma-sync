@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { CARD_TITLE_CLASS } from '../../../../styles/commonStyles';
+import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
 
 interface CardHeaderProps {
   // 見出し先頭のアイコン（lucide）

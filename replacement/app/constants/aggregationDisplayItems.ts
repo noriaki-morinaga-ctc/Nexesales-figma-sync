@@ -1,43 +1,8 @@
-// 集計表の表示項目定義 ─ 課題0255/0288/0450
-// 30項目を、各集計ビューごとに「常時表示／＋ボタンで表示可／非表示」で出し分けるための
-// 単一の情報源（Single Source of Truth）。資料 XLSX「各シートの役割」シート（列E〜H）に準拠。
-// 各集計画面（販売計画(集計)・シミュレーション集計・年間集計）はこのモジュールを参照する。
-//
-// 凡例：
-//   'always'   … 〇 常時表示
-//   'optional' … △ 「＋」ボタンで表示／非表示を切替可能
-//   'hidden'   … × 非表示（BIで閲覧）
-//
-// ビュー：
-//   monthlyChart  … ①各月 販売計画(集計) グラフ（初期表示）
-//   monthlyDetail … ①各月 販売計画(集計) 詳細（ボタン切り替え）
-//   simulation    … ②シミュレーションシート（補助機能）集計欄
-//   annual        … ③年間集計シート
-//
-// 対象は手売りのみ（自販機は資料「表示項目（自販機）」が未確定のため別途）。
-
-export type DisplayVisibility = 'always' | 'optional' | 'hidden';
-
-export type AggregationView =
-  | 'monthlyChart'
-  | 'monthlyDetail'
-  | 'simulation'
-  | 'annual';
-
-export interface AggregationDisplayItem {
-  // 資料の項目No（1〜30）
-  id: number;
-  // 項目名
-  label: string;
-  // 今回追加した新規項目か（資料スライド4）
-  isNew?: boolean;
-  // 新規項目の計算式メモ（補足資料準拠）
-  formula?: string;
-  // 課題0450：条件口は全ビュー非表示だが、管理利益の算出では差し引く対象
-  deductFromManagementProfit?: boolean;
-  // ビューごとの表示判定
-  visibility: Record<AggregationView, DisplayVisibility>;
-}
+import type {
+  AggregationDisplayItem,
+  AggregationView,
+  DisplayVisibility,
+} from '@/app/types/aggregation';
 
 const v = (
   monthlyChart: DisplayVisibility,
@@ -217,53 +182,3 @@ export const AGGREGATION_DISPLAY_ITEMS: AggregationDisplayItem[] = [
     visibility: v('always', 'always', 'always', 'always'),
   },
 ];
-
-// 将来、ASD管理者が×項目を〇/△へ変更できるようにするための上書き口（課題スライド4【相談】）。
-// 現状は上書き無し。overrides を渡すと該当ビューの判定だけ差し替える。
-export type DisplayOverrides = Partial<
-  Record<number, Partial<Record<AggregationView, DisplayVisibility>>>
->;
-
-export const getDisplayItems = (
-  overrides?: DisplayOverrides
-): AggregationDisplayItem[] => {
-  if (!overrides) return AGGREGATION_DISPLAY_ITEMS;
-  return AGGREGATION_DISPLAY_ITEMS.map((item) => {
-    const ov = overrides[item.id];
-    if (!ov) return item;
-    return { ...item, visibility: { ...item.visibility, ...ov } };
-  });
-};
-
-// 指定ビューで表示対象（常時＋＋ボタン）となる項目
-export const getVisibleItems = (
-  view: AggregationView,
-  overrides?: DisplayOverrides
-): AggregationDisplayItem[] =>
-  getDisplayItems(overrides).filter((i) => i.visibility[view] !== 'hidden');
-
-// 指定ビューで常時表示（〇）の項目
-export const getAlwaysItems = (
-  view: AggregationView,
-  overrides?: DisplayOverrides
-): AggregationDisplayItem[] =>
-  getDisplayItems(overrides).filter((i) => i.visibility[view] === 'always');
-
-// 指定ビューで「＋」ボタン切替対象（△）の項目
-export const getOptionalItems = (
-  view: AggregationView,
-  overrides?: DisplayOverrides
-): AggregationDisplayItem[] =>
-  getDisplayItems(overrides).filter((i) => i.visibility[view] === 'optional');
-
-// ラベルから項目を引く
-export const getDisplayItemByLabel = (
-  label: string
-): AggregationDisplayItem | undefined =>
-  AGGREGATION_DISPLAY_ITEMS.find((i) => i.label === label);
-
-// id から項目ラベルを引く（ドリルダウン各ノード→計算結果の突き合わせに使用）
-export const getDisplayItemLabelById = (id?: number): string | undefined =>
-  id == null
-    ? undefined
-    : AGGREGATION_DISPLAY_ITEMS.find((i) => i.id === id)?.label;

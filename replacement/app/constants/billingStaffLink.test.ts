@@ -5,12 +5,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   BILLING_CUSTOMER_LINKS,
-  BILLING_STAFF_BY_STORE_NAME,
-  BILLING_UNSET_CUSTOMER_NAME,
   billingStaffComboOptions,
   billingStoreComboOptions,
   billingStoreDisplayName,
-} from './billingMockData';
+} from '@/mocks/common/billing';
+import { BILLING_STAFF_BY_STORE_NAME } from '@/mocks/payment/billing-detail-aic';
+import { BILLING_UNSET_CUSTOMER_NAME } from '@/app/constants/billing';
 
 describe('BILLING_STAFF_BY_STORE_NAME', () => {
   it('販売店の候補はすべて担当者を引ける（＝候補から選べば必ず自動反映される）', () => {

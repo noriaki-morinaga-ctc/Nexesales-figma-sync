@@ -1,58 +1,59 @@
 // 販売計画表(商流紐づけなし)
 // 販売計画(詳細)タブは廃止し、拡売費計画のみをカードで表示する。
 // サブコンポーネント（検索・拡売費・参照）とモックデータは本画面専用
-// （PromotionCostPlanUnlinked* / salesPlanNoLinkMockData）として保持し、
-// 卸(NET固定)系モジュール（PlanDetailNetFixed* / salesPlanWholesaleMockData）には依存しない。
+// （PromotionCostPlanUnlinked* / mockData）として保持し、
+// 卸(NET固定)系モジュール（PlanDetailNetFixed* ／ src/mocks/sales-plan/plan-detail-net-fixed）には依存しない。
 // ※拡売費グリッド本体は共通の NonProductExpensePane を利用する。
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Save, Send, Check, Undo2, Copy, CornerUpLeft } from 'lucide-react';
 
-import { Button } from '../../ui/button';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { CURRENT_USER_NAME } from '../../../constants/planBasicInfoMockData';
-import { addMonths } from '../../../utils/common/yearMonth';
+import { Button } from '@/app/components/ui/button';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { CURRENT_USER_NAME } from '@/mocks/common/planBasicInfo';
+import { addMonths } from '@/app/utils/common/yearMonth';
 import { SearchPane } from './components/SearchPane';
 import {
   NonProductExpensePane,
   type NonProductExpenseData,
   type NonProductExpenseGridHandle,
 } from './components/NonProductExpensePane';
-import { RightPane } from '../../ui/right-pane';
-import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
-import { expenseDeleteItems } from '../../../constants/planDeleteItems';
-import { Label } from '../../ui/label';
-import { RequiredBadge } from '../../ui/required-badge';
-import { ExpenseBlockFields } from '../../shared/sales-plan/common/ExpenseBlockFields';
-import { BottomPane } from '../../ui/bottom-pane';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { CommentHistoryPane } from '@/app/components/shared/common/CommentHistoryPane';
+import { Label } from '@/app/components/ui/label';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { ExpenseBlockFields } from '@/app/components/shared/sales-plan/common/ExpenseBlockFields';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
 import { ReferenceTable } from './components/ReferenceTable';
-import { SingleCombobox } from '../../ui/single-combobox';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { COMMENT_HISTORY_DATA } from '@/mocks/sales-plan/promotion-cost-plan-unlinked';
+import { EMPTY_EXPENSE_FORM } from '@/app/constants/nonProductExpenseForm';
+import type { ExpenseFormValues } from '@/app/types/nonProductExpense';
+import { DEFAULT_META_BRAND } from '@/app/constants/nonProductExpenseForm';
 import {
-  COMMENT_HISTORY_DATA,
-  EMPTY_EXPENSE_FORM,
-  type ExpenseFormValues,
-} from '../../../constants/salesPlanNoLinkMockData';
-import {
-  DEFAULT_META_BRAND,
   expenseMissingFields,
-  fromExpenseForm,
   toExpenseForm,
-} from '../../../constants/nonProductExpenseForm';
-import { hasSummaryProduct } from '../../../utils/sales-plan/plan-detail/nonProductExpenseRow';
-import { productCodeFromValue } from '../../../constants/comboFieldOptions';
-import { expenseSummaryProductOptionCode } from '../../../utils/common/summaryProductSearch';
+  fromExpenseForm,
+} from '@/app/utils/common/nonProductExpenseForm';
+import { hasSummaryProduct } from '@/app/utils/sales-plan/plan-detail/nonProductExpenseRow';
+import { productCodeFromValue } from '@/app/utils/common/comboFieldOptions';
+import { expenseSummaryProductOptionCode } from '@/app/utils/common/summaryProductSearch';
 import {
   META_BRAND_MASTER,
   EXPENSE_SUMMARY_PRODUCT_OPTIONS,
-} from '../../../constants/productMasters';
-import { BUTTON_STYLES, BUTTON_BASE } from '../../../../styles/commonStyles';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/constants/productMasters';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import {
+  PlanReferencePeriodField,
+  usePlanReferencePeriod,
+} from '@/app/components/shared/sales-plan/plan-detail/PlanReferenceTable';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 未入力の必須項目名を列挙してトースト文言にする。
 const requiredMsg = (fields: string[]): string =>
   `${fields.join('・')}を入力してください。`;
 // 拡売費フォームのヘルパー（expenseMissingFields・toExpenseForm・fromExpenseForm）は
-// 共通モジュール ../constants/nonProductExpenseForm に集約（単一ソース）。
+// 共通モジュール utils/common/nonProductExpenseForm に集約（単一ソース）。
 
 export default function PromotionCostPlanUnlinked() {
   // 画面移動（戻る）の確認ダイアログ表示状態
@@ -73,16 +74,14 @@ export default function PromotionCostPlanUnlinked() {
 
   // 拡売費系右ペインの状態管理
   const [isAddExpensePaneShown, setIsAddExpensePaneShown] = useState(false);
-  const [isDeleteExpensePaneShown, setIsDeleteExpensePaneShown] =
-    useState(false);
-  const [expenseData, setExpenseData] = useState<NonProductExpenseData | null>(
-    null
-  );
   const [pendingCopyExpenseRow, setPendingCopyExpenseRow] =
     useState<NonProductExpenseData | null>(null);
 
   // 対象年月（基本情報の検索条件）。コピー元の下ペインの対象期間と共有する。
   const [targetYearMonth, setTargetYearMonth] = useState('2025/10');
+  // 拡売費計画(コピー元)の対象年月（下ペインの見出しの行で選ぶ）
+  const [referencePeriod, setReferencePeriod] =
+    usePlanReferencePeriod(targetYearMonth);
 
   // 拡売費「参照用」下ペインの状態管理
   const [isReferencePaneShown, setIsReferencePaneShown] = useState(false);
@@ -122,7 +121,6 @@ export default function PromotionCostPlanUnlinked() {
   const closeAllRightPanes = () => {
     setIsCommentHistoryPaneShown(false);
     setIsAddExpensePaneShown(false);
-    setIsDeleteExpensePaneShown(false);
     setIsReferencePaneShown(false);
   };
 
@@ -158,7 +156,9 @@ export default function PromotionCostPlanUnlinked() {
       return;
     }
     // 合計行の直下に追加
-    expenseGridRef.current?.addRow(fromExpenseForm(addExpenseForm));
+    expenseGridRef.current?.addRow(
+      fromExpenseForm(addExpenseForm, CURRENT_USER_NAME)
+    );
     setAddExpenseForm({ ...EMPTY_EXPENSE_FORM });
     setIsAddExpenseSubmitted(false);
     if (!continuous) setIsAddExpensePaneShown(false);
@@ -169,19 +169,16 @@ export default function PromotionCostPlanUnlinked() {
   // 前年実績は引き継がず（削除可）、作成者はログインユーザーになる（fromExpenseForm）。
   const handleCopyExpenseRow = (data: NonProductExpenseData) => {
     expenseGridRef.current?.addRow({
-      ...fromExpenseForm(toExpenseForm(data)),
+      ...fromExpenseForm(toExpenseForm(data), CURRENT_USER_NAME),
       _copySource: 'detail',
     });
     toast.success('拡売費計画へコピーしました。');
   };
 
-  // 拡売費削除ペインを開く
-  const handleOpenDeleteExpense = (data: NonProductExpenseData) => {
-    const isOpen = isDeleteExpensePaneShown && expenseData === data;
-    closeAllRightPanes();
-    if (isOpen) return;
-    setExpenseData(data);
-    setIsDeleteExpensePaneShown(true);
+  // 拡売費を削除する（確認は出さず、削除したことをトーストで知らせる → 02 §5）
+  const handleDeleteExpense = (data: NonProductExpenseData) => {
+    if (data?.no != null) expenseGridRef.current?.deleteRow(data.no);
+    toast.success('拡売費を削除しました。');
   };
 
   return (
@@ -219,7 +216,7 @@ export default function PromotionCostPlanUnlinked() {
                 <NonProductExpensePane
                   ref={expenseGridRef}
                   onOpenAddExpense={handleOpenAddExpense}
-                  onOpenDeleteExpense={handleOpenDeleteExpense}
+                  onDeleteExpense={handleDeleteExpense}
                   onOpenCopyExpense={handleCopyExpenseRow}
                   pendingCopyRow={pendingCopyExpenseRow}
                   onCopyComplete={() => setPendingCopyExpenseRow(null)}
@@ -247,10 +244,16 @@ export default function PromotionCostPlanUnlinked() {
           collapsedTabLabel="過去の拡売費計画からコピー"
           collapsedTabIcon={<Copy className="h-4 w-4" />}
           title="拡売費計画(コピー元)"
+          titleExtra={
+            <PlanReferencePeriodField
+              value={referencePeriod}
+              onChange={setReferencePeriod}
+            />
+          }
           description="コピーボタン、または行のダブルクリックで拡売費計画へ追加できます"
         >
           <ReferenceTable
-            targetMonth={targetYearMonth}
+            period={referencePeriod}
             onCopyRow={(row) => {
               // 取り込んだ行は当計画の新規行。前年実績は持たず（削除可）、
               // 計上年月は基本情報の対象年月の翌月、作成者はログインユーザー。
@@ -276,73 +279,67 @@ export default function PromotionCostPlanUnlinked() {
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div>
-              <Button
-                variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
+              <button
+                type="button"
+                className="btn-action-base btn-action-outline"
                 onClick={() => setIsBackConfirmShown(true)}
               >
-                <Undo2 className="h-4 w-4 mr-2" />
+                <Undo2 className="h-4 w-4" />
                 一覧へ戻る
-              </Button>
+              </button>
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
               {/* コメント欄（支払詳細(追加口請求書有)と同一の複数行テキストエリア） */}
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label
-                  htmlFor="sales-plan-no-link-comment"
-                  className="text-sm text-gray-700 whitespace-nowrap font-medium"
-                >
-                  コメント
-                </label>
-                <textarea
-                  id="sales-plan-no-link-comment"
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder="コメントを入力(差戻し理由など)"
-                  rows={2}
-                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-                />
-              </div>
-              <Button
-                className={`${BUTTON_STYLES.delete} ${BUTTON_BASE} h-9`}
+              <FooterCommentField
+                id="sales-plan-no-link-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+              />
+              <button
+                type="button"
+                className="btn-action-base btn-action-red"
                 onClick={() => toast.success('差し戻しました。')}
               >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
+                <CornerUpLeft className="h-4 w-4" />
                 差戻し
-              </Button>
-              <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} h-9`}
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-green"
                 onClick={() => toast.success('承認しました。')}
               >
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-4 w-4" />
                 承認
-              </Button>
-              <Button
-                className={`${BUTTON_STYLES.withdraw} ${BUTTON_BASE} h-9`}
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-outline-blue"
                 onClick={() => toast.success('計画を引き戻しました。')}
               >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
+                <CornerUpLeft className="h-4 w-4" />
                 引戻し
-              </Button>
-              <Button
-                className={`${BUTTON_STYLES.approve} ${BUTTON_BASE} h-9`}
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-green"
                 onClick={() => toast.success('計画承認申請を送信しました。')}
               >
-                <Send className="h-4 w-4 mr-2" />
+                <Send className="h-4 w-4" />
                 申請
-              </Button>
-              <Button
-                className={`${BUTTON_STYLES.primary} ${BUTTON_BASE} h-9`}
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-blue"
                 onClick={() => {
                   // 保存したら拡売費計画の帯（コピー・追加由来）と編集セルの強調を消す
                   expenseGridRef.current?.clearSavedMarks?.();
                   toast.success('販売計画を保存しました。');
                 }}
               >
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4" />
                 保存
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -489,54 +486,12 @@ export default function PromotionCostPlanUnlinked() {
         })()}
       </RightPane>
 
-      {/* 右ペイン：拡売費削除確認（共通部品 DeleteConfirmPane）。
-          削除対象を特定できるよう、拡売費グリッドと同じ並びで
-          メタブランド～摘要1(社内用)に作成者を加えて並べる。 */}
-      <DeleteConfirmPane
-        open={isDeleteExpensePaneShown}
-        onClose={() => setIsDeleteExpensePaneShown(false)}
-        title="拡売費削除"
-        description="拡売費を削除します"
-        items={expenseDeleteItems(expenseData, { showCreator: true })}
-        onDelete={() => {
-          // 対象行をグリッドから削除
-          if (expenseData?.no != null) {
-            expenseGridRef.current?.deleteRow(expenseData.no);
-          }
-          setIsDeleteExpensePaneShown(false);
-          toast.success('拡売費を削除しました。');
-        }}
-      />
-
-      {/* 右ペイン：コメント履歴 */}
-      <RightPane
+      {/* 右ペイン：コメント履歴（共通部品。操作名とその後のステータスを分けて出す → 02 §6） */}
+      <CommentHistoryPane
         open={isCommentHistoryPaneShown}
         onClose={() => setIsCommentHistoryPaneShown(false)}
-        title="コメント履歴"
-        description=""
-      >
-        <div className="space-y-3">
-          {COMMENT_HISTORY_DATA.map((item, index) => (
-            <div
-              key={index}
-              className="bg-gray-50 p-4 rounded-lg space-y-2 border border-gray-200"
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-900">
-                  {item.actionType}
-                </span>
-                <span className="text-sm text-gray-600">{item.datetime}</span>
-                <span className="text-sm text-gray-900">{item.userName}</span>
-              </div>
-              {item.comment && (
-                <div className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-200">
-                  {item.comment}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </RightPane>
+        items={COMMENT_HISTORY_DATA}
+      />
 
       {/* 戻る（画面移動）の確認: 入力中データの破棄を確認する */}
       <ConfirmDialog

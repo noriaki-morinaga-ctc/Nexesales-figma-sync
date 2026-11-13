@@ -8,34 +8,36 @@ import type {
   GetRowIdParams,
   ValueFormatterParams,
   ValueParserParams,
+  NewValueParams,
 } from 'ag-grid-community';
 import { Save, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Button } from '../../ui/button';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { FORM_LABEL_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { CARD_CLASS, FIT_LABEL_CLASS } from '@/styles/commonStyles';
 import {
-  PLAN_BASIC_INFO_LABEL_WIDTH,
   PlanBasicInfoField,
+  PlanBasicInfoFitGrid,
   PlanBasicInfoRow,
   PlanBasicInfoSpacer,
-} from '../../ui/plan-basic-info';
-import { MonthStripPicker } from '../../ui/month-strip-picker';
+} from '@/app/components/ui/plan-basic-info';
+import { MonthStripPicker } from '@/app/components/ui/month-strip-picker';
 import {
   BASIC_INFO_CREATOR,
   BASIC_INFO_DEALER,
   BASIC_INFO_DEPARTMENT,
   BASIC_INFO_OFFICE,
-} from '../../../constants/planBasicInfoMockData';
+  PLAN_NO_DATA_MONTHS,
+} from '@/mocks/common/planBasicInfo';
 import {
   STORE_TIER_LIST,
   firstStoreCode,
   thirdStoreCode,
-} from '../../../constants/storeTierMockData';
-import { joinCodeName } from '../../../utils/common/nameCode';
+} from '@/mocks/common/storeTier';
+import { joinCodeName } from '@/app/utils/common/nameCode';
 import {
+  viewportGridHeight,
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
   GRID_EMPTY_TEXT,
@@ -48,8 +50,9 @@ import {
   GRID_NUMBER_FILTER,
   useChangedCells,
   withComparableCellValues,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // データ型定義
 // 社外売上高・1本あたり単価・当月進捗率は他項目から算出する項目のため行データには持たず、
@@ -74,25 +77,16 @@ interface ProductSalesPlanData {
   currentMonthCases: number; // 当月函数
 }
 
-interface ManagedProductPlanDetailProps {
-  onMenuChange?: (menu: string) => void;
-}
-
 // 計画函数の最大桁数
 const PLANNED_CASES_MAX_DIGITS = 5;
 
 // 基本情報に表示する三次店/一次店。本画面では販売店・三次店・一次店がいずれも一意（1件）の
-// ため、計画詳細(マージン率固定・NET入力)と同じ参照元（storeTierMockData）の先頭を使う。
+// ため、計画詳細(マージン率固定・NET入力)と同じ参照元（src/mocks/common/storeTier）の先頭を使う。
 const BASIC_INFO_STORE_TIER = STORE_TIER_LIST[0];
 
 // 一次店の列幅。取引先名（例「T1001:三菱食品株式会社（イオン）」）が既定の1列幅
 // （5列等幅）に収まらないため2列分を占有させる。三次店は1列幅に収まるので既定のまま。
 const BASIC_INFO_FIRST_STORE_COL_SPAN = 'col-span-2';
-
-// 「商品販売計画No.」だけは既定幅（PlanBasicInfoField の PLAN_BASIC_INFO_LABEL_WIDTH
-// ＝5.3125rem）に収まらないため、この項目に限り幅を広げる。他項目は既定幅のままにして、
-// 基準画面 計画詳細(マージン率固定・NET入力)と同じ値の開始位置で5列を縦に揃える。
-const BASIC_INFO_LABEL_WIDTH_WIDE = 'w-32';
 
 // 基本情報の対象年月の初期値（旧表示「2026年5月」に対応）。
 const BASIC_INFO_INITIAL_YEAR_MONTH = '2026/05';
@@ -199,9 +193,9 @@ const parsePlannedCases = (raw: unknown): number | null => {
   return Number(sanitized);
 };
 
-export default function ManagedProductPlanDetail({
-  onMenuChange,
-}: ManagedProductPlanDetailProps) {
+export default function ManagedProductPlanDetail() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 行データ
   const [rowData, setRowData] = useState<ProductSalesPlanData[]>(INITIAL_DATA);
 
@@ -219,12 +213,12 @@ export default function ManagedProductPlanDetail({
 
   // 計画函数のセル編集確定時のハンドラ
   const handlePlannedCasesChanged = useCallback(
-    (params: CellValueChangedEvent<ProductSalesPlanData>) => {
+    (params: NewValueParams<ProductSalesPlanData>) => {
       const parsed = parsePlannedCases(params.newValue);
 
       // 不正値の場合は元の値に戻してエラー通知
       if (parsed === null) {
-        params.node.setDataValue('plannedCases', params.oldValue);
+        params.node?.setDataValue('plannedCases', params.oldValue);
         toast.error('計画函数は半角数字（最大5桁）で入力してください');
         return;
       }
@@ -430,7 +424,8 @@ export default function ManagedProductPlanDetail({
   );
   const defaultColDef = useMemo<ColDef<ProductSalesPlanData>>(
     () => ({
-      ...GRID_DEFAULT_COL_DEF,
+      // 共通の既定（行の型を持たない ColDef）を、この表の行の型の列設定として混ぜる
+      ...(GRID_DEFAULT_COL_DEF as ColDef<ProductSalesPlanData>),
       // 編集可=白／編集不可=灰（画面設計標準）。寄せは cellClass(cell-left/right) で付与するため
       // ここでは背景色のみ返す（display/justify を含めると cellClass の寄せが無効になる）。
       cellStyle: (params: CellClassParams<ProductSalesPlanData>) =>
@@ -459,8 +454,8 @@ export default function ManagedProductPlanDetail({
   // 戻る確定 → 計画一覧(管理対象商品)へ遷移
   const handleBackConfirm = useCallback(() => {
     setIsBackConfirmOpen(false);
-    onMenuChange?.('managed-product-plan-list');
-  }, [onMenuChange]);
+    navigate('managed-product-plan-list');
+  }, [navigate]);
 
   return (
     // 他の計画詳細（計画詳細(マージン率固定・NET入力)等）と同じ構成。
@@ -495,99 +490,100 @@ export default function ManagedProductPlanDetail({
               本画面固有の「商品販売計画No.」は、基準画面にない項目のため2行目を新設して置く。
               計画書インポート／計画書エクスポート／見積書エクスポートは本画面では扱わないため、
               カードヘッダーのボタンは持たない。 */}
+                {/* 「商品販売計画No.」が 5.625rem に収まらないため、項目名の列をその列で一番長い項目名の幅に
+                    合わせる並び（PlanBasicInfoFitGrid → 05「ラベルが幅に収まらない画面」）にする */}
                 <div className="p-4">
-                  {/* 1行目: 対象年月（月ストリップ）とステータス。
+                  <PlanBasicInfoFitGrid>
+                    {/* 1行目: 対象年月（月ストリップ）とステータス。
                 月ストリップの必要幅から対象年月を col-span-4 とし、ステータスを5列目に
                 固定することで、2行目以降の列位置と縦に揃う（基準画面と同一）。
                 本画面はコメント履歴を持たないため、ステータス横のボタンは置かない。 */}
-                  <PlanBasicInfoRow>
-                    <div className="col-span-4 flex items-center gap-2">
-                      <label
-                        className={`${FORM_LABEL_CLASS} whitespace-nowrap ${PLAN_BASIC_INFO_LABEL_WIDTH} px-2 py-1 text-right`}
-                      >
-                        対象年月
-                      </label>
-                      <div className="min-w-0">
-                        <MonthStripPicker
-                          value={targetYearMonth}
-                          onChange={setTargetYearMonth}
-                        />
+                    <PlanBasicInfoRow>
+                      {/* 4列分＝8トラック。月ストリップは残りの7トラックへ広げる */}
+                      <div className="col-span-8 grid grid-cols-subgrid items-center">
+                        <label className={FIT_LABEL_CLASS}>対象年月</label>
+                        <div className="col-span-7 min-w-0">
+                          <MonthStripPicker
+                            disabledMonths={PLAN_NO_DATA_MONTHS}
+                            value={targetYearMonth}
+                            onChange={setTargetYearMonth}
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <PlanBasicInfoField label="ステータス" value="登録済" />
-                  </PlanBasicInfoRow>
+                      <PlanBasicInfoField label="ステータス" value="登録済" />
+                    </PlanBasicInfoRow>
 
-                  {/* 2行目: 本画面固有の商品販売計画No.。計画一覧(管理対象商品)の
+                    {/* 2行目: 本画面固有の商品販売計画No.。計画一覧(管理対象商品)の
                 同名列と同じ値を参照専用で表示する。
                 持たない項目は列を空けず左へ詰める。 */}
-                  <PlanBasicInfoRow>
-                    <PlanBasicInfoField
-                      label="商品販売計画No."
-                      value={BASIC_INFO_PRODUCT_SALES_PLAN_NO}
-                      labelWidthClass={BASIC_INFO_LABEL_WIDTH_WIDE}
-                    />
-                    <PlanBasicInfoSpacer />
-                    <PlanBasicInfoSpacer />
-                    <PlanBasicInfoSpacer />
-                    <PlanBasicInfoSpacer />
-                  </PlanBasicInfoRow>
+                    <PlanBasicInfoRow>
+                      <PlanBasicInfoField
+                        label="商品販売計画No."
+                        value={BASIC_INFO_PRODUCT_SALES_PLAN_NO}
+                      />
+                      <PlanBasicInfoSpacer />
+                      <PlanBasicInfoSpacer />
+                      <PlanBasicInfoSpacer />
+                      <PlanBasicInfoSpacer />
+                    </PlanBasicInfoRow>
 
-                  {/* 3行目: 事業場・部署・作成者。
+                    {/* 3行目: 事業場・部署・作成者。
                 持たない項目（基準画面の「担当エリア」「三次店企業」）は列を空けず左へ詰める。 */}
-                  <PlanBasicInfoRow>
-                    <PlanBasicInfoField
-                      label="事業場"
-                      value={joinCodeName(
-                        BASIC_INFO_OFFICE.code,
-                        BASIC_INFO_OFFICE.name
-                      )}
-                    />
-                    <PlanBasicInfoField
-                      label="部署"
-                      value={joinCodeName(
-                        BASIC_INFO_DEPARTMENT.code,
-                        BASIC_INFO_DEPARTMENT.name
-                      )}
-                    />
-                    <PlanBasicInfoField
-                      label="作成者"
-                      value={joinCodeName(
-                        BASIC_INFO_CREATOR.code,
-                        BASIC_INFO_CREATOR.name
-                      )}
-                    />
-                    <PlanBasicInfoSpacer />
-                    <PlanBasicInfoSpacer />
-                  </PlanBasicInfoRow>
+                    <PlanBasicInfoRow>
+                      <PlanBasicInfoField
+                        label="事業場"
+                        value={joinCodeName(
+                          BASIC_INFO_OFFICE.code,
+                          BASIC_INFO_OFFICE.name
+                        )}
+                      />
+                      <PlanBasicInfoField
+                        label="部署"
+                        value={joinCodeName(
+                          BASIC_INFO_DEPARTMENT.code,
+                          BASIC_INFO_DEPARTMENT.name
+                        )}
+                      />
+                      <PlanBasicInfoField
+                        label="作成者"
+                        value={joinCodeName(
+                          BASIC_INFO_CREATOR.code,
+                          BASIC_INFO_CREATOR.name
+                        )}
+                      />
+                      <PlanBasicInfoSpacer />
+                      <PlanBasicInfoSpacer />
+                    </PlanBasicInfoRow>
 
-                  {/* 4行目: 販売店・三次店・一次店（最終行のため下区切り罫線なし）。
+                    {/* 4行目: 販売店・三次店・一次店（最終行のため下区切り罫線なし）。
                 いずれも一意（1件）のため参照専用値として左から順に詰めて並べる。
                 一次店のみ取引先名が1列幅に収まらないため2列分を占有させる。 */}
-                  <PlanBasicInfoRow divider={false}>
-                    <PlanBasicInfoField
-                      label="販売店"
-                      value={joinCodeName(
-                        BASIC_INFO_DEALER.code,
-                        BASIC_INFO_DEALER.name
-                      )}
-                    />
-                    <PlanBasicInfoField
-                      label="三次店"
-                      value={joinCodeName(
-                        thirdStoreCode(BASIC_INFO_STORE_TIER.third),
-                        BASIC_INFO_STORE_TIER.third
-                      )}
-                    />
-                    <PlanBasicInfoField
-                      label="一次店"
-                      value={joinCodeName(
-                        firstStoreCode(BASIC_INFO_STORE_TIER.first),
-                        BASIC_INFO_STORE_TIER.first
-                      )}
-                      colSpanClass={BASIC_INFO_FIRST_STORE_COL_SPAN}
-                    />
-                  </PlanBasicInfoRow>
+                    <PlanBasicInfoRow divider={false}>
+                      <PlanBasicInfoField
+                        label="販売店"
+                        value={joinCodeName(
+                          BASIC_INFO_DEALER.code,
+                          BASIC_INFO_DEALER.name
+                        )}
+                      />
+                      <PlanBasicInfoField
+                        label="三次店"
+                        value={joinCodeName(
+                          thirdStoreCode(BASIC_INFO_STORE_TIER.third),
+                          BASIC_INFO_STORE_TIER.third
+                        )}
+                      />
+                      <PlanBasicInfoField
+                        label="一次店"
+                        value={joinCodeName(
+                          firstStoreCode(BASIC_INFO_STORE_TIER.first),
+                          BASIC_INFO_STORE_TIER.first
+                        )}
+                        colSpanClass={BASIC_INFO_FIRST_STORE_COL_SPAN}
+                      />
+                    </PlanBasicInfoRow>
+                  </PlanBasicInfoFitGrid>
                 </div>
               </CollapsibleCard>
             </div>
@@ -602,7 +598,7 @@ export default function ManagedProductPlanDetail({
                   <div
                     className="grid-unified w-full p-2"
                     style={{
-                      height: 'calc(100vh - 7.5rem)',
+                      height: viewportGridHeight(7.5),
                       minHeight: '25rem',
                     }}
                   >
@@ -632,20 +628,20 @@ export default function ManagedProductPlanDetail({
         <div className="bg-white border-t border-gray-200 px-6 py-2 shrink-0">
           <div className="flex justify-between items-center">
             <div>
-              <Button
-                variant="outline"
+              <button
+                type="button"
+                className="btn-action-base btn-action-outline"
                 onClick={handleBack}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
               >
-                <Undo2 className="h-4 w-4 mr-2" />
+                <Undo2 className="h-4 w-4" />
                 一覧へ戻る
-              </Button>
+              </button>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white h-9 rounded-lg">
-                <Save className="h-4 w-4 mr-2" />
+              <button type="button" className="btn-action-base btn-action-blue">
+                <Save className="h-4 w-4" />
                 登録
-              </Button>
+              </button>
             </div>
           </div>
         </div>

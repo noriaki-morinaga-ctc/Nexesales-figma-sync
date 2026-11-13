@@ -1,24 +1,19 @@
 import { Search } from 'lucide-react';
 
-import { SearchRangeField } from '../../../ui/search-range-field';
-import { CopyableArea } from '../../../ui/copyable-area';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SearchClearButton } from '../../../ui/search-clear-button';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
-} from '../../../ui/search-summary';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { BILLING_EDI_PAYEE_OPTIONS } from '../../../../constants/billingEdiMockData';
-import {
-  SEARCH_GRID_CLASS,
-  SEARCH_LABEL_CLASS,
-} from '../../../../../styles/commonStyles';
-import {
-  INITIAL_SEARCH_CRITERIA,
-  type BillingEdiSearchCriteria,
-} from '../../../../constants/billingEdiMockData';
+} from '@/app/components/ui/search-summary';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { BILLING_EDI_PAYEE_OPTIONS } from '@/mocks/payment/billing-edi-list';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
+import { INITIAL_SEARCH_CRITERIA } from '@/mocks/payment/billing-edi-list';
+import type { BillingEdiSearchCriteria } from '@/app/types/billingEdi';
 
 interface SearchPaneProps {
   criteria: BillingEdiSearchCriteria;
@@ -76,12 +71,14 @@ export function SearchPane({ criteria, onChange }: SearchPaneProps) {
             {/* 受信日（範囲）。共通カレンダー部品で選択し、×でクリアできる。
                 開始＞終了の逆転を作らせないよう、開始の上限に終了・終了の下限に開始を渡す。 */}
             <SearchRangeField
+              wide
               label="受信日"
               htmlFor="search-import-date-from"
               groupLabel="検索受信日の範囲"
               start={
                 <DateMonthYearPicker
                   className="w-full"
+                  compact
                   id="search-import-date-from"
                   ariaLabel="受信日（開始）"
                   value={criteria.importDateFrom}
@@ -93,6 +90,7 @@ export function SearchPane({ criteria, onChange }: SearchPaneProps) {
               end={
                 <DateMonthYearPicker
                   className="w-full"
+                  compact
                   ariaLabel="受信日（終了）"
                   value={criteria.importDateTo}
                   min={criteria.importDateFrom}

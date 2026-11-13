@@ -8,96 +8,107 @@ import React, {
 import { toast } from 'sonner';
 import { Save, Send, Check, Undo2, Copy, CornerUpLeft } from 'lucide-react';
 
-import { Button } from '../../ui/button';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { PlanSearchPane } from '../../shared/sales-plan/plan-detail/PlanSearchPane';
-import { PlanAggregationPane } from '../../shared/sales-plan/plan-detail/PlanAggregationPane';
+import { Button } from '@/app/components/ui/button';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { PlanSearchPane } from '@/app/components/shared/sales-plan/plan-detail/PlanSearchPane';
+import { PlanAggregationPane } from '@/app/components/shared/sales-plan/plan-detail/PlanAggregationPane';
 import { DetailTable } from './components/DetailTable';
 import {
   PlanNonProductExpensePane,
   type NonProductExpenseGridHandle,
-} from '../../shared/sales-plan/plan-detail/PlanNonProductExpensePane';
+} from '@/app/components/shared/sales-plan/plan-detail/PlanNonProductExpensePane';
 import type { DetailTableHandle } from './components/DetailTable';
-import { RightPane } from '../../ui/right-pane';
-import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
-import { CenterFeeAnnualContractIncentiveRatePane } from '../../shared/sales-plan/plan-detail/CenterFeeAnnualContractIncentiveRatePane';
-import { MarginNetRatePane } from '../../shared/sales-plan/plan-detail/MarginNetRatePane';
-import { NumericInput } from '../../ui/numeric-input';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { CenterFeeAnnualContractIncentiveRatePane } from '@/app/components/shared/sales-plan/plan-detail/CenterFeeAnnualContractIncentiveRatePane';
+import { MarginNetRatePane } from '@/app/components/shared/sales-plan/plan-detail/MarginNetRatePane';
+import { NumericInput } from '@/app/components/ui/numeric-input';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanAmountText,
   formatPlanCountText,
   formatPlanRateText,
   roundPlanNumber,
-} from '../../../utils/sales-plan/common/planDetailNumberFormat';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { ExpenseBlockFields } from '../../shared/sales-plan/common/ExpenseBlockFields';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import { RequiredBadge } from '../../ui/required-badge';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { BottomPane } from '../../ui/bottom-pane';
-import { PlanReferenceTable } from '../../shared/sales-plan/plan-detail/PlanReferenceTable';
-import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { ExpenseBlockFields } from '@/app/components/shared/sales-plan/common/ExpenseBlockFields';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
+import {
+  PlanReferencePeriodField,
+  PlanReferenceTable,
+  usePlanReferencePeriod,
+} from '@/app/components/shared/sales-plan/plan-detail/PlanReferenceTable';
+import { CommentHistoryPane } from '@/app/components/shared/common/CommentHistoryPane';
 import {
   COMMENT_HISTORY_DATA,
-  EMPTY_DETAIL_FORM,
-  EMPTY_EXPENSE_FORM,
   RETAIL_MARGIN_RATES,
+} from '@/mocks/sales-plan/plan-detail-margin-rate-fixed';
+import { EMPTY_DETAIL_FORM } from '@/app/components/sales-plan/plan-detail-margin-rate-fixed/constants';
+import { EMPTY_EXPENSE_FORM } from '@/app/constants/nonProductExpenseForm';
+import {
   REGULAR_PRODUCTS_DATA,
   NEW_PRODUCTS_DATA,
   PROMOTION_PRODUCTS_DATA,
   GIFT_PRODUCTS_DATA,
-  type DetailFormValues,
-  type ExpenseFormValues,
-  type ProductData,
-} from '../../../constants/salesPlanRetailMockData';
-import { NON_PRODUCT_EXPENSE_ROWS } from '../../../constants/nonProductExpenseMockData';
-import { toAggregationProducts } from '../../../utils/sales-plan/plan-detail/planGridToAggregation';
-import { toAggregationExpenses } from '../../../utils/sales-plan/plan-detail/expenseGridToAggregation';
+} from '@/mocks/common/salesPlanRetail';
+import { type ExpenseFormValues } from '@/app/types/nonProductExpense';
+import type {
+  DetailFormValues,
+  ProductData,
+} from '@/app/types/salesPlanRetail';
+import { NON_PRODUCT_EXPENSE_ROWS } from '@/mocks/common/nonProductExpense';
+import { toAggregationProducts } from '@/app/utils/sales-plan/plan-detail/planGridToAggregation';
+import { toAggregationExpenses } from '@/app/utils/sales-plan/plan-detail/expenseGridToAggregation';
+import { DEFAULT_META_BRAND } from '@/app/constants/nonProductExpenseForm';
 import {
-  DEFAULT_META_BRAND,
   expenseMissingFields,
-  fromExpenseForm,
   toExpenseForm,
-} from '../../../constants/nonProductExpenseForm';
+  fromExpenseForm,
+} from '@/app/utils/common/nonProductExpenseForm';
 import {
   META_BRAND_MASTER,
   EXPENSE_SUMMARY_PRODUCT_OPTIONS,
-  periodFromProductValue,
-} from '../../../constants/productMasters';
-import { CURRENT_USER_NAME } from '../../../constants/planBasicInfoMockData';
-import { DEFAULT_TARGET_MONTH_IDX0 } from '../../../constants/defaultAggregationSource';
-import { addMonths, monthIndex0Of } from '../../../utils/common/yearMonth';
-import { computeMonth } from '../../../utils/sales-plan/common/aggregationCalc';
+} from '@/app/constants/productMasters';
+import { periodFromProductValue } from '@/app/utils/common/productMasters';
+import { CURRENT_USER_NAME } from '@/mocks/common/planBasicInfo';
+import { DEFAULT_TARGET_MONTH_IDX0 } from '@/app/constants/defaultAggregationSource';
+import { addMonths, monthIndex0Of } from '@/app/utils/common/yearMonth';
+import { computeMonth } from '@/app/utils/sales-plan/common/aggregationCalc';
 import {
   buildRateLinkedExpenseRows,
   defaultRateLinkedExpenseSetting,
   toRateLinkedExpenseSetting,
   type RateLinkedExpenseSetting,
-} from '../../../utils/sales-plan/plan-detail/rateLinkedExpenseRows';
-import { CATEGORY_OPTIONS_MARGIN } from '../../../constants/promotionCategories';
-import { DetailProductSelector } from '../../shared/sales-plan/common/DetailProductSelector';
-import { isAfterTradingSystemChange } from '../../../constants/planBasicInfoMockData';
+} from '@/app/utils/sales-plan/plan-detail/rateLinkedExpenseRows';
+import { CATEGORY_OPTIONS_MARGIN } from '@/app/constants/promotionCategories';
+import { DetailProductSelector } from '@/app/components/shared/sales-plan/common/DetailProductSelector';
+import { isAfterTradingSystemChange } from '@/mocks/common/planBasicInfo';
 import {
   promotionLabelsFor,
   promotionValueFor,
   promotionValid,
   promotionFixed,
-} from '../../../constants/promotionCategoryHelpers';
-import {
-  promotionComboOptions,
-  productCodeFromValue,
-} from '../../../constants/comboFieldOptions';
-import { expenseSummaryProductOptionCode } from '../../../utils/common/summaryProductSearch';
-import {
-  expenseDeleteItems,
-  planDetailKeyItems,
-} from '../../../constants/planDeleteItems';
-import { ScreenTitle } from '../../ui/screen-title';
-import type { NonProductExpenseData } from '../../../types/nonProductExpense';
-import type { MarginRate } from '../../../types/planDetail';
+} from '@/app/utils/sales-plan/common/promotionCategoryHelpers';
+import { promotionComboOptions } from '@/app/constants/comboFieldOptions';
+import { productCodeFromValue } from '@/app/utils/common/comboFieldOptions';
+import { expenseSummaryProductOptionCode } from '@/app/utils/common/summaryProductSearch';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import type { NonProductExpenseData } from '@/app/types/nonProductExpense';
+import type { MarginRate } from '@/app/types/planDetail';
+import { planBasicInfoOf } from '@/mocks/common/planBasicInfo';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // ── モックデータ ────────────────────────────────────────────
 
@@ -170,15 +181,13 @@ const detailMissingFields = (f: any): string[] => {
   if (planMissing) m.push('計画函数');
   return m;
 };
-interface PlanDetailMarginRateFixedProps {
-  // 年間計画／シミュレーションへの画面遷移コールバック。
-  // 年間計画は基本情報を遷移元と一致させるため取引制度を引き継ぐ。
-  onMenuChange?: (menuId: string, payload?: { tradingSystem: string }) => void;
-}
 
-export default function PlanDetailMarginRateFixed({
-  onMenuChange,
-}: PlanDetailMarginRateFixedProps = {}) {
+// 計画の基本情報（モック。実システムでは計画1件の基本情報を API から受け取る）
+const PLAN_BASIC_INFO = planBasicInfoOf('マージン率固定');
+
+export default function PlanDetailMarginRateFixed() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   const [activeTab, setActiveTab] = useState<string>('sales-detail');
   // 汎用確認ダイアログ（戻る・対象年月変更・右ペイン更新で共通利用）
   const [confirmState, setConfirmState] = useState<{
@@ -212,9 +221,7 @@ export default function PlanDetailMarginRateFixed({
 
   // 明細系右ペインの状態管理
   const [isAddDetailPaneShown, setIsAddDetailPaneShown] = useState(false);
-  const [isDeleteDetailPaneShown, setIsDeleteDetailPaneShown] = useState(false);
   const [detailSection, setDetailSection] = useState<string>('');
-  const [detailData, setDetailData] = useState<any>(null);
 
   // 販売計画(詳細)コピー用
   const detailTableRef = useRef<DetailTableHandle>(null);
@@ -234,16 +241,14 @@ export default function PlanDetailMarginRateFixed({
 
   // 拡売費系右ペインの状態管理
   const [isAddExpensePaneShown, setIsAddExpensePaneShown] = useState(false);
-  const [isDeleteExpensePaneShown, setIsDeleteExpensePaneShown] =
-    useState(false);
-  const [expenseData, setExpenseData] = useState<NonProductExpenseData | null>(
-    null
-  );
   const [pendingCopyExpenseRow, setPendingCopyExpenseRow] =
     useState<NonProductExpenseData | null>(null);
 
   // 対象年月（販売計画エリアの検索条件）。集計エリアと共有し、集計値を動的に駆動する。
   const [targetYearMonth, setTargetYearMonth] = useState('2025/10');
+  // 拡売費計画(コピー元)の対象年月（下ペインの見出しの行で選ぶ）
+  const [referencePeriod, setReferencePeriod] =
+    usePlanReferencePeriod(targetYearMonth);
 
   // 販売計画(集計)の算出元。グリッドの現在値を受け取り、集計ソースへ変換して集計エリアへ渡す。
   //
@@ -283,6 +288,7 @@ export default function PlanDetailMarginRateFixed({
     () => ({
       products: toAggregationProducts(detailRows, {
         planPattern: 'marginRateFixed' as const,
+        unitPriceKbn: UNIT_PRICE_KBN,
         targetMonthIdx0,
       }),
       expenses: toAggregationExpenses(expenseRows, { targetMonthIdx0 }),
@@ -428,9 +434,7 @@ export default function PlanDetailMarginRateFixed({
     setIsFixedMarginPaneShown(false);
     setIsCommentHistoryPaneShown(false);
     setIsAddDetailPaneShown(false);
-    setIsDeleteDetailPaneShown(false);
     setIsAddExpensePaneShown(false);
-    setIsDeleteExpensePaneShown(false);
     setIsAnnualContractPaneShown(false);
     setIsCenterFeePaneShown(false);
     setIsWholesaleIncentivePaneShown(false);
@@ -520,13 +524,10 @@ export default function PlanDetailMarginRateFixed({
     setIsAddDetailPaneShown(true);
   };
 
-  // 明細削除ペインを開く
-  const handleOpenDeleteDetail = (data: any) => {
-    const isOpen = isDeleteDetailPaneShown && detailData === data;
-    closeAllRightPanes();
-    if (isOpen) return;
-    setDetailData(data);
-    setIsDeleteDetailPaneShown(true);
+  // 明細を削除する（確認は出さず、削除したことをトーストで知らせる → 02 §5）
+  const handleDeleteDetail = (data: any) => {
+    if (data) detailTableRef.current?.deleteRow(data);
+    toast.success('明細を削除しました。');
   };
 
   // 拡売費追加ペインを開く
@@ -553,7 +554,9 @@ export default function PlanDetailMarginRateFixed({
       return;
     }
     // 合計行の直下に追加
-    expenseGridRef.current?.addRow(fromExpenseForm(addExpenseForm));
+    expenseGridRef.current?.addRow(
+      fromExpenseForm(addExpenseForm, CURRENT_USER_NAME)
+    );
     setAddExpenseForm({ ...EMPTY_EXPENSE_FORM, metaBrand: DEFAULT_META_BRAND });
     setIsAddExpenseSubmitted(false);
     if (!continuous) setIsAddExpensePaneShown(false);
@@ -564,19 +567,16 @@ export default function PlanDetailMarginRateFixed({
   // 前年実績は引き継がず（削除可）、作成者はログインユーザーになる（fromExpenseForm）。
   const handleCopyExpenseRow = (data: NonProductExpenseData) => {
     expenseGridRef.current?.addRow({
-      ...fromExpenseForm(toExpenseForm(data)),
+      ...fromExpenseForm(toExpenseForm(data), CURRENT_USER_NAME),
       _copySource: 'detail',
     });
     toast.success('拡売費計画へコピーしました。');
   };
 
-  // 拡売費削除ペインを開く
-  const handleOpenDeleteExpense = (data: NonProductExpenseData) => {
-    const isOpen = isDeleteExpensePaneShown && expenseData === data;
-    closeAllRightPanes();
-    if (isOpen) return;
-    setExpenseData(data);
-    setIsDeleteExpensePaneShown(true);
+  // 拡売費を削除する（確認は出さず、削除したことをトーストで知らせる → 02 §5）
+  const handleDeleteExpense = (data: NonProductExpenseData) => {
+    if (data?.no != null) expenseGridRef.current?.deleteRow(data.no);
+    toast.success('拡売費を削除しました。');
   };
 
   // 年契基本分ペインを開く
@@ -617,7 +617,7 @@ export default function PlanDetailMarginRateFixed({
                 <PlanSearchPane
                   // 折り畳んでも対象年月・ステータス・販売店を見出しに表示する
                   showSummaryWhenCollapsed
-                  tradingSystem="マージン率固定"
+                  basicInfo={PLAN_BASIC_INFO}
                   onStatusClick={() =>
                     togglePane(isCommentHistoryPaneShown, () =>
                       setIsCommentHistoryPaneShown(true)
@@ -656,130 +656,131 @@ export default function PlanDetailMarginRateFixed({
               </section>
 
               {/* タブ切り替え: 販売計画(詳細) / 拡売費計画 */}
-              <section
-                ref={referenceScrollRef}
-                className="mb-4 bg-white"
-                aria-labelledby="detail-tabs-heading"
-              >
-                <h2 id="detail-tabs-heading" className="sr-only">
-                  販売詳細とその他費用
-                </h2>
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="w-full"
-                >
-                  <TabsList className="grid w-full grid-cols-2  bg-transparent p-0 h-auto gap-1">
-                    <TabsTrigger
-                      value="sales-detail"
-                      className="flex items-center justify-center gap-2 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded px-4 py-3"
+              <section ref={referenceScrollRef}>
+                {/* 販売計画(詳細)／拡売費計画のタブと中身を1枚の影付きの開閉カードに入れる（→ 05「白カード」・UX-065） */}
+                <CollapsibleCard title="販売計画" className="mb-4">
+                  <div className="p-4">
+                    <Tabs
+                      value={activeTab}
+                      onValueChange={setActiveTab}
+                      className="w-full"
                     >
-                      <span className="font-medium">販売計画(詳細)</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="non-product-expense"
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded"
-                    >
-                      <span className="font-medium">拡売費計画</span>
-                    </TabsTrigger>
-                  </TabsList>
+                      <TabsList className="grid w-full grid-cols-2  bg-transparent p-0 h-auto gap-1">
+                        <TabsTrigger
+                          value="sales-detail"
+                          className="flex items-center justify-center gap-2 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded px-4 py-3"
+                        >
+                          <span className="font-medium">販売計画(詳細)</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="non-product-expense"
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded"
+                        >
+                          <span className="font-medium">拡売費計画</span>
+                        </TabsTrigger>
+                      </TabsList>
 
-                  <TabsContent value="sales-detail">
-                    <DetailTable
-                      ref={detailTableRef}
-                      isPlanNavigationDisabled={isAfterTradingSystemChange(
-                        targetYearMonth
-                      )}
-                      onNavigate={(menuId) =>
-                        // 年間計画作成の基本情報を本画面と一致させるため取引制度を渡す
-                        onMenuChange?.(
-                          menuId,
-                          menuId === 'annual-plan-creation'
-                            ? { tradingSystem: 'マージン率固定' }
-                            : undefined
-                        )
-                      }
-                      onOpenFixedMargin={() =>
-                        togglePane(isFixedMarginPaneShown, () =>
-                          setIsFixedMarginPaneShown(true)
-                        )
-                      }
-                      onOpenAddDetail={handleOpenAddDetail}
-                      onOpenDeleteDetail={handleOpenDeleteDetail}
-                      onOpenAnnualContract={handleOpenAnnualContract}
-                      onOpenCenterFee={handleOpenCenterFee}
-                      onOpenWholesaleIncentive={handleOpenWholesaleIncentive}
-                      copyPaneMode={copyPaneMode}
-                      onOpenPlanCopy={() =>
-                        togglePane(copyPaneMode === 'plan', () =>
-                          setCopyPaneMode('plan')
-                        )
-                      }
-                      onOpenHeadquartersCopy={() =>
-                        togglePane(copyPaneMode === 'headquarters', () =>
-                          setCopyPaneMode('headquarters')
-                        )
-                      }
-                      onCloseCopyPane={() => setCopyPaneMode(null)}
-                      annualContractAvg={annualContractAvg}
-                      centerFeeAvg={centerFeeAvg}
-                      wholesaleIncentiveAvg={wholesaleIncentiveAvg}
-                      fixedMarginAvg={fixedMarginAvg}
-                      onRowsChange={handleDetailRowsChange}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="non-product-expense">
-                    <PlanNonProductExpensePane
-                      ref={expenseGridRef}
-                      onOpenAddExpense={handleOpenAddExpense}
-                      onOpenDeleteExpense={handleOpenDeleteExpense}
-                      onOpenCopyExpense={handleCopyExpenseRow}
-                      pendingCopyRow={pendingCopyExpenseRow}
-                      onCopyComplete={() => setPendingCopyExpenseRow(null)}
-                      onOpenReference={() =>
-                        togglePane(isReferencePaneShown, () =>
-                          setIsReferencePaneShown(true)
-                        )
-                      }
-                      pendingReferenceRows={pendingReferenceCopyRows}
-                      onReferenceConsumed={() =>
-                        setPendingReferenceCopyRows(null)
-                      }
-                      onRowsChange={handleExpenseRowsChange}
-                      rateLinkedRows={rateLinkedExpenseRows}
-                      // 拡売費計画タブにも右ペインを開くリンクを出す（9/29 第35回 決定事項10・課題1780）
-                      rateLinks={[
-                        {
-                          label: '年契基本分',
-                          value: annualContractAvg,
-                          onClick: handleOpenAnnualContract,
-                        },
-                        {
-                          label: 'センターフィ',
-                          value: centerFeeAvg,
-                          onClick: handleOpenCenterFee,
-                        },
-                        {
-                          label: '取組強化マージン',
-                          value: wholesaleIncentiveAvg,
-                          onClick: handleOpenWholesaleIncentive,
-                        },
-                        {
-                          label: '固定マージン率',
-                          value: fixedMarginAvg,
-                          onClick: () =>
+                      <TabsContent value="sales-detail">
+                        <DetailTable
+                          ref={detailTableRef}
+                          isPlanNavigationDisabled={isAfterTradingSystemChange(
+                            targetYearMonth
+                          )}
+                          onNavigate={(menuId) =>
+                            // 年間計画作成の基本情報を本画面と一致させるため取引制度を渡す
+                            navigate(
+                              menuId,
+                              menuId === 'annual-plan-creation'
+                                ? { tradingSystem: 'マージン率固定' }
+                                : undefined
+                            )
+                          }
+                          onOpenFixedMargin={() =>
                             togglePane(isFixedMarginPaneShown, () =>
                               setIsFixedMarginPaneShown(true)
-                            ),
-                        },
-                      ]}
-                      onRateLinkedPostingMonthChange={
-                        handleRateLinkedPostingMonthChange
-                      }
-                    />
-                  </TabsContent>
-                </Tabs>
+                            )
+                          }
+                          onOpenAddDetail={handleOpenAddDetail}
+                          onDeleteDetail={handleDeleteDetail}
+                          onOpenAnnualContract={handleOpenAnnualContract}
+                          onOpenCenterFee={handleOpenCenterFee}
+                          onOpenWholesaleIncentive={
+                            handleOpenWholesaleIncentive
+                          }
+                          copyPaneMode={copyPaneMode}
+                          onOpenPlanCopy={() =>
+                            togglePane(copyPaneMode === 'plan', () =>
+                              setCopyPaneMode('plan')
+                            )
+                          }
+                          onOpenHeadquartersCopy={() =>
+                            togglePane(copyPaneMode === 'headquarters', () =>
+                              setCopyPaneMode('headquarters')
+                            )
+                          }
+                          onCloseCopyPane={() => setCopyPaneMode(null)}
+                          annualContractAvg={annualContractAvg}
+                          centerFeeAvg={centerFeeAvg}
+                          wholesaleIncentiveAvg={wholesaleIncentiveAvg}
+                          fixedMarginAvg={fixedMarginAvg}
+                          onRowsChange={handleDetailRowsChange}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="non-product-expense">
+                        <PlanNonProductExpensePane
+                          initialRows={NON_PRODUCT_EXPENSE_ROWS}
+                          ref={expenseGridRef}
+                          onOpenAddExpense={handleOpenAddExpense}
+                          onDeleteExpense={handleDeleteExpense}
+                          onOpenCopyExpense={handleCopyExpenseRow}
+                          pendingCopyRow={pendingCopyExpenseRow}
+                          onCopyComplete={() => setPendingCopyExpenseRow(null)}
+                          onOpenReference={() =>
+                            togglePane(isReferencePaneShown, () =>
+                              setIsReferencePaneShown(true)
+                            )
+                          }
+                          pendingReferenceRows={pendingReferenceCopyRows}
+                          onReferenceConsumed={() =>
+                            setPendingReferenceCopyRows(null)
+                          }
+                          onRowsChange={handleExpenseRowsChange}
+                          rateLinkedRows={rateLinkedExpenseRows}
+                          // 拡売費計画タブにも右ペインを開くリンクを出す（9/29 第35回 決定事項10・課題1780）
+                          rateLinks={[
+                            {
+                              label: '年契基本分',
+                              value: annualContractAvg,
+                              onClick: handleOpenAnnualContract,
+                            },
+                            {
+                              label: 'センターフィ',
+                              value: centerFeeAvg,
+                              onClick: handleOpenCenterFee,
+                            },
+                            {
+                              label: '取組強化マージン',
+                              value: wholesaleIncentiveAvg,
+                              onClick: handleOpenWholesaleIncentive,
+                            },
+                            {
+                              label: '固定マージン率',
+                              value: fixedMarginAvg,
+                              onClick: () =>
+                                togglePane(isFixedMarginPaneShown, () =>
+                                  setIsFixedMarginPaneShown(true)
+                                ),
+                            },
+                          ]}
+                          onRateLinkedPostingMonthChange={
+                            handleRateLinkedPostingMonthChange
+                          }
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </CollapsibleCard>
               </section>
             </div>
           </div>
@@ -796,10 +797,17 @@ export default function PlanDetailMarginRateFixed({
           collapsedTabLabel="過去の拡売費計画からコピー"
           collapsedTabIcon={<Copy className="h-4 w-4" />}
           title="拡売費計画(コピー元)"
+          titleExtra={
+            <PlanReferencePeriodField
+              value={referencePeriod}
+              onChange={setReferencePeriod}
+              targetMonth={targetYearMonth}
+            />
+          }
           description="コピーボタン、または行のダブルクリックで拡売費計画へ追加できます"
         >
           <PlanReferenceTable
-            targetMonth={targetYearMonth}
+            period={referencePeriod}
             onCopyRow={(row) => {
               // 取り込んだ行は当計画の新規行。前年実績は持たず（削除可）、
               // 計上年月は基本情報の対象年月の翌月、作成者はログインユーザー。
@@ -825,67 +833,61 @@ export default function PlanDetailMarginRateFixed({
         >
           <div className="flex flex-wrap gap-3 justify-between">
             <div>
-              <Button
-                variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
+              <button
+                type="button"
+                className="btn-action-base btn-action-outline"
                 onClick={() =>
-                  requestDiscardConfirm(() => onMenuChange?.('plan-list'))
+                  requestDiscardConfirm(() => navigate('plan-list'))
                 }
               >
-                <Undo2 className="h-4 w-4 mr-2" />
+                <Undo2 className="h-4 w-4" />
                 一覧へ戻る
-              </Button>
+              </button>
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
               {/* コメント欄（支払詳細(追加口請求書有)と同一の複数行テキストエリア） */}
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label
-                  htmlFor="sales-plan-retail-comment"
-                  className="text-sm text-gray-700 whitespace-nowrap font-medium"
-                >
-                  コメント
-                </label>
-                <textarea
-                  id="sales-plan-retail-comment"
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder="コメントを入力(差戻し理由など)"
-                  rows={2}
-                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-                />
-              </div>
-              <Button
-                className="bg-red-500 hover:bg-red-600 text-white h-9 rounded-lg"
+              <FooterCommentField
+                id="sales-plan-retail-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+              />
+              <button
+                type="button"
+                className="btn-action-base btn-action-red"
                 onClick={() => toast.success('差し戻しました。')}
               >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
+                <CornerUpLeft className="h-4 w-4" />
                 差戻し
-              </Button>
-              <Button
-                className="bg-green-500 hover:bg-green-600 text-white h-9 rounded-lg"
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-green"
                 onClick={() => toast.success('承認しました。')}
               >
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-4 w-4" />
                 承認
-              </Button>
-              <Button
-                className="bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 h-9 rounded-lg"
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-outline-blue"
                 onClick={() => toast.success('計画を引き戻しました。')}
               >
-                <CornerUpLeft className="h-4 w-4 mr-2" />
+                <CornerUpLeft className="h-4 w-4" />
                 引戻し
-              </Button>
-              <Button
-                className="bg-green-500 hover:bg-green-600 text-white h-9 rounded-lg"
+              </button>
+              <button
+                type="button"
+                className="btn-action-base btn-action-green"
                 onClick={() => toast.success('計画承認申請を送信しました。')}
               >
-                <Send className="h-4 w-4 mr-2" />
+                <Send className="h-4 w-4" />
                 申請
-              </Button>
+              </button>
 
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white h-9 rounded-lg"
+              <button
+                type="button"
+                className="btn-action-base btn-action-blue"
                 onClick={() => {
                   // 保存したら明細コピー・明細追加の帯と編集セルの強調を消す
                   detailTableRef.current?.clearSavedMarks();
@@ -893,9 +895,9 @@ export default function PlanDetailMarginRateFixed({
                   toast.success('販売計画を保存しました。');
                 }}
               >
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4" />
                 保存
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -1292,24 +1294,6 @@ export default function PlanDetailMarginRateFixed({
         </div>
       </RightPane>
 
-      {/* 右ペイン：明細削除確認（共通部品 DeleteConfirmPane） */}
-      <DeleteConfirmPane
-        open={isDeleteDetailPaneShown}
-        onClose={() => setIsDeleteDetailPaneShown(false)}
-        title="明細削除の確認"
-        description="明細を削除します"
-        // 削除対象は業務KEY項目（補足5-1）で示す
-        items={planDetailKeyItems('marginNet', detailData, targetYearMonth)}
-        onDelete={() => {
-          // 対象明細を表から削除する
-          if (detailData) {
-            detailTableRef.current?.deleteRow(detailData);
-          }
-          setIsDeleteDetailPaneShown(false);
-          toast.success('明細を削除しました。');
-        }}
-      />
-
       {/* 右ペイン：拡売費追加 */}
       <RightPane
         open={isAddExpensePaneShown}
@@ -1448,25 +1432,6 @@ export default function PlanDetailMarginRateFixed({
           );
         })()}
       </RightPane>
-
-      {/* 右ペイン：拡売費削除確認（共通部品 DeleteConfirmPane）。
-          削除対象を特定できるよう、拡売費グリッドと同じ並びで
-          メタブランド～摘要1(社内用)を並べる。 */}
-      <DeleteConfirmPane
-        open={isDeleteExpensePaneShown}
-        onClose={() => setIsDeleteExpensePaneShown(false)}
-        title="拡売費削除"
-        description="拡売費を削除します"
-        items={expenseDeleteItems(expenseData)}
-        onDelete={() => {
-          // 対象行をグリッドから削除
-          if (expenseData?.no != null) {
-            expenseGridRef.current?.deleteRow(expenseData.no);
-          }
-          setIsDeleteExpensePaneShown(false);
-          toast.success('拡売費を削除しました。');
-        }}
-      />
 
       {/* 右ペイン：コメント履歴（共通コンポーネント。操作と操作後のステータスを表示） */}
       <CommentHistoryPane

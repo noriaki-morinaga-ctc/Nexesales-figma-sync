@@ -1,21 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Input } from '../../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../../styles/commonStyles';
-import { Label } from '../../../ui/label';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
-import { Combobox } from '../../../ui/combobox';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { Combobox } from '@/app/components/ui/combobox';
 import {
   META_BRAND_MASTER,
   CONTAINER_CAPACITY_MASTER,
   WHOLESALE_MESH_OPTIONS,
   SUMMARY_PRODUCT_OPTIONS,
-  isNewProductAt,
-} from '../../../../constants/productMasters';
-import { CATEGORY_OPTIONS_NET } from '../../../../constants/promotionCategories';
-import { productCodeFromValue } from '../../../../constants/comboFieldOptions';
-import { summaryProductOptionCode } from '../../../../utils/common/summaryProductSearch';
-import { initialOnlyNew } from '../../../../utils/sales-plan/common/onlyNewProductDefault';
+} from '@/app/constants/productMasters';
+import { isNewProductAt } from '@/app/utils/common/productMasters';
+import { CATEGORY_OPTIONS_NET } from '@/app/constants/promotionCategories';
+import { productCodeFromValue } from '@/app/utils/common/comboFieldOptions';
+import { summaryProductOptionCode } from '@/app/utils/common/summaryProductSearch';
+import { initialOnlyNew } from '@/app/utils/sales-plan/common/onlyNewProductDefault';
 
 // ── 明細 商品選択コンポーネント（明細追加・編集・コピーで共通利用）──────────
 // サマリ商品名／一般卸メッシュ・メタブランド・容器容量Gの選択を担う。

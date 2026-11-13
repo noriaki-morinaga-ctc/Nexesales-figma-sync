@@ -1,8 +1,8 @@
 // 支払回数の切替・追加の確認ダイアログ（支払詳細の各画面で共用）。
 // 保存は支払回数1回ごとのため、切替時は入力中の内容が破棄される
 // （→ 20260804_第26回 決定事項23・24）。
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import type { PendingPaymentRound } from '../../../../types/paymentDetail';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import type { PendingPaymentRound } from '@/app/types/paymentDetail';
 
 interface PaymentRoundConfirmDialogProps {
   // 確認対象の支払回数（null で閉じる）。

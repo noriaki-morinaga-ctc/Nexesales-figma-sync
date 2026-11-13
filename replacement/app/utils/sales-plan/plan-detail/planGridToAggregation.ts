@@ -6,30 +6,30 @@
 //
 // グリッドは対象年月1か月分の行しか持たないため、月別函数は expandToMonths で
 // 12か月へ展開する（対象月の値はグリッドの入力値と必ず一致する）。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
 import {
   SUMMARY_PRODUCT_OPTIONS,
   WHOLESALE_MESH_OPTIONS,
-} from '../../../constants/productMasters';
+} from '@/app/constants/productMasters';
 import {
   toAxisMetaBrand,
   toAxisCapacity,
   isPBProduct,
-} from '../../../constants/aggregationAxisMapping';
+} from '@/app/utils/sales-plan/common/aggregationAxisMapping';
 import {
   expandToMonths,
   volumeAddRateOf,
-} from '../../../constants/aggregationMasterDummy';
+} from '@/app/utils/sales-plan/common/aggregationMasterDummy';
 import {
   deriveConditionUnitPrice,
   DEFAULT_STORE_KEY,
   type PlanPattern,
-} from '../common/conditionUnitPrice';
+} from '@/app/utils/sales-plan/common/conditionUnitPrice';
 import {
   makeExternalUnitPriceOf,
   makeCostUnitPriceOf,
-} from '../common/formulaCellHelpers';
-import type { AggregationProduct } from '../../../constants/aggregationSourceData';
+} from '@/app/utils/sales-plan/common/formulaCellHelpers';
+import type { AggregationProduct } from '@/app/types/aggregation';
 
 // 集計に必要な項目のみ参照する緩い行型（ProductData と構造互換）。
 // マージン率固定・NET入力／NET固定の双方の ProductData を受け取れるようにする。
@@ -52,6 +52,8 @@ export interface PlanGridContext {
   planPattern: PlanPattern;
   // 対象年月の月インデックス（0始まり）。1〜12月への展開の基準になる
   targetMonthIdx0: number;
+  // 取引先補足情報マスタの単価取得区分（社外売単価の導出に使う。補足2-2）
+  unitPriceKbn: string;
 }
 
 // 行 → 商品マスタ。サマリ商品名を優先し、無ければ一般卸メッシュで引く（NET固定の定番商品）。
@@ -59,9 +61,6 @@ const masterOf = (row: PlanGridRow) =>
   SUMMARY_PRODUCT_OPTIONS.find((o) => o.value === row.summaryProduct) ??
   WHOLESALE_MESH_OPTIONS.find((o) => o.value === row.wholesaleMesh);
 
-const externalUnitPriceOf = makeExternalUnitPriceOf<
-  PlanGridRow & { planPrice: string }
->(masterOf);
 const costUnitPriceOf = makeCostUnitPriceOf<PlanGridRow>(masterOf);
 
 // 数値化。数値でない値は0にする（集計を壊さないため）。
@@ -74,6 +73,9 @@ export function toAggregationProducts(
   rows: PlanGridRow[],
   context: PlanGridContext
 ): AggregationProduct[] {
+  const externalUnitPriceOf = makeExternalUnitPriceOf<
+    PlanGridRow & { planPrice: string }
+  >(masterOf, context.unitPriceKbn);
   const products: AggregationProduct[] = [];
   for (const row of rows) {
     // 合計行・グループ見出し行は集計対象外

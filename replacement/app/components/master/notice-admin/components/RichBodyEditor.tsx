@@ -23,14 +23,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../ui/dialog';
-import { Input } from '../../../ui/input';
-import {
-  FORM_LABEL_CLASS,
-  TEXT_INPUT_CLASS,
-} from '../../../../../styles/commonStyles';
-import type { NoticeBlock } from '../noticeStore';
-import { blocksToHtml, htmlToBlocks, esc } from '../noticeBody';
+} from '@/app/components/ui/dialog';
+import { Input } from '@/app/components/ui/input';
+import { FORM_LABEL_CLASS, TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import type { NoticeBlock } from '@/app/components/master/notice-admin/useNotices';
+import { blocksToHtml, htmlToBlocks, esc } from './NoticeBody';
 
 // ===== リンク挿入ダイアログ =====
 interface LinkInsertDialogProps {

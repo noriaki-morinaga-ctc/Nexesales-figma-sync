@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { simulationManagementProfitOf } from './simulationManagementProfit';
-import { toAggregationProducts } from '../plan-detail/planGridToAggregation';
-import { toAggregationExpenses } from '../plan-detail/expenseGridToAggregation';
-import { computeMonthsRange } from '../common/aggregationCalc';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
-import type { PlanPattern } from '../common/conditionUnitPrice';
+import { toAggregationProducts } from '@/app/utils/sales-plan/plan-detail/planGridToAggregation';
+import { toAggregationExpenses } from '@/app/utils/sales-plan/plan-detail/expenseGridToAggregation';
+import { computeMonthsRange } from '@/app/utils/sales-plan/common/aggregationCalc';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
+import type { PlanPattern } from '@/app/utils/sales-plan/common/conditionUnitPrice';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
 
 // 計画詳細の集計エンジン（補足3-1）と同じ管理利益になることを、明細1行だけの集計で確かめる。
 const master = SUMMARY_PRODUCT_OPTIONS[0];
@@ -37,6 +38,7 @@ const engineOf = (
       products: toAggregationProducts([product], {
         planPattern,
         targetMonthIdx0: 0,
+        unitPriceKbn: UNIT_PRICE_KBN,
       }),
       expenses: toAggregationExpenses(expenseRowsOf(expenses), {
         targetMonthIdx0: 0,

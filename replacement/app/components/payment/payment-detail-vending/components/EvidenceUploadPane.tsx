@@ -40,14 +40,19 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Checkbox } from '../../../ui/checkbox';
-import { Textarea } from '../../../ui/textarea';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../../ui/tabs';
-import { useExclusivePane } from '../../../ui/use-exclusive-pane';
-import { SCREEN_TITLE_CLASS } from '../../../../../styles/commonStyles';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Textarea } from '@/app/components/ui/textarea';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/app/components/ui/tabs';
+import { useExclusivePane } from '@/app/components/ui/use-exclusive-pane';
+import { SCREEN_TITLE_CLASS } from '@/styles/commonStyles';
 import { PdfPreview } from './PdfPreview';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
 import {
   canPreviewEvidence,
   convertToPdf,
@@ -58,7 +63,7 @@ import {
   isPdfFileName,
   type ConvertStatus,
   type ConvertToPdfResult,
-} from '../evidencePreview';
+} from '@/app/components/payment/payment-detail-vending/utils';
 import {
   EvidenceViewerContent,
   canEditEvidence,
@@ -985,7 +990,7 @@ interface EvidenceUploadPaneProps {
 const REFERENCE_OPTIONS = [
   { label: '2025年4月　支払回数：1', value: '2025_4_1' },
   { label: '2025年4月　支払回数：2', value: '2025_4_2' },
-] as const;
+];
 
 // 流用対象根拠資料のモックデータ（支払回数 → ファイル一覧）
 interface ReferenceFileSummary {
@@ -1532,7 +1537,7 @@ export function EvidenceUploadPane({
     setIsCollapsed(false);
   };
 
-  // ペインは画面で1つだけ展開する（→ 02 §13.1）。他のペイン（コメント履歴・引用元選択など）が
+  // ペインは画面で1つだけ展開する（→ 02 §13.1）。他のペイン（コメント履歴・引用明細選択など）が
   // 展開されたら自身を閉じる。折り畳み（付箋）中は再表示の入口のため排他の対象外。
   useExclusivePane(open && !isCollapsed, handleClose);
 

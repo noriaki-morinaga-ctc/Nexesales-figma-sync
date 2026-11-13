@@ -12,17 +12,19 @@ import { toast } from 'sonner';
 import {
   META_BRAND_MASTER,
   SUMMARY_PRODUCT_BY_VALUE,
-} from '../../../../constants/productMasters';
-import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../../constants/matchPaymentType';
-import { DEFAULT_DATA_SOURCE } from '../../../../constants/dataSource';
+} from '@/app/constants/productMasters';
+import { MATCH_PAYMENT_TYPE_OPTIONS } from '@/app/constants/matchPaymentType';
+import { DEFAULT_DATA_SOURCE } from '@/app/constants/dataSource';
 import {
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
   EXPENSE_CAMPAIGN_CODE_OPTIONS,
+} from '@/app/constants/expenseRelations';
+import {
   isManagementCodeInClass,
   isCampaignCodeInClass,
   managementClassFromCode,
   campaignClassFromCode,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 // 区分値／名称の対をそれぞれ選べるようにするための選択肢ビルダーと相互変換
 //（拡売費一覧のグリッド・計画詳細の拡売費追加と同じものを使う）。
 import {
@@ -34,6 +36,8 @@ import {
   campaignClassComboOptions,
   campaignCodeComboOptions,
   campaignCodeNameComboOptions,
+} from '@/app/constants/comboFieldOptions';
+import {
   managementClassCodeOf,
   managementClassNameOf,
   managementCodeNameOf,
@@ -43,19 +47,19 @@ import {
   campaignCodeNameOf,
   campaignCodeOfName,
   expenseSummaryProductComboOptions,
-} from '../../../../constants/comboFieldOptions';
-import {
-  EXPENSE_TAX_CLASS_OPTIONS,
-  type ExpenseFormValues,
-} from '../../../shared/payment/payment-detail/PaymentNonProductExpensePane';
-import { linkedTaxClassOf } from '../../../../utils/payment/payment-detail/expenseTaxClass';
+} from '@/app/utils/common/comboFieldOptions';
+import { EXPENSE_TAX_CLASS_OPTIONS } from '@/app/components/shared/payment/payment-detail/nonProductExpenseConstants';
+import type {
+  ExpenseFormValues,
+  ExpenseBasicInfo,
+} from '@/app/types/paymentDetail';
+import { linkedTaxClassOf } from '@/app/utils/payment/payment-detail/expenseTaxClass';
 import {
   FieldGroup,
   InputField,
   SelectField,
   ReadOnlyField,
-} from '../../../shared/payment/payment-detail/AddDetailFields';
-import type { ExpenseBasicInfo } from '../../../../types/paymentDetail';
+} from '@/app/components/shared/payment/payment-detail/AddDetailFields';
 
 // 親（画面）から「追加」ボタンで呼ぶハンドル。
 export interface AddExpensePaneHandle {

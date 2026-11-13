@@ -9,31 +9,36 @@ import { ColDef, ColGroupDef, GetRowIdParams } from 'ag-grid-community';
 import { Minus, Plus } from 'lucide-react';
 import {
   GRID_DEFAULT_COL_DEF,
+  GRID_EMPTY_TEXT,
   GRID_BASE_PROPS,
   gridFilterContextMenuItems,
   useGridColumnState,
   GRID_NUMBER_TEXT_FILTER,
-} from '../../../grid';
+} from '@/app/components/grid';
 import {
   formulaTooltip,
   parseFormulaNumber,
   type FormulaTemplate,
-} from '../../../grid/gridCommon';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
-import { SPLIT_AFFECTED_SUMMARY_KEYS } from '../../../../utils/payment/payment-detail/paymentSummarySplit';
+} from '@/app/components/grid/gridCommon';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
+import { SPLIT_AFFECTED_SUMMARY_KEYS } from '@/app/utils/payment/payment-detail/paymentSummarySplit';
 import {
   fillSummaryRowValues,
   summaryPayValuesOf,
   type SummaryDetailTotals,
   type SummaryRowKind,
-} from '../../../../utils/payment/payment-detail/paymentSummaryAggregate';
+} from '@/app/utils/payment/payment-detail/paymentSummaryAggregate';
 import {
   WITH_INVOICE_ACTUAL_FUNC,
   WITH_INVOICE_SUMMARY_FIXED_VALUES,
-} from '../../../../constants/paymentWithInvoiceMockData';
-import type { SplitOutTotal } from '../../../../utils/payment/payment-detail/additionalEntrySplit';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
+} from '@/mocks/payment/payment-detail-with-invoice/paymentDetail';
+import type { SplitOutTotal } from '@/app/utils/payment/payment-detail/additionalEntrySplit';
+import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
 
 // 列（情報の種類）。差＝支払・実績情報−販売計画書、計画誤差率＝差／支払・実績情報、
 // 前年比＝支払・実績情報／前年実績。
@@ -82,8 +87,8 @@ const COL_FORMULAS: Record<string, FormulaTemplate> = {
   yoy: { template: '{pay} ÷ {prev}' },
 };
 
-// 算出しない（Excel の「ー」）セルの表示値。
-const NOT_APPLICABLE = '–';
+// 算出しない（Excel の「ー」）セルの印。ツールチップの判定に使い、表には値が無い印（灰色の半角「-」）で出す（→ UI/UX UX-080）。
+const NOT_APPLICABLE = '算出しない';
 
 // 行（表示項目）。並び順・項目名は ★支払画面集計修正 の D4〜D18 に一致させる。
 //   kind        … amount＝金額（表示単位の換算対象）、rate＝率、count＝函数
@@ -120,7 +125,7 @@ const ROWS: RowDefItem[] = [
     label: '実販函数',
     kind: 'count',
     source: '実販FACT',
-    // 実販FACT（固定値 → constants/paymentWithInvoiceMockData）。明細から求めた支払函数
+    // 実販FACT（固定値 → src/mocks/payment/payment-detail-with-invoice/paymentDetail）。明細から求めた支払函数
     //（初期表示 1,536）と並べて差が小さくなる値。
     vals: {
       pay: formatCount(WITH_INVOICE_ACTUAL_FUNC),
@@ -272,7 +277,7 @@ const ROWS: RowDefItem[] = [
     kind: 'amount',
     folded: true,
     source: '実販FACT',
-    // 実販FACT（固定値 → constants/paymentWithInvoiceMockData）。明細から求めた追加口金額で、
+    // 実販FACT（固定値 → src/mocks/payment/payment-detail-with-invoice/paymentDetail）。明細から求めた追加口金額で、
     // 追加口率・マージン率が見本と同じ 42%・10% 前後になる値に置いた。
     vals: {
       pay: formatCount(WITH_INVOICE_SUMMARY_FIXED_VALUES.externalSales),
@@ -337,10 +342,10 @@ const ROWS: RowDefItem[] = [
   },
 ];
 
-// 行ID（AG Grid 公式 getRowId）。表示項目名（行定義 ROWS の label）は行ごとに重複しない。
+// 行ID（AG Grid 公式 getRowId）。行定義 ROWS の key（表示項目名は表示単位で変わるため使わない）。
 // モジュール直下に置いて参照を固定する（→ 02 §7.1）。
-const getSummaryRowId = (params: GetRowIdParams<{ label: string }>): string =>
-  params.data.label;
+const getSummaryRowId = (params: GetRowIdParams<{ rowKey: string }>): string =>
+  params.data.rowKey;
 
 // 行キー → 項目名（行方向の計算式ツールチップの置換に使う）。
 const ROW_LABELS: Record<string, string> = Object.fromEntries(
@@ -382,7 +387,7 @@ export type SummarySplitOut = Pick<
 
 // 支払・実績情報の列を求めるための固定値（実販FACT の値と、管理利益額の近似の基準）。
 // 管理利益額は式が定義されていないため、基準の管理利益額に売上高の基準からの増減を足して
-// 近似する（→ summaryPayValuesOf、constants/paymentWithInvoiceMockData）。
+// 近似する（→ summaryPayValuesOf、src/mocks/payment/payment-detail-with-invoice/paymentDetail）。
 const SUMMARY_FIXED_VALUES = WITH_INVOICE_SUMMARY_FIXED_VALUES;
 
 // 明細から求めた値を支払・実績情報の列へ入れた行定義を返す。
@@ -640,13 +645,23 @@ export function AggregationPane({
           );
         }
         return {
-          label: r.label,
+          rowKey: r.key,
+          // 金額の行は表示単位を項目名に付ける（例：納品金額 (千円)。切替に合わせて変わる → UI/UX UX-077）
+          label:
+            r.kind === 'amount'
+              ? `${r.label} (${displayUnit === 'thousand' ? '千円' : '円'})`
+              : r.label,
           _tooltip: buildRowTooltip(r),
-          ...vals,
+          ...Object.fromEntries(
+            Object.entries(vals).map(([k, v]) => [
+              k,
+              v === NOT_APPLICABLE ? GRID_EMPTY_TEXT : v,
+            ])
+          ),
           ...tips,
         };
       });
-  }, [valueByKey, isFoldedShown, rows]);
+  }, [valueByKey, isFoldedShown, rows, displayUnit]);
 
   // 値セルのスタイル（データ行は右寄せ）
   const valueCellStyle = () => ({ textAlign: 'right' as const });
@@ -682,6 +697,7 @@ export function AggregationPane({
       ...COLS.map((c) => buildValueCol(c)),
     ];
     return defs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の列の定義（buildValueCol）は部品の値を読まない（列の一覧 COLS と比較・寄せの関数だけ）。列定義は最初の描画で1回だけ作る
   }, []);
 
   const defaultColDef: ColDef = useMemo(
@@ -804,32 +820,15 @@ export function AggregationPane({
                   <label className="text-sm text-blue-900 whitespace-nowrap font-bold">
                     表示単位
                   </label>
-                  <div className="inline-flex rounded-md border border-gray-300 overflow-hidden h-8">
-                    <button
-                      type="button"
-                      onClick={() => setDisplayUnit('yen')}
-                      aria-pressed={displayUnit === 'yen'}
-                      className={`px-4 text-sm font-medium transition-colors ${
-                        displayUnit === 'yen'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      円
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDisplayUnit('thousand')}
-                      aria-pressed={displayUnit === 'thousand'}
-                      className={`px-4 text-sm font-medium transition-colors ${
-                        displayUnit === 'thousand'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      千円
-                    </button>
-                  </div>
+                  <SegmentToggle
+                    ariaLabel="表示単位"
+                    options={[
+                      { value: 'yen', label: '円' },
+                      { value: 'thousand', label: '千円' },
+                    ]}
+                    value={displayUnit}
+                    onChange={setDisplayUnit}
+                  />
                 </div>
               </div>
             </div>

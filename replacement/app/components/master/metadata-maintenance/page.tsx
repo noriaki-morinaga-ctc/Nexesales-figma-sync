@@ -9,16 +9,16 @@ import type {
   CellValueChangedEvent,
 } from 'ag-grid-community';
 
-import { CopyableArea } from '../../ui/copyable-area';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { SearchClearButton } from '../../ui/search-clear-button';
-import { Input } from '../../ui/input';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
+import { Input } from '@/app/components/ui/input';
 import {
   FORM_LABEL_CLASS,
   TEXT_INPUT_CLASS,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
-import { BottomPane } from '../../ui/bottom-pane';
+} from '@/styles/commonStyles';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
 import {
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
@@ -29,8 +29,8 @@ import {
   useGridColumnState,
   withHeaderTooltips,
   GRID_DATE_TEXT_FILTER,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 // メタデータメンテナンス画面
 // AWS Glue Data Catalog（参照元）／ Aurora PostgreSQL（実体）のメタデータを保守する。
@@ -532,6 +532,8 @@ export default function MetadataMaintenance() {
       {
         // カラム詳細（下ペイン）を開くボタン列。セル編集と分離するため独立列にする
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'detail',
         width: 70,
         minWidth: 70,
@@ -717,7 +719,8 @@ export default function MetadataMaintenance() {
 
   // defaultColDef（共通形をベースに、文字列列の既定横寄せを左寄せに）。
   // 横寄せは grid.css の cell-left/center を cellClass で指定する（→ 02 §7）。
-  const defaultColDef = useMemo(
+  // 2つのグリッド（テーブル一覧・カラム一覧）で使うため、行の型を持たない ColDef にする
+  const defaultColDef = useMemo<ColDef>(
     () => ({
       ...GRID_DEFAULT_COL_DEF,
       cellClass: 'cell-left',

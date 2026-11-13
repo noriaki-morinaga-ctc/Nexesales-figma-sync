@@ -2,66 +2,71 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Save, Undo2 } from 'lucide-react';
 
-import { Button } from '../../ui/button';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { SimulationBasicInfoPane } from '../../shared/sales-plan/simulation/SimulationBasicInfoPane';
-import { BASIC_INFO_DEALER_OTHER } from '../../../constants/planBasicInfoMockData';
-import { AGGREGATION_PERIOD_FROM_ID } from '../../shared/sales-plan/simulation/SimulationPeriodPicker';
-import { AggregationPane } from './components/AggregationPane';
-import { SimulationDetailTable } from '../../shared/sales-plan/simulation/SimulationDetailTable';
-import type { SimulationDetailTableHandle } from '../../shared/sales-plan/simulation/SimulationDetailTable';
-import { RightPane } from '../../ui/right-pane';
-import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { MonthYearPicker } from '../../ui/month-year-picker';
+import { Button } from '@/app/components/ui/button';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { SimulationBasicInfoPane } from '@/app/components/shared/sales-plan/simulation/SimulationBasicInfoPane';
+import {
+  BASIC_INFO_DEALER_OTHER,
+  planBasicInfoOf,
+} from '@/mocks/common/planBasicInfo';
+import { AGGREGATION_PERIOD_FROM_ID } from '@/app/components/shared/sales-plan/simulation/SimulationPeriodPicker';
+import { SimulationAggregationPane } from '@/app/components/shared/sales-plan/simulation/SimulationAggregationPane';
+import { DetailTable } from './components/DetailTable';
+import type { DetailTableHandle } from './components/DetailTable';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 import {
   isInPeriod,
   thisYearDecember,
   thisYearJanuary,
-} from '../../../utils/common/yearMonth';
-import { NumericInput } from '../../ui/numeric-input';
+} from '@/app/utils/common/yearMonth';
+import { NumericInput } from '@/app/components/ui/numeric-input';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanAmountText,
   formatPlanRateText,
-} from '../../../utils/sales-plan/common/planDetailNumberFormat';
-import { SingleCombobox } from '../../ui/single-combobox';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import {
   campaignComboOptions,
   registeredCampaignName,
-} from '../../../utils/sales-plan/simulation/simulationCampaignName';
-import { RequiredBadge } from '../../ui/required-badge';
+} from '@/app/utils/sales-plan/simulation/simulationCampaignName';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 // 拡売費①②の入力ブロックは販売計画表・シミュレーション共通コンポーネントを使用。
-import { ExpenseBlockFields } from '../../shared/sales-plan/common/ExpenseBlockFields';
-import { DetailProductSelector } from '../../shared/sales-plan/common/DetailProductSelector';
+import { ExpenseBlockFields } from '@/app/components/shared/sales-plan/common/ExpenseBlockFields';
+import { DetailProductSelector } from '@/app/components/shared/sales-plan/common/DetailProductSelector';
 import {
   hasSameSimulationKey,
   simulationKeyDuplicateMessage,
   confirmBlockReason,
-} from '../../../utils/sales-plan/simulation/simulationConfirmRules';
+} from '@/app/utils/sales-plan/simulation/simulationConfirmRules';
 import {
   CAMPAIGN_OPTIONS,
   EMPTY_DETAIL_FORM,
   PROBABILITY_OPTIONS,
-  SIMULATION_WS_CAMPAIGN_SUMMARY_ROWS,
-  type DetailFormValues,
-} from '../../../constants/simulationSalesPlanWholesaleMockData';
-import { buildExpenseFields } from '../../../constants/expenseRelations';
+} from './constants';
+import type { DetailFormValues } from './salesPlanSimulationNetFixed.types';
+import { SIMULATION_WS_CAMPAIGN_SUMMARY_ROWS } from '@/mocks/sales-plan/sales-plan-simulation-net-fixed';
+import { buildExpenseFields } from '@/app/utils/common/expenseRelations';
+import {
+  PROMOTION_NONE_LABEL,
+  CATEGORY_OPTIONS_NET_ADDABLE,
+} from '@/app/constants/promotionCategories';
 import {
   getPromotionLabels,
   hasPromotionOptions,
-  PROMOTION_NONE_LABEL,
-  CATEGORY_OPTIONS_NET_ADDABLE,
-} from '../../../constants/promotionCategories';
-import { promotionComboOptions } from '../../../constants/comboFieldOptions';
-import { simulationKeyItems } from '../../../constants/planDeleteItems';
-import { SimulationExpenseDeleteInfo } from '../../shared/sales-plan/simulation/SimulationExpenseDeleteInfo';
+} from '@/app/utils/sales-plan/common/promotionCategories';
+import { promotionComboOptions } from '@/app/constants/comboFieldOptions';
 // 販促区分の必須判定は販売計画表と共有（promotionCategoryHelpers 単一ソース）。
-import { promotionValid } from '../../../constants/promotionCategoryHelpers';
-import { ScreenTitle } from '../../ui/screen-title';
-import type { ProductData } from '../../../types/simulation';
+import { promotionValid } from '@/app/utils/sales-plan/common/promotionCategoryHelpers';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import type { ProductData } from '@/app/types/simulation';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SIMULATION_RATIOS } from '@/mocks/common/aggregationSource';
 
 // ── モックデータ ────────────────────────────────────────────
 
@@ -175,14 +180,12 @@ const detailMissingFields = (f: any): string[] => {
   return fields;
 };
 
-interface SalesPlanSimulationNetFixedProps {
-  // 計画詳細へ戻るときの画面遷移コールバック
-  onMenuChange?: (menuId: string) => void;
-}
+// 計画の基本情報（モック。販売店は遷移元の計画詳細から引き継ぐ値。実システムでは API から受け取る）
+const PLAN_BASIC_INFO = planBasicInfoOf('NET固定', BASIC_INFO_DEALER_OTHER);
 
-export default function SalesPlanSimulationNetFixed({
-  onMenuChange,
-}: SalesPlanSimulationNetFixedProps) {
+export default function SalesPlanSimulationNetFixed() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 戻る・保存の確認ダイアログ表示状態
   const [isBackConfirmShown, setIsBackConfirmShown] = useState(false);
   const [isSaveConfirmShown, setIsSaveConfirmShown] = useState(false);
@@ -252,12 +255,10 @@ export default function SalesPlanSimulationNetFixed({
 
   // 明細系右ペインの状態管理
   const [isAddDetailPaneShown, setIsAddDetailPaneShown] = useState(false);
-  const [isDeleteDetailPaneShown, setIsDeleteDetailPaneShown] = useState(false);
   const [detailSection, setDetailSection] = useState<string>('');
-  const [detailData, setDetailData] = useState<any>(null);
 
   // 販売計画(詳細)コピー用
-  const detailTableRef = useRef<SimulationDetailTableHandle>(null);
+  const detailTableRef = useRef<DetailTableHandle>(null);
 
   // 明細追加・編集フォーム
   const [addForm, setAddForm] = useState<DetailFormValues>(EMPTY_DETAIL_FORM);
@@ -274,7 +275,6 @@ export default function SalesPlanSimulationNetFixed({
   const closeAllRightPanes = () => {
     setIsFixedMarginPaneShown(false);
     setIsAddDetailPaneShown(false);
-    setIsDeleteDetailPaneShown(false);
     setIsAggFilterPaneShown(false);
   };
 
@@ -386,13 +386,10 @@ export default function SalesPlanSimulationNetFixed({
     setIsAddDetailPaneShown(true);
   };
 
-  // 明細削除ペインを開く
-  const handleOpenDeleteDetail = (data: any) => {
-    const isOpen = isDeleteDetailPaneShown && detailData === data;
-    closeAllRightPanes();
-    if (isOpen) return;
-    setDetailData(data);
-    setIsDeleteDetailPaneShown(true);
+  // 明細を削除する（ギフトはセット単位。確認は出さず、削除したことをトーストで知らせる → 02 §5）
+  const handleDeleteDetail = (data: any) => {
+    if (data?.id != null) detailTableRef.current?.deleteRow(data.id);
+    toast.success('明細を削除しました。');
   };
 
   return (
@@ -411,10 +408,7 @@ export default function SalesPlanSimulationNetFixed({
                 <h2 id="search-heading" className="sr-only">
                   検索条件
                 </h2>
-                <SimulationBasicInfoPane
-                  tradingSystem="NET固定"
-                  dealer={BASIC_INFO_DEALER_OTHER}
-                />
+                <SimulationBasicInfoPane basicInfo={PLAN_BASIC_INFO} />
               </section>
 
               {/* 販売計画(集計)エリア */}
@@ -422,7 +416,11 @@ export default function SalesPlanSimulationNetFixed({
                 <h2 id="aggregation-heading" className="sr-only">
                   販売計画(集計)
                 </h2>
-                <AggregationPane
+                <SimulationAggregationPane
+                  ratios={SIMULATION_RATIOS}
+                  expandStatePrefix="SimNetFixed"
+                  showWholesaleMesh
+                  hasContentBottomPadding
                   campaignData={campaignSummaryRows}
                   detailRows={periodDetailRows}
                   aggFilterPaneOpen={isAggFilterPaneShown}
@@ -440,31 +438,30 @@ export default function SalesPlanSimulationNetFixed({
               </section>
 
               {/* 販売計画(詳細) */}
-              <section className="mb-4" aria-labelledby="detail-card-heading">
-                <h2 id="detail-card-heading" className="sr-only">
-                  販売計画(詳細)
-                </h2>
-                {/* 白カード（→ 05 白カード） */}
-                <div className={`${CARD_CLASS} p-4`}>
-                  <SimulationDetailTable
-                    ref={detailTableRef}
-                    onOpenFixedMargin={() =>
-                      togglePane(isFixedMarginPaneShown, () =>
-                        setIsFixedMarginPaneShown(true)
-                      )
-                    }
-                    onOpenAddDetail={handleOpenAddDetail}
-                    onOpenDeleteDetail={handleOpenDeleteDetail}
-                    onCampaignDataChange={setCampaignSummaryRows}
-                    onRowsChange={setAllDetailRows}
-                    targetPeriodFrom={detailFromPeriod}
-                    targetPeriodTo={detailToPeriod}
-                    onTargetPeriodFromChange={setDetailFromPeriod}
-                    onTargetPeriodToChange={setDetailToPeriod}
-                    aggregationPeriodFrom={aggFromPeriod}
-                    aggregationPeriodTo={aggToPeriod}
-                  />
-                </div>
+              {/* シミュレーション（詳細）を影付きの開閉カードにする（中の枠は外した → 05「白カード」・UX-065） */}
+              <section className="mb-4">
+                <CollapsibleCard title="シミュレーション（詳細）">
+                  <div className="p-4">
+                    <DetailTable
+                      ref={detailTableRef}
+                      onOpenFixedMargin={() =>
+                        togglePane(isFixedMarginPaneShown, () =>
+                          setIsFixedMarginPaneShown(true)
+                        )
+                      }
+                      onOpenAddDetail={handleOpenAddDetail}
+                      onDeleteDetail={handleDeleteDetail}
+                      onCampaignDataChange={setCampaignSummaryRows}
+                      onRowsChange={setAllDetailRows}
+                      targetPeriodFrom={detailFromPeriod}
+                      targetPeriodTo={detailToPeriod}
+                      onTargetPeriodFromChange={setDetailFromPeriod}
+                      onTargetPeriodToChange={setDetailToPeriod}
+                      aggregationPeriodFrom={aggFromPeriod}
+                      aggregationPeriodTo={aggToPeriod}
+                    />
+                  </div>
+                </CollapsibleCard>
               </section>
             </div>
           </div>
@@ -1066,26 +1063,6 @@ export default function SalesPlanSimulationNetFixed({
         </div>
       </RightPane>
 
-      {/* 右ペイン：明細削除確認（共通部品 DeleteConfirmPane） */}
-      <DeleteConfirmPane
-        open={isDeleteDetailPaneShown}
-        onClose={() => setIsDeleteDetailPaneShown(false)}
-        title="明細削除の確認"
-        description="明細を削除します"
-        // 削除対象は業務KEY項目（補足5-2）で示し、拡売費①②の内訳を children で続ける
-        items={simulationKeyItems('netFixed', detailData)}
-        onDelete={() => {
-          // 対象明細をグリッドから削除
-          if (detailData?.id != null) {
-            detailTableRef.current?.deleteRow(detailData.id);
-          }
-          setIsDeleteDetailPaneShown(false);
-          toast.success('明細を削除しました。');
-        }}
-      >
-        <SimulationExpenseDeleteInfo data={detailData} />
-      </DeleteConfirmPane>
-
       {/* 戻る（画面移動）の確認 */}
       <ConfirmDialog
         open={isBackConfirmShown}
@@ -1095,7 +1072,7 @@ export default function SalesPlanSimulationNetFixed({
         onConfirm={() => {
           setIsBackConfirmShown(false);
           // 遷移元の計画詳細へ戻る（未保存の入力は破棄する）
-          onMenuChange?.('plan-detail-net-fixed');
+          navigate('plan-detail-net-fixed');
         }}
         onCancel={() => setIsBackConfirmShown(false)}
       />

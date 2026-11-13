@@ -1,81 +1,52 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-} from 'react';
-import { toast } from 'sonner';
+import { useCallback, useMemo, useState } from 'react';
+import { useUploadFlow } from '@/app/components/shared/upload/useUploadFlow';
 import type {
   StoreFilter,
   UploadHistoryItem,
-  UploadStatusType,
   UploadTargetType,
-} from './marketingFileUploadTypes';
+} from './marketingFileUpload.types';
 import {
   ACTUAL_TARGET_OPTIONS,
   DEFAULT_DOWNLOAD_PERIOD_FROM,
   DEFAULT_DOWNLOAD_PERIOD_TO,
-  DOWNLOAD_PROGRESS_TOAST_ID,
-  INITIAL_HISTORY,
   INITIAL_STORE_FILTER,
-  MOCK_LOGIN_USER_NAME,
-  MOCK_TEMPLATE_ROWS,
   PLAN_TARGET_OPTIONS,
-  SAMPLE_UPLOAD_ERRORS,
   TEMPLATE_DEFINITIONS,
-  UPLOAD_PROGRESS_TOAST_ID,
   YEAR_MONTH_CELL_FORMAT,
   YEAR_MONTH_COLUMN_INDEX,
-} from './marketingFileUploadData';
+} from './constants';
+import {
+  INITIAL_HISTORY,
+  MOCK_TEMPLATE_ROWS,
+  SAMPLE_UPLOAD_ERRORS,
+} from '@/mocks/sales-plan/marketing-file-upload';
 import {
   buildStoreOptions,
   channelToCells,
-  genUploadId,
   isWithinPeriod,
   matchesStoreFilter,
-  nowIso,
   toYearMonth,
-  validateFile,
   validatePeriod,
   validateStoreFilter,
   yearMonthToDate,
-} from './marketingFileUploadUtils';
-import { ProgressToast } from '../../shared/upload/ProgressToast';
+} from './utils';
 
-// ===== ファイルアップロード画面の状態管理（アップロード・ダウンロード・履歴選択） =====
+// ===== ファイルアップロード画面の状態管理 =====
+// アップロード・履歴の動きはアップロード画面共通（shared/upload/useUploadFlow）。
+// 本フックは、この画面だけのもの（履歴の対象年月、ダウンロードの対象期間・販売店・三次店・一次店）を持つ。
 // jihanki（実績登録メニューから遷移）により、アップロード・ダウンロード対象と履歴の表示対象を切り替える。
-
-// アップロード処理のシミュレート時間（ミリ秒）
-const UPLOAD_SIMULATE_MS = 2000;
-// アップロード進捗の更新間隔（ミリ秒）と、完了前に止める上限値（%）
-const UPLOAD_PROGRESS_INTERVAL_MS = 200;
-const UPLOAD_PROGRESS_MAX = 95;
-// ダウンロード進捗の更新間隔（ミリ秒）
-const DOWNLOAD_PROGRESS_INTERVAL_MS = 100;
-// 進捗の増分（%）
-const PROGRESS_STEP = 10;
-
-// 進捗トーストを表示（同一IDで再描画して更新）する
-const showProgressToast = (id: string, title: string, value: number) => {
-  toast.custom(() => <ProgressToast title={title} value={value} />, {
-    id,
-    duration: Infinity,
-  });
-};
-
-// 登録日時の降順に並べる
-const sortByUploadedAtDesc = (items: UploadHistoryItem[]) =>
-  [...items].sort((a, b) => (a.uploadedAt > b.uploadedAt ? -1 : 1));
 
 // 対象年月 From／To（YYYY/MM）
 interface YearMonthRange {
-  from: string;
-  to: string;
+  targetYearMonthFrom: string;
+  targetYearMonthTo: string;
 }
 
 // 年月を読み取れない場合の値（履歴では「-」表示）
-const EMPTY_YEAR_MONTH_RANGE: YearMonthRange = { from: '', to: '' };
+const EMPTY_YEAR_MONTH_RANGE: YearMonthRange = {
+  targetYearMonthFrom: '',
+  targetYearMonthTo: '',
+};
 
 // アップロードファイルの全明細から、対象年月（更新キー）の最小～最大を読み取る
 const readYearMonthRange = async (file: File): Promise<YearMonthRange> => {
@@ -95,7 +66,10 @@ const readYearMonthRange = async (file: File): Promise<YearMonthRange> => {
     if (yearMonths.length === 0) return EMPTY_YEAR_MONTH_RANGE;
     // 「YYYY/MM」は文字列比較で前後を判定できる
     const sorted = [...yearMonths].sort();
-    return { from: sorted[0], to: sorted[sorted.length - 1] };
+    return {
+      targetYearMonthFrom: sorted[0],
+      targetYearMonthTo: sorted[sorted.length - 1],
+    };
   } catch {
     return EMPTY_YEAR_MONTH_RANGE;
   }
@@ -140,10 +114,26 @@ export function useMarketingFileUpload(jihanki: boolean) {
   // 表示モードの対象（販売計画＝2項目／実績登録＝3項目）
   const targetOptions = jihanki ? ACTUAL_TARGET_OPTIONS : PLAN_TARGET_OPTIONS;
 
-  // アップロード・ダウンロード条件
-  const [uploadTarget, setUploadTarget] = useState<UploadTargetType>(
-    targetOptions[0].value
+  // 表示モードの対象データの履歴のみを出す
+  const historyFilter = useCallback(
+    (item: UploadHistoryItem) =>
+      targetOptions.some((option) => option.value === item.uploadTarget),
+    [targetOptions]
   );
+
+  // アップロード・履歴（共通）
+  const flow = useUploadFlow<UploadHistoryItem>({
+    idPrefix: 'marketing',
+    targetOptions,
+    initialUploadTarget: targetOptions[0].value,
+    initialHistory: INITIAL_HISTORY,
+    historyFilter,
+    sampleErrors: SAMPLE_UPLOAD_ERRORS,
+    // 対象年月はファイル内の明細の最小～最大を表示する
+    buildHistoryFields: readYearMonthRange,
+  });
+
+  // ダウンロード条件
   const [downloadTarget, setDownloadTarget] = useState<UploadTargetType>(
     targetOptions[0].value
   );
@@ -168,178 +158,6 @@ export function useMarketingFileUpload(jihanki: boolean) {
       ),
     [downloadTarget, downloadPeriodFrom, downloadPeriodTo, storeFilter.retailer]
   );
-
-  // 履歴（全モード分）
-  const [history, setHistory] = useState<UploadHistoryItem[]>(INITIAL_HISTORY);
-
-  // 表示モードの対象データの履歴のみを、登録日時の降順に並べる
-  const sortedHistory = useMemo(() => {
-    const targetValues = new Set<UploadTargetType>(
-      targetOptions.map((option) => option.value)
-    );
-    return sortByUploadedAtDesc(
-      history.filter((item) => targetValues.has(item.uploadTarget))
-    );
-  }, [history, targetOptions]);
-
-  // 初期表示は最新の履歴を選択する
-  const [selectedUploadId, setSelectedUploadId] = useState<string | null>(
-    () => sortedHistory[0]?.uploadId ?? null
-  );
-
-  const [isUploadConfirmDialogOpen, setIsUploadConfirmDialogOpen] =
-    useState<boolean>(false);
-
-  // ファイル選択状態
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 選択中の履歴
-  const selectedItem = useMemo(
-    () =>
-      sortedHistory.find((item) => item.uploadId === selectedUploadId) ?? null,
-    [sortedHistory, selectedUploadId]
-  );
-
-  // ファイル入力の選択値をクリアする（同じファイルを選び直せるようにする）
-  const resetFileInput = () => {
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  // ファイル選択時の共通処理
-  const handleFileSelect = (file: File) => {
-    const error = validateFile(file);
-    if (error) {
-      setValidationError(error);
-      setSelectedFile(null);
-      resetFileInput();
-      return;
-    }
-    setValidationError(null);
-    setSelectedFile(file);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) handleFileSelect(files[0]);
-  };
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) handleFileSelect(files[0]);
-  };
-
-  // ファイル選択ダイアログを開く
-  const handleOpenFileDialog = () => {
-    fileInputRef.current?.click();
-  };
-
-  // 選択中ファイルをクリアする
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setValidationError(null);
-    resetFileInput();
-  };
-
-  // アップロード可否
-  const canUpload = !!selectedFile && !validationError;
-
-  // アップロード実行（トースト進捗＋インライン履歴の両方を更新）
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      setValidationError('アップロードするファイルを選択してください');
-      return;
-    }
-    const error = validateFile(selectedFile);
-    if (error) {
-      setValidationError(error);
-      return;
-    }
-    setValidationError(null);
-
-    const targetLabel =
-      targetOptions.find((option) => option.value === uploadTarget)?.label ??
-      '';
-    const uploadId = genUploadId();
-    const fileName = selectedFile.name;
-    // 対象年月はファイル内の明細の最小～最大を表示する
-    const yearMonthRange = await readYearMonthRange(selectedFile);
-
-    // 履歴に「処理中」を追加（インライン表示）
-    const processingItem: UploadHistoryItem = {
-      uploadId,
-      targetYearMonthFrom: yearMonthRange.from,
-      targetYearMonthTo: yearMonthRange.to,
-      uploadTarget,
-      uploadTargetName: targetLabel,
-      fileName,
-      uploadedAt: nowIso(),
-      uploadedBy: MOCK_LOGIN_USER_NAME,
-      status: 'PROCESSING',
-      errorCount: 0,
-      isSysError: false,
-    };
-    setHistory((prev) => [processingItem, ...prev]);
-    setSelectedUploadId(uploadId);
-
-    // 進捗トーストを表示（完了直前の95%で止める）
-    let progress = 0;
-    showProgressToast(UPLOAD_PROGRESS_TOAST_ID, 'アップロード中...', progress);
-    const progressInterval = setInterval(() => {
-      progress = Math.min(progress + PROGRESS_STEP, UPLOAD_PROGRESS_MAX);
-      showProgressToast(
-        UPLOAD_PROGRESS_TOAST_ID,
-        'アップロード中...',
-        progress
-      );
-    }, UPLOAD_PROGRESS_INTERVAL_MS);
-
-    // アップロード処理をシミュレート
-    await new Promise((resolve) => setTimeout(resolve, UPLOAD_SIMULATE_MS));
-    clearInterval(progressInterval);
-    toast.dismiss(UPLOAD_PROGRESS_TOAST_ID);
-
-    // ランダムで結果をシミュレート
-    const hasError = Math.random() > 0.5;
-    const resultStatus: UploadStatusType = hasError ? 'ERROR' : 'COMPLETED';
-    const result: Partial<UploadHistoryItem> = hasError
-      ? {
-          status: resultStatus,
-          errorCount: SAMPLE_UPLOAD_ERRORS.length,
-          errors: SAMPLE_UPLOAD_ERRORS,
-        }
-      : { status: resultStatus, errorCount: 0, errors: [] };
-
-    // 履歴を確定結果で更新（インライン表示）
-    setHistory((prev) =>
-      prev.map((item) =>
-        item.uploadId === uploadId ? { ...item, ...result } : item
-      )
-    );
-
-    // 結果トーストを表示（成功＝緑／失敗＝赤。配色は App の Toaster richColors に統一）
-    if (hasError) {
-      toast.error('アップロードに失敗しました。');
-    } else {
-      toast.success('アップロードが完了しました。');
-    }
-
-    handleRemoveFile();
-  };
 
   // 候補が変わる条件の変更後に、候補から外れた販売店・三次店・一次店を未選択に戻す
   const applyStoreFilterInScope = (
@@ -440,29 +258,6 @@ export function useMarketingFileUpload(jihanki: boolean) {
     }
     setDownloadError(null);
 
-    // 進捗トーストを表示
-    let progress = 0;
-    showProgressToast(
-      DOWNLOAD_PROGRESS_TOAST_ID,
-      'ダウンロード中...',
-      progress
-    );
-    // ファイル生成は即時完了するため、進捗バーを一定時間かけて
-    // 100%まで描画し、完了時に閉じる
-    const progressInterval = setInterval(() => {
-      progress = Math.min(progress + PROGRESS_STEP, 100);
-      showProgressToast(
-        DOWNLOAD_PROGRESS_TOAST_ID,
-        'ダウンロード中...',
-        progress
-      );
-      if (progress >= 100) {
-        clearInterval(progressInterval);
-        toast.dismiss(DOWNLOAD_PROGRESS_TOAST_ID);
-        toast.success('ダウンロードが完了しました。');
-      }
-    }, DOWNLOAD_PROGRESS_INTERVAL_MS);
-
     // テンプレート定義と、条件に合う明細（NO は1からの連番）
     const template = TEMPLATE_DEFINITIONS[downloadTarget];
     const detailRows = rowsWithinPeriod(
@@ -479,42 +274,23 @@ export function useMarketingFileUpload(jihanki: boolean) {
       ]);
 
     // テンプレートと同じ構成（見出し → 空行 → 明細。見出し上段はシートにより有無あり）
-    const worksheetData = [
-      ...(template.groupHeaders ? [template.groupHeaders] : []),
-      template.headers,
-      [],
-      ...detailRows,
-    ];
-
-    // xlsx を動的importして出力データを生成
-    import('xlsx')
-      .then((xlsx) => {
-        const worksheet = xlsx.utils.aoa_to_sheet(worksheetData, {
-          cellDates: true,
-          dateNF: YEAR_MONTH_CELL_FORMAT,
-        });
-        worksheet['!cols'] = template.colWidths;
-        const workbook = xlsx.utils.book_new();
-        xlsx.utils.book_append_sheet(workbook, worksheet, template.sheetName);
-        xlsx.writeFile(workbook, template.fileName);
-      })
-      .catch(() => {
-        // ライブラリ読込・ファイル生成に失敗した場合は進捗を止めて通知する
-        clearInterval(progressInterval);
-        toast.dismiss(DOWNLOAD_PROGRESS_TOAST_ID);
-        toast.error('ダウンロードに失敗しました。');
-      });
-  };
-
-  // 履歴行の選択
-  const handleSelectHistory = (uploadId: string) => {
-    setSelectedUploadId(uploadId);
+    flow.downloadXlsx({
+      rows: [
+        ...(template.groupHeaders ? [template.groupHeaders] : []),
+        template.headers,
+        [],
+        ...detailRows,
+      ],
+      colWidths: template.colWidths,
+      sheetName: template.sheetName,
+      fileName: template.fileName,
+      dateFormat: YEAR_MONTH_CELL_FORMAT,
+    });
   };
 
   return {
+    ...flow,
     targetOptions,
-    uploadTarget,
-    setUploadTarget,
     downloadTarget,
     handleDownloadTargetChange,
     downloadPeriodFrom,
@@ -527,24 +303,6 @@ export function useMarketingFileUpload(jihanki: boolean) {
     handleRetailerChange,
     handleTertiaryStoreChange,
     handlePrimaryStoreChange,
-    sortedHistory,
-    selectedUploadId,
-    isUploadConfirmDialogOpen,
-    setIsUploadConfirmDialogOpen,
-    selectedItem,
-    selectedFile,
-    isDragging,
-    validationError,
-    fileInputRef,
-    canUpload,
-    handleDrop,
-    handleDragOver,
-    handleDragLeave,
-    handleFileInputChange,
-    handleOpenFileDialog,
-    handleRemoveFile,
-    handleUpload,
     handleTemplateDownload,
-    handleSelectHistory,
   };
 }

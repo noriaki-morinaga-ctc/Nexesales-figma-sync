@@ -1,9 +1,9 @@
-import { MonthYearPicker } from '../../../ui/month-year-picker';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
 import {
   nextYearDecember,
   thisYearJanuary,
-} from '../../../../utils/common/yearMonth';
+} from '@/app/utils/common/yearMonth';
 
 // シミュレーション（集計）の対象期間（from）の入力欄の id。画面の初期フォーカスでも使う。
 export const AGGREGATION_PERIOD_FROM_ID = 'aggregation-period-from';

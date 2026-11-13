@@ -5,36 +5,32 @@ import { useState } from 'react';
 // パターンをラジオで選び、対象の販売店／一次店／三次店／末端組織を入力すると、その作成単位
 // （一次店 × 三次店 × 販売店 × 末端組織。権限整理 P4）の拡売費計画（ヘッダ）が定まる。
 // パターンごとにどれがダミーコードになるかは権限整理 P9〜P11 に従う（storeInputAvailability）。
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
-import { Label } from '../../../ui/label';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { Label } from '@/app/components/ui/label';
 import {
   DEALER_OPTIONS_DUMMY,
   FIRST_STORE_OPTIONS_DUMMY,
   THIRD_STORE_OPTIONS_DUMMY,
-} from '../../../../constants/storeTierMockData';
+} from '@/mocks/common/storeTier';
 import {
   SALES_PERSON_OPTIONS,
   OFFICE_OPTIONS,
   DEPARTMENT_OPTIONS,
   TERMINAL_ORG_OPTIONS,
-} from '../../../../constants/salesSelectionMockData';
+} from '@/mocks/common/salesSelection';
 import {
   NO_LINK_PATTERN,
   DUMMY_STORE_LABEL,
   storeInputAvailability,
   type NoLinkPattern,
-} from '../../../../utils/payment/payment-detail/paymentNoLink';
+} from '@/app/components/payment/payment-detail-unlinked/utils';
 
 interface SearchPaneProps {
   onImport: () => void;
 }
-
-// 基本情報のラベル（青字・右寄せ・幅固定）。
-// shrink-0：flex 内で縮まないよう固定幅を保証し、隣の入力欄の左端を全行で縦に揃える。
-const LABEL_CLASS =
-  'text-sm text-blue-900 whitespace-nowrap w-32 shrink-0 text-right font-bold px-2 py-1';
 
 // 対象年月（請求を起点に決まるため参照専用）。
 // 拡売費計画選択ペインの対象年月の初期値としても参照するため export する。
@@ -124,11 +120,11 @@ export function SearchPane(_props: SearchPaneProps) {
 
   return (
     <CollapsibleCard title="基本情報" open={isOpen} onOpenChange={setIsOpen}>
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="p-4">
         {/* 1行目: 作成単位パターン（②③④のラジオ）を最上部に配置。
               選んだパターンにより、どの商流販売店項目がダミーコードになるかが決まる。 */}
         <div className="flex items-start gap-2 mb-2 pb-3 border-b border-gray-300">
-          <label className={`${LABEL_CLASS} pt-1.5`}>作成単位</label>
+          <label className={`${SEARCH_LABEL_CLASS} pt-1.5`}>作成単位</label>
           <RadioGroup
             value={pattern}
             onValueChange={(v) => handlePatternChange(v as NoLinkPattern)}
@@ -146,9 +142,11 @@ export function SearchPane(_props: SearchPaneProps) {
         </div>
 
         {/* 2行目: 販売店 / 三次店 / 一次店。パターンによりダミーコード固定になる（権限 P9-11）。 */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div
+          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+        >
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>販売店</label>
+            <label className={SEARCH_LABEL_CLASS}>販売店</label>
             {available.dealer ? (
               <div className="flex-1">
                 <SingleCombobox
@@ -165,7 +163,7 @@ export function SearchPane(_props: SearchPaneProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>三次店</label>
+            <label className={SEARCH_LABEL_CLASS}>三次店</label>
             {available.thirdStore ? (
               <div className="flex-1">
                 <SingleCombobox
@@ -182,7 +180,7 @@ export function SearchPane(_props: SearchPaneProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>一次店</label>
+            <label className={SEARCH_LABEL_CLASS}>一次店</label>
             {available.firstStore ? (
               <div className="flex-1">
                 <SingleCombobox
@@ -202,9 +200,11 @@ export function SearchPane(_props: SearchPaneProps) {
         </div>
 
         {/* 3行目: 事業場 / 部署 / 末端組織 / 営業担当者（組織階層順・上段＝販売計画側） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div
+          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+        >
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>事業場</label>
+            <label className={SEARCH_LABEL_CLASS}>事業場</label>
             <div className="flex-1 min-w-0">
               <SingleCombobox
                 options={OFFICE_OPTIONS}
@@ -216,7 +216,7 @@ export function SearchPane(_props: SearchPaneProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>部署</label>
+            <label className={SEARCH_LABEL_CLASS}>部署</label>
             <div className="flex-1 min-w-0">
               <SingleCombobox
                 options={DEPARTMENT_OPTIONS}
@@ -229,7 +229,7 @@ export function SearchPane(_props: SearchPaneProps) {
 
           {/* 末端組織（第6階層）。全パターンで作成単位に含まれる（権限整理 P4）。 */}
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>末端組織</label>
+            <label className={SEARCH_LABEL_CLASS}>末端組織</label>
             <div className="flex-1 min-w-0">
               <SingleCombobox
                 options={TERMINAL_ORG_OPTIONS}
@@ -242,7 +242,7 @@ export function SearchPane(_props: SearchPaneProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>営業担当者</label>
+            <label className={SEARCH_LABEL_CLASS}>営業担当者</label>
             <div className="flex-1 min-w-0">
               <SingleCombobox
                 options={SALES_PERSON_OPTIONS}
@@ -258,16 +258,16 @@ export function SearchPane(_props: SearchPaneProps) {
               選択の流れに合わせて最後に配置する（レビュー指摘 2026/7/22）。
               計画書No は本画面で使わないため項目自体を置かない
               （→ 本コメントスレッド返信 渡邊 2026-08-04）。 */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className={SEARCH_GRID_CLASS}>
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>対象年月</label>
+            <label className={SEARCH_LABEL_CLASS}>対象年月</label>
             <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
               {TARGET_MONTH}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <label className={LABEL_CLASS}>支払No</label>
+            <label className={SEARCH_LABEL_CLASS}>支払No</label>
             <div className="flex-1 h-8 flex items-center text-sm px-2 text-gray-900">
               {PAYMENT_STATEMENT_NO}
             </div>

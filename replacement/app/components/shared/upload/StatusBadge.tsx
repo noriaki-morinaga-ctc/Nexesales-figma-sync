@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
-import { Badge } from '../../ui/badge';
+import { Badge } from '@/app/components/ui/badge';
 import type { UploadStatusType } from './uploadTypes';
 import { STATUS_NAME_MAP } from './uploadConstants';
 

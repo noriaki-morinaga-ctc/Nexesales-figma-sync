@@ -4,16 +4,16 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '../../ui/collapsible';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
+} from '@/app/components/ui/collapsible';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '@/styles/commonStyles';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../ui/single-combobox';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { RightPane } from '../../ui/right-pane';
+} from '@/app/components/ui/single-combobox';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { RightPane } from '@/app/components/ui/right-pane';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogCancel,
-} from '../../ui/alert-dialog';
+} from '@/app/components/ui/alert-dialog';
 import {
   ChevronDown,
   History,
@@ -38,7 +38,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ScreenTitle } from '../../ui/screen-title';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // フッターの支払確認ダイアログで扱うアクション種別（支払詳細(自販機)と同一＋取消）
 type ConfirmAction =
@@ -243,14 +245,9 @@ const CARD_INPUT_CLASS = 'flex-1 text-gray-900';
 const CARD_READONLY_INPUT_CLASS =
   'flex-1 text-gray-900 bg-gray-100 border-gray-200 opacity-70 cursor-not-allowed';
 
-interface UnamortizedProjectBillingProps {
-  // フッターの「一覧へ戻る」で使用（未指定なら遷移しない）
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function UnamortizedProjectBilling({
-  onMenuChange,
-}: UnamortizedProjectBillingProps) {
+export default function UnamortizedProjectBilling() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 基本情報カードの開閉状態
   const [isOpen, setIsOpen] = useState(true);
   // コメント履歴ペイン（右スライド）の開閉状態
@@ -298,9 +295,7 @@ export default function UnamortizedProjectBilling({
   // 戻る確定 → ロケ契約(償却)一覧へ遷移
   const handleBackConfirm = () => {
     setIsBackDialogOpen(false);
-    if (onMenuChange) {
-      onMenuChange('location-contract-amortization-list');
-    }
+    navigate('location-contract-amortization-list');
   };
 
   // 支払確認ダイアログの確定（支払詳細(自販機)と同一）
@@ -826,13 +821,13 @@ export default function UnamortizedProjectBilling({
                           </div>
                         </div>
 
-                        {/* 摘要１(社内用) */}
+                        {/* 摘要1（社内用） */}
                         <div className="flex items-center gap-2">
                           <label
                             htmlFor="billing-note1"
                             className={CARD_LABEL_CLASS}
                           >
-                            摘要１(社内用)
+                            摘要1（社内用）
                           </label>
                           <Input
                             id="billing-note1"
@@ -862,24 +857,13 @@ export default function UnamortizedProjectBilling({
                   </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
                   {/* コメント欄（差戻しボタンの左・販売・経費計画申請承認を参考） */}
-                  <div className="flex items-center gap-2">
-                    <label
-                      htmlFor="approval-comment"
-                      className="text-sm text-gray-600 whitespace-nowrap"
-                    >
-                      コメント
-                    </label>
-                    <textarea
-                      id="approval-comment"
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                      placeholder="コメントを入力（差戻し理由など）"
-                      rows={2}
-                      className="h-10 w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-                    />
-                  </div>
+                  <FooterCommentField
+                    id="approval-comment"
+                    value={commentInput}
+                    onChange={setCommentInput}
+                  />
                   {/* 解約取消 */}
                   <button
                     className="btn-action-base btn-action-red"

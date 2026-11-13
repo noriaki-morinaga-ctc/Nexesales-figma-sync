@@ -3,7 +3,7 @@ import {
   deriveConditionUnitPrice,
   DEFAULT_STORE_KEY,
 } from './conditionUnitPrice';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
 
 const forSummary = (summaryProduct: string) =>
   deriveConditionUnitPrice({

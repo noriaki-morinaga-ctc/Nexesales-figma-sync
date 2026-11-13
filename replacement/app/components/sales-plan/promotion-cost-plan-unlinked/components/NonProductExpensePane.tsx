@@ -14,11 +14,13 @@ import {
   GetRowIdParams,
   GridApi,
 } from 'ag-grid-community';
-import { Plus, FileSearch } from 'lucide-react';
+import { Plus, Copy } from 'lucide-react';
 
 import {
+  viewportGridHeight,
   GRID_COLORS,
   GRID_DEFAULT_COL_DEF,
+  GRID_WRAP_HEADER_COL_DEF,
   GRID_EMPTY_TEXT,
   GRID_STATUS_BAR,
   GRID_BASE_PROPS,
@@ -29,23 +31,21 @@ import {
   CopySourceLegend,
   useGridColumnState,
   withHeaderTooltips,
+  withSpanSafeHeaderHeight,
   useRevealNewRows,
   useChangedCells,
   useLinkedCellUndo,
   GRID_MONTH_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   CopyDeleteCellRenderer,
-} from '../../../grid';
-import {
-  CARD_TITLE_CLASS,
-  CARD_CLASS,
-} from '../../../../../styles/commonStyles';
-import { Button } from '../../../ui/button';
-import { MonthYearCellEditor } from '../../../ui/month-year-cell-editor';
-import type { SingleComboboxOption } from '../../../ui/single-combobox';
-import { NON_PRODUCT_EXPENSE_ROWS } from '../../../../constants/nonProductExpenseMockData';
-import { EXPENSE_SUMMARY_PRODUCT_OPTIONS } from '../../../../constants/productMasters';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
+  asCellStyle,
+} from '@/app/components/grid';
+import { CARD_TITLE_CLASS, CARD_CLASS } from '@/styles/commonStyles';
+import { MonthYearCellEditor } from '@/app/components/ui/month-year-cell-editor';
+import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
+import { NON_PRODUCT_EXPENSE_ROWS } from '@/mocks/common/nonProductExpense';
+import { EXPENSE_SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 import {
   isManagementCodeInClass,
   isCampaignCodeInClass,
@@ -53,14 +53,20 @@ import {
   fillFromManagementClass,
   fillFromCampaignCode,
   fillFromCampaignClass,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 import {
   managementClassComboOptions,
   managementCodeComboOptions,
   campaignClassComboOptions,
   campaignCodeComboOptions,
-  metaBrandComboOptions,
   summaryProductComboOptions,
+  managementClassCodeComboOptions,
+  managementCodeNameComboOptions,
+  campaignClassCodeComboOptions,
+  campaignCodeNameComboOptions,
+} from '@/app/constants/comboFieldOptions';
+import {
+  metaBrandComboOptions,
   managementClassCodeOf,
   managementCodeNameOf,
   campaignClassCodeOf,
@@ -69,24 +75,20 @@ import {
   managementCodeOfName,
   campaignClassNameOf,
   campaignCodeOfName,
-  managementClassCodeComboOptions,
-  managementCodeNameComboOptions,
-  campaignClassCodeComboOptions,
-  campaignCodeNameComboOptions,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 
 // 拡売費データ／グリッド操作ハンドルは共有型（types/nonProductExpense）へ集約。
 // 既存の import 元互換のため、ここから再エクスポートする。
 import type {
   NonProductExpenseData,
   NonProductExpenseGridHandle,
-} from '../../../../types/nonProductExpense';
+} from '@/app/types/nonProductExpense';
 import {
   hasPriorYearActual,
   hasSummaryProduct,
   isMetaBrandEditable,
   clearExpenseSavedMarks,
-} from '../../../../utils/sales-plan/plan-detail/nonProductExpenseRow';
+} from '@/app/utils/sales-plan/plan-detail/nonProductExpenseRow';
 
 export type { NonProductExpenseData, NonProductExpenseGridHandle };
 
@@ -105,7 +107,7 @@ const getExpenseRowId = (params: GetRowIdParams<NonProductExpenseData>) =>
 
 interface NonProductExpensePaneProps {
   onOpenAddExpense?: () => void;
-  onOpenDeleteExpense?: (data: NonProductExpenseData) => void;
+  onDeleteExpense?: (data: NonProductExpenseData) => void;
   onOpenCopyExpense?: (data: NonProductExpenseData) => void;
   pendingCopyRow?: NonProductExpenseData | null;
   onCopyComplete?: () => void;
@@ -183,7 +185,7 @@ export const NonProductExpensePane = forwardRef<
 >(function NonProductExpensePane(
   {
     onOpenAddExpense,
-    onOpenDeleteExpense,
+    onDeleteExpense,
     onOpenCopyExpense,
     pendingCopyRow,
     onCopyComplete,
@@ -251,8 +253,8 @@ export const NonProductExpensePane = forwardRef<
   }));
 
   const handleDelete = (data: NonProductExpenseData) => {
-    if (onOpenDeleteExpense) {
-      onOpenDeleteExpense(data);
+    if (onDeleteExpense) {
+      onDeleteExpense(data);
     }
   };
 
@@ -575,13 +577,14 @@ export const NonProductExpensePane = forwardRef<
         GRID_EMPTY_TEXT,
       // 前年実績は編集不可のため readonly（灰）背景を適用
       cellClass: 'cell-right',
-      cellStyle: (params: any) =>
+      cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
           ? {
               fontWeight: 'bold',
               backgroundColor: GRID_COLORS.total,
             }
-          : { backgroundColor: GRID_COLORS.readonly },
+          : { backgroundColor: GRID_COLORS.readonly }
+      ),
     },
     {
       // 実績金額：支払側から連携される実績値のため入力不可（前年実績と同じ readonly 表現）。
@@ -594,13 +597,14 @@ export const NonProductExpensePane = forwardRef<
         params.value?.toLocaleString('ja-JP', { maximumFractionDigits: 2 }) ||
         GRID_EMPTY_TEXT,
       cellClass: 'cell-right',
-      cellStyle: (params: any) =>
+      cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
           ? {
               fontWeight: 'bold',
               backgroundColor: GRID_COLORS.total,
             }
-          : { backgroundColor: GRID_COLORS.readonly },
+          : { backgroundColor: GRID_COLORS.readonly }
+      ),
     },
     {
       headerName: '計上年月',
@@ -829,7 +833,7 @@ export const NonProductExpensePane = forwardRef<
       onCellValueChanged: handleCampaignCodeChanged,
     },
     {
-      headerName: '摘要1(社内用)',
+      headerName: '摘要1（社内用）',
       headerTooltip: '[入力値/自動表示]前年同月実績の摘要1を取得表示',
       field: `${prefix}Description`,
       // 残り幅いっぱいに伸ばし、右固定アクション列との間に空白を作らない
@@ -909,8 +913,13 @@ export const NonProductExpensePane = forwardRef<
       ...makeExpenseColumns('exp1'),
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'actions',
-        width: 80,
+        // 「︙」のメニューだけを出す列（→ UX-087）
+        width: 45,
+        minWidth: 45,
+        maxWidth: 45,
         cellRenderer: CopyDeleteCellRenderer,
         cellRendererParams: COPY_DELETE_PARAMS,
         // 合計行は操作列も含めてブルー背景に揃える
@@ -938,13 +947,15 @@ export const NonProductExpensePane = forwardRef<
 
   // ヘッダーツールチップを付けた列定義（参照を固定して Undo 履歴を保つ → 02 §7.1）
   const gridColumnDefs = useMemo(
-    () => withHeaderTooltips(columnDefs),
+    () => withSpanSafeHeaderHeight(withHeaderTooltips(columnDefs)),
     [columnDefs]
   );
 
   const defaultColDef: ColDef = useMemo(
     () => ({
       ...GRID_DEFAULT_COL_DEF,
+      // 収まらない見出しは折り返し、見出しの高さを中身に合わせる（→ 02 §7・UX-078）
+      ...GRID_WRAP_HEADER_COL_DEF,
       resizable: true,
       sortable: true,
       filter: true,
@@ -986,14 +997,14 @@ export const NonProductExpensePane = forwardRef<
           <h2 className={`${CARD_TITLE_CLASS} pr-12`}>拡売費計画</h2>
 
           {/* 参照用ボタン（押下で対象期間の自計画を下ペインに表示。対象期間は下ペイン内で指定） */}
-          <Button
-            size="sm"
+          <button
+            type="button"
             onClick={() => onOpenReference?.()}
-            className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+            className="btn-toolbar-outline"
           >
-            <FileSearch className="h-4 w-4 mr-1" />
+            <Copy className="h-4 w-4" />
             拡売費計画(コピー元)
-          </Button>
+          </button>
 
           {/* コピー由来カラーバーの凡例（青=コピー元 / 緑=拡売費コピー / 橙=新規） */}
           <CopySourceLegend
@@ -1004,14 +1015,14 @@ export const NonProductExpensePane = forwardRef<
         </div>
 
         {/* 拡売費追加（右端） */}
-        <Button
-          size="sm"
+        <button
+          type="button"
           onClick={handleAdd}
-          className="bg-white text-blue-600 px-3 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm"
+          className="btn-toolbar-outline"
         >
-          <Plus className="h-4 w-4 mr-1" />
+          <Plus className="h-4 w-4" />
           拡売費追加
-        </Button>
+        </button>
       </div>
 
       {/* AG Grid Table（1920x1080 のPCで画面いっぱいに表示）
@@ -1021,7 +1032,7 @@ export const NonProductExpensePane = forwardRef<
           スクロールアウトしてよい方針）。 */}
       <div
         className="expense-plan-grid"
-        style={{ height: 'calc(100vh - 10rem)', minHeight: '25rem' }}
+        style={{ height: viewportGridHeight(10), minHeight: '25rem' }}
       >
         <AgGridReact
           rowData={dataWithTotal}

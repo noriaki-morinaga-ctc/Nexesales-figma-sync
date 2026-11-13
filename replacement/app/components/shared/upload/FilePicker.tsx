@@ -7,7 +7,7 @@ interface FilePickerProps {
   labelId: string;
   selectedFile: File | null;
   isDragging: boolean;
-  fileInputRef: RefObject<HTMLInputElement | null>;
+  fileInputRef: RefObject<HTMLInputElement>;
   onDrop: (e: DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: DragEvent<HTMLDivElement>) => void;

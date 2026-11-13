@@ -6,7 +6,7 @@ import type {
   GetRowIdParams,
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
-import { CheckCircle, AlertTriangle, RotateCcw } from 'lucide-react';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
 
 import {
   useGridColumnState,
@@ -20,19 +20,19 @@ import {
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
   StatusIconCellRenderer,
-} from '../../../grid';
-import { BUTTON_STYLES } from '../../../../../styles/commonStyles';
+} from '@/app/components/grid';
+import { BUTTON_STYLES } from '@/styles/commonStyles';
 import type {
   BillingEdiImportRow,
   BillingEdiStatus,
-} from '../../../../constants/billingEdiMockData';
+} from '@/app/types/billingEdi';
 import {
   countErrorOffices,
   formatPayeeName,
   formatRowErrorCategories,
   formatRowOwners,
   hasNoDetail,
-} from '../../../../utils/payment/billing/billingEdiImport';
+} from '@/app/utils/payment/billing/billingEdiImport';
 
 // ステータスごとのアイコン・色設定
 const STATUS_CONFIG: Record<
@@ -41,7 +41,6 @@ const STATUS_CONFIG: Record<
 > = {
   正常: { icon: CheckCircle, className: 'text-green-600' },
   エラー: { icon: AlertTriangle, className: 'text-red-600' },
-  再取込指示済: { icon: RotateCcw, className: 'text-orange-500' },
 };
 
 // グリッドの context 型（セルレンダラーから呼ぶコールバック）

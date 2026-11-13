@@ -4,10 +4,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   BILLING_COMPANY_OPTIONS,
-  BILLING_LIST,
   BILLING_OFFICE_OPTIONS,
   billingOfficeOptionsOf,
-} from './billingMockData';
+} from '@/mocks/payment/billing-list';
+import { BILLING_LIST } from '@/mocks/common/billing';
 
 describe('BILLING_COMPANY_OPTIONS', () => {
   it('選択肢のコードは必ず一覧のどれかの入力単位に一致する', () => {

@@ -3,12 +3,13 @@
 // 行追加は React の state 更新で行うため、追加した直後はまだグリッドに行が無い。
 // そこで markRows で行IDを記録しておき、グリッドの onRowDataUpdated（＝行が反映された
 // 後）に、さらに描画が済む次フレームで次の順に行う。
-//   1. グリッド内部で新規行までスクロール（ensureIndexVisible）
-//   2. スクロールで行が描画し直された次のフレームで、新規行が画面で見えていなければ
-//      ページ側のスクロール領域も動かす
-//   3. 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
+//   1. グリッド内部で新規行までスクロール。一瞬で飛ぶと何が起きたか分からないため、
+//      約0.45秒かけてなめらかに動かす（UI/UX UX-047。視差効果を減らす設定ではすぐ動かす）
+//   2. スクロールが止まった次のフレームで、新規行が画面で見えていなければ
+//      ページ側のスクロール領域も同じようになめらかに動かす
+//   3. 動きが止まってから、行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
 //      （描画し直したセルがまだ DOM を持たないうちに flashCells を呼ぶと AG Grid 内部で
-//      例外になるため、1 と同じフレームでは行わない）
+//      例外になるため、スクロールと同じフレームでは行わない）
 //
 // タブ・フィルタで新規行が表示対象外のときは行が存在しないため、何もしない。
 import { useCallback, useMemo, useRef } from 'react';
@@ -19,6 +20,64 @@ const DEFAULT_FLASH_DURATION_MS = 1500;
 const DEFAULT_FADE_DURATION_MS = 800;
 // 可視域へ寄せるときに上端へ残す余白（px）。
 const TOP_GAP_PX = 8;
+// なめらかなスクロールにかける時間（ms）。
+const SMOOTH_SCROLL_MS = 450;
+
+// 動き始めと終わりをゆっくりにする（ease-in-out）。
+const easeInOutCubic = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// OS の「視差効果を減らす」設定のときは動かさず、すぐ移す。
+const prefersReducedMotion = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 要素の縦スクロール位置を、なめらかに to まで動かし、終わったら done を呼ぶ。
+// scrollTo の behavior:'smooth' はブラウザごとに時間が違い、終わりも分からないため自前で動かす。
+const animateScrollTop = (
+  el: HTMLElement,
+  to: number,
+  done: () => void
+): void => {
+  const max = Math.max(0, el.scrollHeight - el.clientHeight);
+  const target = Math.min(max, Math.max(0, to));
+  const from = el.scrollTop;
+  if (Math.abs(target - from) < 1 || prefersReducedMotion()) {
+    el.scrollTop = target;
+    done();
+    return;
+  }
+  const start = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / SMOOTH_SCROLL_MS);
+    el.scrollTop = from + (target - from) * easeInOutCubic(t);
+    if (t < 1) window.requestAnimationFrame(step);
+    else done();
+  };
+  window.requestAnimationFrame(step);
+};
+
+// グリッドの明細の表示域（縦にスクロールする .ag-body-viewport）を探す。
+// API から DOM は取れないため、描画中の行の要素から辿る（同じ行IDの別グリッドと
+// 取り違えないよう、行番号と今のスクロール位置も照合する）。
+const bodyViewportOf = (api: GridApi): HTMLElement | null => {
+  const top = api.getVerticalPixelRange().top;
+  for (const node of api.getRenderedNodes()) {
+    if (node.id == null || node.rowPinned) continue;
+    const el = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '.ag-center-cols-container .ag-row'
+      )
+    ).find(
+      (e) =>
+        e.getAttribute('row-id') === node.id &&
+        e.getAttribute('row-index') === String(node.rowIndex)
+    );
+    const viewport = el?.closest<HTMLElement>('.ag-body-viewport');
+    if (viewport && Math.abs(viewport.scrollTop - top) < 2) return viewport;
+  }
+  return null;
+};
 
 // 要素の最も近いスクロール可能な祖先。
 // scrollIntoView はスクロール可能な祖先をすべて動かしてしまうため、
@@ -153,17 +212,16 @@ export function useRevealNewRows(
           .map((key) => resolveNode(api, key))
           .filter((n): n is IRowNode => !!n && n.rowIndex != null);
         if (nodes.length === 0) return;
-        const headIndex = nodes[0].rowIndex as number;
+        const head = nodes[0];
+        const headIndex = head.rowIndex as number;
 
-        // 'top'：グリッド内部で新規行を先頭へ送る。これで新規行は見出し行の直下に来る。
-        // 'nearest'：位置を指定しない（AG Grid 公式の既定＝見えていれば動かさず、隠れていれば最小限スクロール）。
-        api.ensureIndexVisible(
-          headIndex,
-          scrollPosition === 'top' ? 'top' : null
-        );
-
-        // スクロールで描画し直した行が DOM に揃う次フレームで、残りを行う
-        window.requestAnimationFrame(() => {
+        // スクロールが止まった後：ページ側を寄せてから、強調・フォーカス
+        const finish = () => {
+          // 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
+          if (focusColumn) api.setFocusedCell(headIndex, focusColumn);
+          api.flashCells({ rowNodes: nodes, flashDuration, fadeDuration });
+        };
+        const revealOnPage = () => {
           // 新規行が画面で見えていなければ、ページ側のスクロール領域も動かす。
           const rowEl = nodes[0].id ? rowElementOf(nodes[0].id) : null;
           const gridEl =
@@ -178,21 +236,54 @@ export function useRevealNewRows(
             const clearBottom = main.getBoundingClientRect().bottom - padBottom;
             const scrollerTop = scroller.getBoundingClientRect().top;
             const rowRect = rowEl.getBoundingClientRect();
-            // 行が半分以上隠れているときだけ、行が上端へ来るようにスクロールする。
+            // 行が半分以上隠れているときだけスクロールする。
             // 下ペイン展開中は可視域が狭いため、少しでも見えていれば動かさない
             // （動かすと列見出しが画面外へ出てしまう）。
+            // グリッド全体が可視域に収まるときはグリッドの上端（列見出し）を、収まらないときは
+            // 新規行を上端へ寄せる（列見出しを残したまま新規行を見せる → UI/UX UX-048）。
             if (
               rowRect.top < scrollerTop ||
               rowRect.top + rowRect.height / 2 > clearBottom
             ) {
-              scroller.scrollTop += rowRect.top - scrollerTop - TOP_GAP_PX;
+              const gridRect = (gridEl as HTMLElement).getBoundingClientRect();
+              const fits = gridRect.height <= clearBottom - scrollerTop;
+              const anchorTop = fits ? gridRect.top : rowRect.top;
+              animateScrollTop(
+                scroller,
+                scroller.scrollTop + anchorTop - scrollerTop - TOP_GAP_PX,
+                () => window.requestAnimationFrame(finish)
+              );
+              return;
             }
           }
+          finish();
+        };
 
-          // 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
-          if (focusColumn) api.setFocusedCell(headIndex, focusColumn);
-          api.flashCells({ rowNodes: nodes, flashDuration, fadeDuration });
-        });
+        // 1. グリッド内部のスクロール。
+        // 'top'：新規行を先頭（見出し行の直下）へ送る。
+        // 'nearest'：見えていれば動かさず、隠れていれば最小限スクロールする（AG Grid の ensureIndexVisible の既定と同じ）。
+        const viewport = bodyViewportOf(api);
+        if (viewport && head.rowTop != null && head.rowHeight != null) {
+          const { top, bottom } = api.getVerticalPixelRange();
+          const rowTop = head.rowTop;
+          const rowBottom = head.rowTop + head.rowHeight;
+          let target = viewport.scrollTop;
+          if (scrollPosition === 'top') target = rowTop;
+          else if (rowTop < top) target = rowTop;
+          else if (rowBottom > bottom)
+            target = viewport.scrollTop + (rowBottom - bottom);
+          // 2. スクロールで描画し直した行が DOM に揃う次フレームで、ページ側と強調を行う
+          animateScrollTop(viewport, target, () =>
+            window.requestAnimationFrame(revealOnPage)
+          );
+        } else {
+          // 表示域が見つからないとき（描画中の行が無い等）は、AG Grid の API で移す
+          api.ensureIndexVisible(
+            headIndex,
+            scrollPosition === 'top' ? 'top' : null
+          );
+          window.requestAnimationFrame(revealOnPage);
+        }
       });
     },
     [

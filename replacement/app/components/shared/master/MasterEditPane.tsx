@@ -18,19 +18,16 @@
 
 import { Fragment } from 'react';
 import { Save } from 'lucide-react';
-import { Textarea } from '../../ui/textarea';
-import { MASTER_MESSAGES } from '../../../constants/masterMessages';
-import { RightPane } from '../../ui/right-pane';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { Input } from '../../ui/input';
-import { NumericInput } from '../../ui/numeric-input';
-import { RequiredBadge } from '../../ui/required-badge';
-import { SingleCombobox } from '../../ui/single-combobox';
-import {
-  FORM_LABEL_CLASS,
-  TEXT_INPUT_CLASS,
-} from '../../../../styles/commonStyles';
+import { Textarea } from '@/app/components/ui/textarea';
+import { MASTER_MESSAGES } from '@/app/constants/masterMessages';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { Input } from '@/app/components/ui/input';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { FORM_LABEL_CLASS, TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import type {
   MasterDraft,
   MasterFieldDef,

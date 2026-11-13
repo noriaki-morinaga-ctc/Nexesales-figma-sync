@@ -3,23 +3,19 @@
 // 除外ペア・拡売費集計対象・原価軸を適用して集計値を算出する。
 // 計画値を動的算出し、予算/前年実績は係数（RATE_SETTINGS）で導出する。
 
-import {
-  RATE_SETTINGS,
-  type AggregationProduct,
-  type AggregationExpense,
-  type AggregationSource,
-  type ExpenseCategory,
-} from '../../../constants/aggregationSourceData';
-import {
-  isPairExcluded,
-  type ExcludePair,
-} from '../../../constants/aggregationExcludePair';
+import { RATE_SETTINGS } from '@/app/constants/aggregationSourceData';
+import type {
+  AggregationProduct,
+  AggregationExpense,
+  AggregationSource,
+  ExpenseCategory,
+} from '@/app/types/aggregation';
+import { isPairExcluded } from '@/app/utils/sales-plan/common/aggregationExcludePair';
+import type { ExcludePair } from '@/app/types/aggregation';
 import { costUnitPriceOfAxis, type CostAxis } from './costUnitPrice';
 import { computeCommonRateAmount } from './commonRateAmounts';
-import {
-  DEFAULT_COMMON_RATE_SETTINGS,
-  type CommonRateSettings,
-} from '../../../constants/commonRateSettings';
+import { DEFAULT_COMMON_RATE_SETTINGS } from '@/app/constants/commonRateSettings';
+import type { CommonRateSettings } from '@/app/types/master';
 
 // 拡売費集計対象選択（対象月／計上月）
 export type ExpenseMonthBasis = 'target' | 'posting';

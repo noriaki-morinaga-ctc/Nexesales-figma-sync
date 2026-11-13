@@ -21,6 +21,10 @@ export {
   attachFilterInputClearButtons,
   installNumberInputWheelGuard,
   GRID_DEFAULT_COL_DEF,
+  GRID_WRAP_HEADER_COL_DEF,
+  revertNonNumericValueParser,
+  gridHeaderStyle,
+  withGridHeaderStyle,
   GRID_STATUS_BAR,
   GRID_MASTER_DETAIL_ICONS,
   DETAIL_GRID_HEIGHT_OFFSET_REM,
@@ -33,7 +37,11 @@ export {
   formatEmptyAsDash,
   isEmptyCellDisplay,
   withHeaderTooltips,
+  withSpanSafeHeaderHeight,
   suppressEditNavKeys,
+  asCellStyle,
+  CELL_CHANGED_CLASS_RULE,
+  asRowStyle,
 } from './gridCommon';
 // 全件エクスポートの実体（exportGridAllRows）は共通コンテキストメニュー
 //（gridCommon の gridFilterContextMenuItems）からのみ呼ぶため、本バレルでは公開しない。
@@ -43,12 +51,15 @@ export type {
   GridExportAllFetchParams,
 } from './gridExportAll';
 export { useRevealNewRows } from './useRevealNewRows';
+export { viewportGridHeight } from './gridHeight';
 export type {
   UseRevealNewRows,
   UseRevealNewRowsOptions,
   RevealRowKey,
 } from './useRevealNewRows';
 export { AG_GRID_LOCALE_JA } from './gridLocale';
+// 全画面共通の設定（起動時に1回だけ呼ぶ。→ gridSetup）
+export { setupAgGrid } from './gridSetup';
 export {
   GRID_COLORS,
   rowKindColor,
@@ -60,8 +71,8 @@ export {
   requiredEmptyCellStyle,
   COPY_SOURCE_COLORS,
   copySourceLeftBorder,
-} from '../../../styles/gridStyles';
-export type { RowKind, CopySource } from '../../../styles/gridStyles';
+} from '@/styles/gridStyles';
+export type { RowKind, CopySource } from '@/styles/gridStyles';
 export {
   useChangedCells,
   withComparableCellValues,
@@ -83,6 +94,7 @@ export {
   CopySourceLegend,
   CellColorLegend,
   GridDisplayedRowsStatusPanel,
+  HiddenColumnsNotice,
   RowActionMenu,
 } from './GridComponents';
 export type { CellColorLegendItem } from './GridComponents';
@@ -92,3 +104,5 @@ export {
   CopyDeleteCellRenderer,
 } from './GridCellRenderers';
 export type { StatusIconConfig } from './GridCellRenderers';
+export { FloatingFormulaTooltip } from './FloatingFormulaTooltip';
+export type { FloatingFormulaTooltipValue } from './FloatingFormulaTooltip';

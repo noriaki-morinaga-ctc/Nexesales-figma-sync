@@ -1,15 +1,4 @@
-// 拡売費集計「種類別」の勘定科目マスタ。
-//
-// コード体系：5桁の 5xxxx。51000番台＝売上連動拡売費／52000番台＝拡売費(固定費)および
-// その他の直接固定費（ロケ補填・コラム料・リース料・販売器具費）。
-// 下2桁が 00 の 51000／52000 が区分計、下3桁目で口（A口＝x100／B口＝x200／本社口＝x300）を表す。
-// キーは集計エンジン（utils/sales-plan/common/aggregationCalc の AggAmounts）の項目キーと一致させ、
-// 集計値と勘定科目の対応がずれないようにする。
-
-export interface PromotionAccountItem {
-  code: string; // 勘定科目コード
-  name: string; // 勘定科目名称
-}
+import type { PromotionAccountItem } from '@/app/types/master';
 
 // 拡売費（合計）は単独の勘定科目を持たないため、集計対象のコード範囲で表記する。
 export const PROMOTION_ACCOUNT_ITEMS: Record<string, PromotionAccountItem> = {
@@ -38,10 +27,4 @@ export const ACCOUNT_KEY_BY_MANAGEMENT_CLASS: Record<string, string> = {
   '拡売費(固定費)A口': 'fixedA',
   '拡売費(固定費)B口': 'fixedB',
   '拡売費(固定費)本社口': 'fixedH',
-};
-
-/** 勘定科目の表示ラベル（コード＋名称）を返す。未定義キーは空文字。 */
-export const promotionAccountLabel = (key: string): string => {
-  const item = PROMOTION_ACCOUNT_ITEMS[key];
-  return item ? `${item.code} ${item.name}` : '';
 };

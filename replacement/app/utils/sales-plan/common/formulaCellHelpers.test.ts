@@ -8,6 +8,7 @@ import {
   deltaResult,
   type FormulaCellMaster,
 } from './formulaCellHelpers';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
 
 interface Row {
   summaryProduct: string;
@@ -34,19 +35,22 @@ const row: Row = {
   plan: '800',
 };
 
-// 単価取得区分は planBasicInfoMockData の UNIT_PRICE_KBN（'取得不可'）が使われるため、
+// 単価取得区分は src/mocks/common/planBasicInfo の UNIT_PRICE_KBN（'取得不可'）が使われるため、
 // 分岐1（アイテムバラ保証金抜き単価）に落ちる。
 const masterOf = (r: Row) =>
   r.summaryProduct === '三ツ矢サイダー500mL24本' ? MASTER : undefined;
 
 describe('makeExternalUnitPriceOf', () => {
   it('マスタが引ければ補足2-2の導出結果を返す', () => {
-    expect(makeExternalUnitPriceOf(masterOf)(row)).toBe(70);
+    expect(makeExternalUnitPriceOf(masterOf, UNIT_PRICE_KBN)(row)).toBe(70);
   });
 
   it('マスタが引けなければ NaN を返す', () => {
     expect(
-      makeExternalUnitPriceOf(masterOf)({ ...row, summaryProduct: '未登録' })
+      makeExternalUnitPriceOf(
+        masterOf,
+        UNIT_PRICE_KBN
+      )({ ...row, summaryProduct: '未登録' })
     ).toBeNaN();
   });
 });
@@ -77,7 +81,7 @@ describe('unitTimesQuantityTimesPlan', () => {
 
 describe('makeDetailValueOf', () => {
   const valueOf = makeDetailValueOf(
-    makeExternalUnitPriceOf(masterOf),
+    makeExternalUnitPriceOf(masterOf, UNIT_PRICE_KBN),
     makeCostUnitPriceOf(masterOf)
   );
 
@@ -106,7 +110,7 @@ describe('makeDetailValueOf', () => {
 
 describe('makeDetailTooltip', () => {
   const valueOf = makeDetailValueOf(
-    makeExternalUnitPriceOf(masterOf),
+    makeExternalUnitPriceOf(masterOf, UNIT_PRICE_KBN),
     makeCostUnitPriceOf(masterOf)
   );
   const tooltip = makeDetailTooltip<Row>(

@@ -1,7 +1,8 @@
 // 戦略NETマスタ（型1 マスタメンテCRUD型・世代管理・一括UL）。
-// 画面の骨格・挙動は shared/master のスキャフォールドが担い、本画面は項目定義とモックデータを持つ。
-import { MasterMaintenancePage } from '../../shared/master';
-import { STRATEGIC_NET_DEF, STRATEGIC_NET_ROWS } from './mockData';
+// 画面の骨格・挙動は shared/master のスキャフォールドが担い、本画面は項目定義（constants.ts）を持ち、一覧のモック行は src/mocks/master/ から渡す。
+import { MasterMaintenancePage } from '@/app/components/shared/master';
+import { STRATEGIC_NET_DEF } from './constants';
+import { STRATEGIC_NET_ROWS } from '@/mocks/master/strategic-net-master';
 
 export default function StrategicNetMaster() {
   return (

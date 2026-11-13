@@ -3,6 +3,8 @@
 import type { ComponentType } from 'react';
 import type { CustomCellRendererProps } from 'ag-grid-react';
 import { Copy, Trash2 } from 'lucide-react';
+import { DropdownMenuItem } from '@/app/components/ui/dropdown-menu';
+import { RowActionMenu } from './GridComponents';
 
 // ── ステータス（アイコン＋文言） ─────────────────────────────
 // 一覧のステータス列。値ごとのアイコンと色は画面の STATUS_CONFIG を cellRendererParams.statusConfig で渡す
@@ -73,29 +75,29 @@ export function CopyDeleteCellRenderer(
   }
   const { onDelete, onCopy } = props.context;
   const disabledReason = props.deleteDisabledReason?.(props.data) ?? null;
+  // 行の操作は「︙」のメニュー（共通部品 RowActionMenu）で出す（画面設計標準・UI/UX UX-087 → 02 §7「行の操作」）
   return (
-    <div className="flex items-center justify-center gap-2 h-full">
-      <button
-        className="text-green-600 hover:text-green-800 p-1"
+    <RowActionMenu>
+      <DropdownMenuItem
         onClick={() => onCopy(props.data)}
-        title="コピー"
-        aria-label="コピー"
+        className="text-green-600 focus:text-green-600"
       >
-        <Copy className="w-4 h-4" />
-      </button>
-      <button
+        <Copy className="h-4 w-4 text-green-600" />
+        コピー
+      </DropdownMenuItem>
+      <DropdownMenuItem
         onClick={disabledReason ? undefined : () => onDelete(props.data)}
         disabled={!!disabledReason}
-        className={`p-1 rounded transition-colors ${
-          disabledReason
-            ? 'text-gray-300 cursor-not-allowed'
-            : 'text-red-600 hover:text-red-800 hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:outline-none'
-        }`}
-        title={disabledReason ?? '削除'}
-        aria-label="削除"
+        title={disabledReason ?? undefined}
+        className={
+          disabledReason ? 'text-gray-400' : 'text-red-600 focus:text-red-600'
+        }
       >
-        <Trash2 className="w-4 h-4" />
-      </button>
-    </div>
+        <Trash2
+          className={`h-4 w-4 ${disabledReason ? 'text-gray-400' : 'text-red-600'}`}
+        />
+        {disabledReason ? `削除（${disabledReason}）` : '削除'}
+      </DropdownMenuItem>
+    </RowActionMenu>
   );
 }

@@ -1,6 +1,6 @@
 // 支払詳細(追加口請求書有／追加口請求書無)の追加口明細 ─ 行の計算式と判定。
 //
-// 画面（DetailTable）とモックデータ（constants/payment*MockData）の両方から使うため、
+// 画面（DetailTable）とモックデータ（src/mocks/payment/payment-detail-with-invoice/paymentDetail・src/mocks/payment/payment-detail-without-invoice）の両方から使うため、
 // 純粋な関数としてまとめる。
 //
 // 請求書有：
@@ -13,8 +13,8 @@
 //   ・計画に無いサマリ商品は計画NETを空欄にし、行を赤く表示する（→ 利用者の決定 Q6）。
 // 請求書無：
 //   ・計算式（deriveWithoutInvoiceEntryRow）… 支払NET（追加口分）から追加口金額を求める（→ 補足1-6 b21）
-import type { AdditionalEntryData } from '../../../components/payment/payment-detail-with-invoice/components/DetailTable';
-import type { EntryRow as WithoutInvoiceEntryRow } from '../../../components/payment/payment-detail-without-invoice/components/DetailTable';
+import type { AdditionalEntryData } from '@/app/types/paymentDetail';
+import type { WithoutInvoiceEntryRow } from '@/app/types/paymentDetail';
 import { markManualEdit, originDataSourceOf } from './paymentDataSource';
 
 // 計画の種類（追加口明細が紐づく計画行をどう作ったか）。

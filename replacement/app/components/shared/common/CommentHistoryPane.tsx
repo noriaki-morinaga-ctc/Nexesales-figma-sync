@@ -6,7 +6,7 @@
 // 差戻しは承認・検印のどちらから戻しても操作名は「差戻し」とし、戻された段階は
 // ステータス（承認差戻し／検印差戻し）で区別する。
 // 日付は支払情報の申請日（2025/10/15）を起点とする。
-import { RightPane } from '../../ui/right-pane';
+import { RightPane } from '@/app/components/ui/right-pane';
 
 // コメント履歴の1件。
 export interface CommentHistoryItem {

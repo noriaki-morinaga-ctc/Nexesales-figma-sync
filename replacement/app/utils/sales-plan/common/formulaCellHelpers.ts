@@ -9,12 +9,11 @@ import {
   parseFormulaNumber,
   formatFormulaNumber,
   type FormulaTemplate,
-} from '../../../components/grid/gridCommon';
+} from '@/app/components/grid/gridCommon';
 import {
   deriveExternalUnitPrice,
   type ExternalUnitPriceMasterValues,
-} from '../../common/externalUnitPrice';
-import { UNIT_PRICE_KBN } from '../../../constants/planBasicInfoMockData';
+} from '@/app/utils/common/externalUnitPrice';
 
 // 明細表の計算式セルが必要とする商品マスタの値。
 export interface FormulaCellMaster extends ExternalUnitPriceMasterValues {
@@ -27,12 +26,13 @@ export type MasterResolver<R> = (row: R) => FormulaCellMaster | undefined;
 
 // 行の社外売単価（補足2-2）。マスタが引けない行は NaN。
 export function makeExternalUnitPriceOf<R extends { planPrice: string }>(
-  masterOf: MasterResolver<R>
+  masterOf: MasterResolver<R>,
+  unitPriceKbn: string
 ): (row: R) => number {
   return (row) => {
     const master = masterOf(row);
     if (!master) return NaN;
-    return deriveExternalUnitPrice(master, UNIT_PRICE_KBN, row.planPrice).value;
+    return deriveExternalUnitPrice(master, unitPriceKbn, row.planPrice).value;
   };
 }
 

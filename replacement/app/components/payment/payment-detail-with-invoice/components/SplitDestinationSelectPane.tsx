@@ -23,8 +23,8 @@ import {
   gridFilterContextMenuItems,
   useGridColumnState,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import type { SplitDestination } from '../../../../constants/additionalEntrySplitMockData';
+} from '@/app/components/grid';
+import type { SplitDestination } from '@/app/types/paymentDetail';
 
 interface SplitDestinationSelectPaneProps {
   // 分割先候補の商流販売店（自部署を除く）
@@ -160,7 +160,11 @@ export function SplitDestinationSelectPane({
   );
 
   const defaultColDef = useMemo<ColDef<SplitDestination>>(
-    () => ({ ...GRID_DEFAULT_COL_DEF, editable: false }),
+    () => ({
+      // 共通の既定（行の型を持たない ColDef）を、この表の行の型の列設定として混ぜる
+      ...(GRID_DEFAULT_COL_DEF as ColDef<SplitDestination>),
+      editable: false,
+    }),
     []
   );
 

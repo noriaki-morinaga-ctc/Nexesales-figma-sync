@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   SEASONAL_INDEX,
-  expandToMonths,
-  shiftMonths,
-  volumeAddRateOf,
   DEFAULT_VOLUME_ADD_RATE,
   ACTUAL_COST_FACTOR,
 } from './aggregationMasterDummy';
+import {
+  expandToMonths,
+  shiftMonths,
+  volumeAddRateOf,
+} from '@/app/utils/sales-plan/common/aggregationMasterDummy';
 
 describe('SEASONAL_INDEX', () => {
   it('12か月分あり、すべて正の数', () => {

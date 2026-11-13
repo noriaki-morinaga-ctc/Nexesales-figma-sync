@@ -32,13 +32,17 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   useChangedCells,
   withComparableCellValues,
-} from '../../../grid';
-import { EXPENSE_MANAGEMENT_CLASS_OPTIONS } from '../../../../constants/expenseRelations';
-import { managementClassCode } from '../../../../constants/paymentComboFieldOptions';
-import { isSplitDestRow } from '../../../../utils/payment/payment-detail/paymentNoLink';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
+} from '@/app/components/grid';
+import { EXPENSE_MANAGEMENT_CLASS_OPTIONS } from '@/app/constants/expenseRelations';
+import { managementClassCode } from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import { isSplitDestRow } from '@/app/components/payment/payment-detail-unlinked/utils';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
+import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
 
 // 自部門の費用負担部署（基本情報カードの申請部署＝SearchPane の APPLICANT_DEPT と同じ）。
 // 分割先の費用負担部署がこれと異なる行を「他部門へ」に計上する。
@@ -129,7 +133,10 @@ export function AggregationPane({
   // 表示単位（円／千円）。金額列のみ千円換算する。
   // 本画面は拡売費のみを扱い金額の桁が自販機より小さいため、既定は円にする
   //（千円だと数百円の管理区分が 0 に丸められて内訳が読めなくなる）。
-  const [displayUnit, setDisplayUnit] = useState<'yen' | 'thousand'>('yen');
+  // 初期表示は千円（支払詳細の各画面で同じ → UI/UX UX-077）
+  const [displayUnit, setDisplayUnit] = useState<'yen' | 'thousand'>(
+    'thousand'
+  );
 
   // カード本体（サマリ表）の縦幅。リサイズハンドルのドラッグで手動調整可能。
   // JS動的値のため inline style を許容する。
@@ -287,7 +294,7 @@ export function AggregationPane({
       amountCol('計画金額', 'planAmount'),
       amountCol('計画差', 'planDifference'),
       {
-        headerName: '計画差異（％）',
+        headerName: '計画差異 (％)',
         field: 'planDifferenceRate',
         ...GRID_NUMBER_TEXT_FILTER,
         width: 104,
@@ -349,14 +356,6 @@ export function AggregationPane({
     []
   );
 
-  // トグルボタンの見た目（選択中＝青地・白文字）。
-  const toggleButtonClass = (selected: boolean): string =>
-    `h-8 px-4 py-1 text-sm font-medium whitespace-nowrap transition-colors ${
-      selected
-        ? 'bg-blue-600 text-white'
-        : 'bg-white text-blue-600 hover:bg-blue-50'
-    }`;
-
   return (
     <CollapsibleCard
       title={<span className={CARD_TITLE_CLASS}>支払情報サマリ</span>}
@@ -367,34 +366,17 @@ export function AggregationPane({
         /* 詳細／分割（IN）／振替（IN） トグル。
            詳細＝管理項目別合計値、分割・振替＝他部門から分割・振替を受けた経費明細
            （受領側であることが分かるよう表示名に「（IN）」を付す）。既定は詳細。 */
-        <div className="flex shrink-0 overflow-hidden rounded-lg border-2 border-blue-600">
-          <button
-            type="button"
-            onClick={() => onSummaryTabChange?.('詳細')}
-            aria-pressed={summaryTab === '詳細'}
-            className={toggleButtonClass(summaryTab === '詳細')}
-          >
-            詳細
-          </button>
-          <div className="w-px bg-blue-600" />
-          <button
-            type="button"
-            onClick={() => onSummaryTabChange?.('分割')}
-            aria-pressed={summaryTab === '分割'}
-            className={toggleButtonClass(summaryTab === '分割')}
-          >
-            分割（IN）
-          </button>
-          <div className="w-px bg-blue-600" />
-          <button
-            type="button"
-            onClick={() => onSummaryTabChange?.('振替')}
-            aria-pressed={summaryTab === '振替'}
-            className={toggleButtonClass(summaryTab === '振替')}
-          >
-            振替（IN）
-          </button>
-        </div>
+        <SegmentToggle
+          ariaLabel="支払情報サマリの表示"
+          className="shrink-0"
+          options={[
+            { value: '詳細', label: '詳細' },
+            { value: '分割', label: '分割（IN）' },
+            { value: '振替', label: '振替（IN）' },
+          ]}
+          value={summaryTab}
+          onChange={(tab) => onSummaryTabChange?.(tab)}
+        />
       }
     >
       <>
@@ -413,32 +395,15 @@ export function AggregationPane({
               <label className="text-sm font-bold whitespace-nowrap text-blue-900">
                 表示単位
               </label>
-              <div className="inline-flex h-8 overflow-hidden rounded-md border border-gray-300">
-                <button
-                  type="button"
-                  onClick={() => setDisplayUnit('yen')}
-                  aria-pressed={displayUnit === 'yen'}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'yen'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  円
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDisplayUnit('thousand')}
-                  aria-pressed={displayUnit === 'thousand'}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'thousand'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  千円
-                </button>
-              </div>
+              <SegmentToggle
+                ariaLabel="表示単位"
+                options={[
+                  { value: 'yen', label: '円' },
+                  { value: 'thousand', label: '千円' },
+                ]}
+                value={displayUnit}
+                onChange={setDisplayUnit}
+              />
             </div>
             <div
               className="jbr-expense-summary-grid"

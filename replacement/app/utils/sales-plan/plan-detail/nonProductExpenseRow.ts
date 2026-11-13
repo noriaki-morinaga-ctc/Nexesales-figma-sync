@@ -1,10 +1,10 @@
 // 拡売費（非商品明細）の行の判定・保存時の後始末（計画詳細・拡売費計画など複数画面で使う）。
 // 型は types/nonProductExpense.ts に置く。
-import { stripCopySource } from '../../common/copySourceMarks';
+import { stripCopySource } from '@/app/utils/common/copySourceMarks';
 import type {
   ChangedCellsClearer,
   NonProductExpenseData,
-} from '../../../types/nonProductExpense';
+} from '@/app/types/nonProductExpense';
 
 // 前年実績に値がある（グリッド表示が「-」以外）か。実績がある行は削除できない。
 // 判定は表示に合わせる：null / undefined / 空文字 / 「-」だけを実績なしとみなし、

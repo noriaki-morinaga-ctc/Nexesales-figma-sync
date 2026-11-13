@@ -1,83 +1,9 @@
-// 商品マスター・サマリ商品ダミーデータ（販売計画表・シミュレーション・拡売費画面 共通）
-// メタブランド／容器容量G／サマリ商品名／一般卸メッシュ等のダミーデータの
-// 単一の情報源（Single Source of Truth）。
-// 各画面（販売計画表・シミュレーション・年間計画・年間集計・拡売費）はこのモジュールを参照する。
-
-// メタブランド・容器容量Gマスターの1件分
-export interface MasterItem {
-  code: string;
-  name: string;
-  value: string;
-}
-
-// 一般卸メッシュの1件分
-export interface WholesaleMeshOption {
-  value: string;
-  metaBrand: string;
-  containerCapacityG: string;
-  quantity: string;
-  currentEstimate: string;
-  currentActual: string;
-  prevYearActual: string;
-  net: string;
-  // 補足2-3の売上原価単価（支社受渡原価）
-  costOfSales: string;
-  // 補足2-2「社外売単価の導出方法」で使うマスタ値
-  seihan: string;
-  itemBaraPrice: string;
-  opeChannel: boolean;
-  opeBaraPrice: string;
-  // 終売区分（NET固定・定番商品で一般卸メッシュ選択時に自動表示。未設定は非終売＝空）
-  endSale?: string;
-}
-
-// サマリ商品名の1件分
-export interface SummaryProductOption {
-  value: string;
-  metaBrand: string;
-  containerCapacityG: string;
-  wholesaleMesh: string;
-  quantity: string;
-  endSale: string;
-  promotion: string;
-  currentEstimate: string;
-  currentActual: string;
-  prevYearActual: string;
-  net: string;
-  deliveryPrice: string;
-  margin: string;
-  price: string;
-  // 補足2-3「売上原価の導出方法」の売上原価単価。
-  // 原価は「実原価」「支社受渡原価」の2軸を権限で切り替えるが（課題#0074）、
-  // 本モックでは支社受渡原価のみを保持する。
-  costOfSales: string;
-  // 飲料商品マスタ_商品生産者バラ価格保証金抜（＝生販）
-  seihan: string;
-  // 補足2-2「社外売単価の導出方法」で使うマスタ値。
-  // 飲料単価マスタ_アイテムバラ保証金抜き単価（空文字＝取得不可）
-  itemBaraPrice: string;
-  // 飲料商品マスタ_オペチャネル
-  opeChannel: boolean;
-  // 飲料商品マスタ_オペレータバラ保証金抜き価格
-  opeBaraPrice: string;
-  profitRate: string;
-  discountRate: string;
-  isNew: boolean;
-  // 発売年月（'YYYY/MM'）。新商品（isNew=true）のみ保持する。
-  // シミュレーションは対象期間が複数月にわたるため、「新商品かどうか」を
-  // 対象年月を基準に判定する（isNewProductAt）。
-  newFrom?: string;
-}
-
-// 拡売費画面のサマリ商品名（指定なし行を含む簡易版）
-export interface ExpenseSummaryProductOption {
-  value: string;
-  label?: string;
-  metaBrand: string;
-  // 容器容量（コンボボックスの2行目「ブランド：容量」表示用）
-  containerCapacityG?: string;
-  isNew: boolean;
-}
+import type {
+  ExpenseSummaryProductOption,
+  MasterItem,
+  SummaryProductOption,
+  WholesaleMeshOption,
+} from '@/app/types/master';
 
 // メタブランドマスター
 // ブランド横断(全商品)は拡売費の既定値のため先頭に置く。
@@ -2005,14 +1931,7 @@ export const SUMMARY_PRODUCT_BY_WHOLESALE_MESH: Map<
 
 // サマリ商品名（value）→ 販売期間（上旬/中旬/下旬）の決定的ダミー導出。
 // マスタに販売期間の実値が無いため、商品名から安定的に割り当てる（明細フォームの自動補完用）。
-const PERIOD_OPTIONS_MASTER = ['上旬', '中旬', '下旬'];
-export const periodFromProductValue = (value: string): string => {
-  const s = String(value ?? '');
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return PERIOD_OPTIONS_MASTER[Math.abs(h) % PERIOD_OPTIONS_MASTER.length];
-};
-
+export const PERIOD_OPTIONS_MASTER = ['上旬', '中旬', '下旬'];
 // 拡売費画面のサマリ商品名
 export const EXPENSE_SUMMARY_PRODUCT_OPTIONS: ExpenseSummaryProductOption[] = [
   {
@@ -2119,21 +2038,6 @@ export const EXPENSE_SUMMARY_PRODUCT_OPTIONS: ExpenseSummaryProductOption[] = [
   },
 ];
 
-// 一般卸メッシュの候補（SingleCombobox用）。編集/コピーで選択済みの値（ギフト等マスタ未登録）が
-// 候補に無い場合でもフォームに表示できるよう、先頭へ補完する。
-export const wholesaleMeshOptions = (
-  selected: string
-): { value: string; label: string }[] => {
-  const base = WHOLESALE_MESH_OPTIONS.map((o) => ({
-    value: o.value,
-    label: o.value,
-  }));
-  if (selected && !base.some((o) => o.value === selected)) {
-    return [{ value: selected, label: selected }, ...base];
-  }
-  return base;
-};
-
 // ── 新商品判定（対象年月基準） ────────────────────────────────
 // 新商品に該当するかは基準となる年月で変わるため、発売年月（newFrom）から判定する。
 // 計画詳細は基本情報の対象年月、シミュレーションは明細ごとに選択した対象年月が基準。
@@ -2141,23 +2045,3 @@ export const wholesaleMeshOptions = (
 //
 // 新商品として扱う期間は発売年月から 12 か月（発売月を含む）。
 export const NEW_PRODUCT_MONTHS = 12;
-
-// 'YYYY/MM' を比較用の通し月数へ変換（不正値は null）。
-const monthIndexOf = (yearMonth?: string): number | null => {
-  const matched = String(yearMonth ?? '').match(/(\d{4})[/-](\d{1,2})/);
-  if (!matched) return null;
-  return Number(matched[1]) * 12 + Number(matched[2]);
-};
-
-// 指定した対象年月の時点で新商品に該当するか。
-// 対象年月が未指定・発売年月を持たない商品は、マスタの isNew をそのまま返す。
-export function isNewProductAt(
-  product: { isNew: boolean; newFrom?: string },
-  targetYearMonth?: string
-): boolean {
-  if (!product.isNew) return false;
-  const from = monthIndexOf(product.newFrom);
-  const target = monthIndexOf(targetYearMonth);
-  if (from === null || target === null) return product.isNew;
-  return target >= from && target < from + NEW_PRODUCT_MONTHS;
-}

@@ -82,7 +82,7 @@ export interface ProductData {
   exp1ManagementClass: string;
   exp1CampaignClass?: string;
   exp1CampaignCode?: string;
-  exp1Description: string; // 摘要1(社内用)
+  exp1Description: string; // 摘要1（社内用）
   exp1Creator?: string; // 作成者（行追加・コピー時にログインユーザー名を自動設定。編集不可）
   exp2PlannedAmount: string;
   exp2PostingMonth: string;
@@ -91,6 +91,6 @@ export interface ProductData {
   exp2ManagementClass: string;
   exp2CampaignClass?: string;
   exp2CampaignCode?: string;
-  exp2Description: string; // 摘要1(社内用)
+  exp2Description: string; // 摘要1（社内用）
   exp2Creator?: string; // 作成者（行追加・コピー時にログインユーザー名を自動設定。編集不可）
 }

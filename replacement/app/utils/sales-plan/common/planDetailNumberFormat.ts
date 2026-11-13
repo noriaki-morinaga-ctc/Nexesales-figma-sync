@@ -19,7 +19,7 @@ import type {
 import {
   GRID_EMPTY_TEXT,
   parseFormulaNumber,
-} from '../../../components/grid/gridCommon';
+} from '@/app/components/grid/gridCommon';
 
 // 販売計画(詳細)の項目別 小数桁（画面間で同じ値を使うため定数で共有する）。
 export const PLAN_DETAIL_DIGITS = {

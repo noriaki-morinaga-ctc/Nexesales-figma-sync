@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { PAYMENT_ORG_COMBOS } from './paymentOrgCascade';
 import {
-  PAYMENT_ORG_COMBOS,
   storesForDept,
   deptOptionsFor,
   staffOptionsFor,
   applyOrgCascade,
   applyStoreOrgCascade,
   ownerOrgOf,
-  type PaymentOrgCombo,
-} from './paymentOrgCascade';
+} from '@/app/utils/payment/payment-detail/paymentOrgCascade';
+import type { PaymentOrgCombo } from '@/app/types/organization';
 import { STORE_HIERARCHY, STORE_NONE } from './storeHierarchy';
 
 // 実データ（PAYMENT_ORG_COMBOS）は 販売店:部署 = N:1、部署:担当者 = 1:1 のため、

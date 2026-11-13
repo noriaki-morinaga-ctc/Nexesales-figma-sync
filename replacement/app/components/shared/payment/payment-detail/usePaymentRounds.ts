@@ -9,7 +9,7 @@
 // 回ごとの初期データ（引用した明細・空の明細など）は画面ごとに持ち方が異なるため
 // 本フックでは保持しない。回が増えたことは onRoundAdded で呼び出し側へ通知する。
 import { useState } from 'react';
-import type { PendingPaymentRound } from '../../../../types/paymentDetail';
+import type { PendingPaymentRound } from '@/app/types/paymentDetail';
 
 interface UsePaymentRoundsOptions {
   // 支払回数の選択肢の初期値（既存の回）。

@@ -9,12 +9,7 @@
 // 率どうしの加算（salesDiscount.rate）のように親に相当が無いものだけ `.rate` の子を指す。
 // 集計値の算出元は販売計画(詳細)・拡売費計画のグリッド行（utils/sales-plan/plan-detail/planGridToAggregation・
 // utils/sales-plan/plan-detail/expenseGridToAggregation が集計ソースへ変換する）。
-import type { FormulaTemplate } from '../components/grid/gridCommon';
-
-export interface AggFormula extends FormulaTemplate {
-  // ハイライト対象のツリーノードキー（＝ template 中の {key} の重複を除いたもの）。
-  refKeys: string[];
-}
+import type { AggFormula } from '@/app/types/aggregation';
 
 // 画面外の算出元だけで構成される式（実値行なし・ハイライトなし）。
 const external = (template: string): AggFormula => ({

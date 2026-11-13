@@ -1,11 +1,4 @@
-﻿import {
-  Search,
-  SquarePen,
-  Trash2,
-  Save,
-  Upload,
-  Download,
-} from 'lucide-react';
+﻿import { Search, SquarePen, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import 'ag-grid-enterprise';
 import { AgGridReact } from 'ag-grid-react';
@@ -16,16 +9,14 @@ import type {
 } from 'ag-grid-community';
 import { toast } from 'sonner';
 
-import { CopyableArea } from '../../ui/copyable-area';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { Button } from '@/app/components/ui/button';
 import {
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
-  TEXT_INPUT_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -34,32 +25,22 @@ import {
   gridFilterContextMenuItems,
   useGridColumnState,
   GRID_MONTH_TEXT_FILTER,
-} from '../../grid';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
-import { Label } from '../../ui/label';
-import { Checkbox } from '../../ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { summaryProductComboOptions } from '../../../constants/comboFieldOptions';
-import { RequiredBadge } from '../../ui/required-badge';
-import { RightPane } from '../../ui/right-pane';
-import { DeleteConfirmPane } from '../../ui/delete-confirm-pane';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/app/components/grid';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { Label } from '@/app/components/ui/label';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { summaryProductComboOptions } from '@/app/constants/comboFieldOptions';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryValue,
-} from '../../ui/search-summary';
-import { ScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
+} from '@/app/components/ui/search-summary';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface ProductTargetData {
   id: string;
@@ -70,10 +51,6 @@ interface ProductTargetData {
   targetStartMonth: string;
   targetEndMonth: string;
   targetArea: string;
-}
-
-interface ManagedProductListProps {
-  onMenuChange?: (menuId: string) => void;
 }
 
 // 一覧グリッドの行ID（→ 画面設計標準 4.7）。サンプルデータの id、新規登録行は登録時に採番した id を使う
@@ -1152,34 +1129,6 @@ const isAreaOverlapped = (areaA: string, areaB: string): boolean => {
   return areasA.some((area) => areasB.includes(area));
 };
 
-// 管理対象エリアセルレンダラー
-const AreaCellRenderer = (props: ICellRendererParams) => {
-  if (!props.data) return null;
-
-  const areas = props.data.targetArea.split(', ');
-  const isNationwide = areas.includes('全国');
-
-  if (isNationwide) {
-    return <div className="flex items-center">全国</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1 w-full">
-      <div className="flex items-center gap-1">
-        <span>エリア</span>
-      </div>
-      <div className="pl-5 text-sm text-gray-600 space-y-0.5">
-        {areas.map((area, index) => (
-          <div key={index} className="flex items-center gap-1">
-            <span className="text-gray-400">└</span>
-            <span>{area}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // アクションセルレンダラー
 const ActionsCellRenderer = (props: ICellRendererParams) => {
   const { onEditRow, onDeleteRow } = props.context;
@@ -1239,9 +1188,7 @@ const INITIAL_SEARCH_FILTERS = {
   endMonth: '',
 };
 
-export default function ManagedProductList({
-  onMenuChange,
-}: ManagedProductListProps) {
+export default function ManagedProductList() {
   // 検索条件の状態管理。計画一覧・計画一覧(管理対象商品)と同様にリアルタイム検索とし、
   // この状態を直接 filteredData のフィルタ条件に用いる（検索ボタンは廃止）。
   const [productCategory, setProductCategory] = useState(
@@ -1269,15 +1216,8 @@ export default function ManagedProductList({
 
   // 右ペインとダイアログの状態管理
   const [isPaneOpen, setIsPaneOpen] = useState(false);
-  // 削除確認は計画詳細(マージン率固定・NET入力)の明細削除と同様に右ペインで行う
-  const [isDeletePaneOpen, setIsDeletePaneOpen] = useState(false);
-  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [paneMode, setPaneMode] = useState<'create' | 'edit'>('create');
   const [selectedData, setSelectedData] = useState<ProductTargetData | null>(
-    null
-  );
-  const [deleteTarget, setDeleteTarget] = useState<ProductTargetData | null>(
     null
   );
 
@@ -1441,6 +1381,8 @@ export default function ManagedProductList({
       },
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'actions',
         width: 64,
         pinned: 'right',
@@ -1461,7 +1403,10 @@ export default function ManagedProductList({
   // 画面独自の cellStyle で上書きしない（画面設計標準）。
   // ※ ヘッダーのフィルター／列メニューボタン非表示・セル値ツールチップは
   //   GRID_DEFAULT_COL_DEF に内包（フィルターは右クリックメニューから開く）。
-  const defaultColDef = useMemo(() => ({ ...GRID_DEFAULT_COL_DEF }), []);
+  const defaultColDef = useMemo(
+    () => ({ ...GRID_DEFAULT_COL_DEF }) as ColDef<ProductTargetData>,
+    []
+  );
 
   // 列状態（列幅・並び順・ソート等）を localStorage へ保存／復元する（共通フック）。
   // 列を flex 化した際にキーを更新している。旧キーのまま流用すると、保存済みの
@@ -1492,45 +1437,18 @@ export default function ManagedProductList({
     });
     setPaneMode('edit');
     // 削除ペインが開いていれば閉じる（右ペインは同時に1つだけ）
-    setIsDeletePaneOpen(false);
     setIsPaneOpen(true);
   };
 
   // 右ペインは同時に1つだけ開く（計画詳細(マージン率固定・NET入力)と同方針）
   const closeAllRightPanes = () => {
     setIsPaneOpen(false);
-    setIsDeletePaneOpen(false);
   };
 
-  // 削除クリックハンドラ。計画詳細(マージン率固定・NET入力)の明細削除と同様に、
-  // 同じ行の削除アイコンを再押下したら閉じ、別の行なら対象を差し替えて開き直す。
+  // 削除する（確認は出さず、削除したことをトーストで知らせる → 02 §5）
   const handleDeleteClick = (data: ProductTargetData) => {
-    const isSameRowOpen = isDeletePaneOpen && deleteTarget?.id === data.id;
-    closeAllRightPanes();
-    if (isSameRowOpen) return;
-    setDeleteTarget(data);
-    setIsDeletePaneOpen(true);
-  };
-
-  // 削除実行ハンドラ
-  const handleDelete = () => {
-    if (deleteTarget) {
-      setRowData(rowData.filter((row) => row.id !== deleteTarget.id));
-      setDeleteTarget(null);
-      toast.success('データを削除しました');
-    }
-    setIsDeletePaneOpen(false);
-  };
-
-  // 右クリック時に行を選択するハンドラ
-  const handleCellContextMenu = (event: any) => {
-    const clickedNode = event.node;
-    if (clickedNode && event.api) {
-      // 既存の選択を解除
-      event.api.deselectAll();
-      // 右クリックした行を選択
-      clickedNode.setSelected(true);
-    }
+    setRowData((prev) => prev.filter((row) => row.id !== data.id));
+    toast.success('データを削除しました');
   };
 
   // 新規登録ハンドラ
@@ -1539,7 +1457,6 @@ export default function ManagedProductList({
     setFormData({ ...EMPTY_TARGET_FORM });
     setPaneMode('create');
     // 削除ペインが開いていれば閉じる（右ペインは同時に1つだけ）
-    setIsDeletePaneOpen(false);
     setIsPaneOpen(true);
   };
 
@@ -1678,27 +1595,6 @@ export default function ManagedProductList({
         targetArea: formData.targetArea.filter((a) => a !== area),
       });
     }
-  };
-
-  // インポートボタンハンドラ：ファイル選択ダイアログを開く
-  const handleImport = () => {
-    setIsImportDialogOpen(true);
-  };
-
-  // エクスポート機能は未実装。出力対象は rowData（管理対象商品）。
-  // 計画詳細(マージン率固定・NET入力)の handleExport と同方針。
-  const handleExport = () => {
-    // TODO: 管理対象商品のExcel出力実装時に rowData を渡して出力する
-  };
-
-  // 登録ボタンハンドラ
-  const handleRegister = () => {
-    setIsRegisterDialogOpen(true);
-  };
-
-  const handleRegisterConfirm = () => {
-    toast.success('データを登録しました');
-    setIsRegisterDialogOpen(false);
   };
 
   return (
@@ -2213,84 +2109,6 @@ export default function ManagedProductList({
           </div>
         </div>
       </RightPane>
-
-      {/* 右ペイン：削除確認（共通部品 DeleteConfirmPane）。
-          ダイアログと異なりモーダルではないため、表示中も一覧を参照・操作できる。 */}
-      <DeleteConfirmPane
-        open={isDeletePaneOpen}
-        onClose={() => setIsDeletePaneOpen(false)}
-        title="管理対象商品削除"
-        description="管理対象商品を削除します"
-        message="以下の管理対象商品を削除してもよろしいですか？この操作は取り消せません。"
-        items={[
-          { label: '商品区分', value: deleteTarget?.productCategory },
-          { label: 'サマリ商品', value: deleteTarget?.summaryProduct },
-          { label: '参考商品', value: deleteTarget?.referenceProduct },
-          {
-            label: '管理対象期間',
-            value: `${deleteTarget?.targetStartMonth}～${deleteTarget?.targetEndMonth}`,
-          },
-          { label: '管理対象エリア', value: deleteTarget?.targetArea },
-        ]}
-        onDelete={handleDelete}
-      />
-
-      {/* 管理対象商品インポートダイアログ
-          （計画詳細(マージン率固定・NET入力)の計画書インポートと同構成） */}
-      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>管理対象商品インポート</DialogTitle>
-            <DialogDescription>
-              管理対象商品のExcelファイルをアップロードします。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right col-span-4">
-                アップロードファイル
-              </Label>
-              <Input
-                type="file"
-                className={`${TEXT_INPUT_CLASS} col-span-4`}
-                accept=".xlsx"
-              />
-            </div>
-            <div className="text-sm text-gray-500 col-span-4">
-              ファイル形式: 管理対象商品_yyyyMMddHHmmss.xlsx
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setIsImportDialogOpen(false)}>
-              <Upload className="h-4 w-4" />
-              管理対象商品インポート
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 登録確認ダイアログ */}
-      <ConfirmDialog
-        open={isRegisterDialogOpen}
-        onOpenChange={setIsRegisterDialogOpen}
-        title="登録の確認"
-        description={
-          <>
-            以下の管理対象商品を登録してもよろしいですか？
-            <div className="mt-4 text-gray-900 space-y-1">
-              {rowData.slice(0, 3).map((row) => (
-                <div key={row.id}>
-                  サマリ商品名：{row.summaryProduct}
-                  {'　'}&emsp;管理対象期間：{row.targetStartMonth}~
-                  {row.targetEndMonth}
-                </div>
-              ))}
-            </div>
-          </>
-        }
-        confirmLabel="登録"
-        onConfirm={handleRegisterConfirm}
-      />
     </div>
   );
 }

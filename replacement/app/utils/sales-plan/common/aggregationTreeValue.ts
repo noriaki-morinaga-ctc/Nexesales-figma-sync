@@ -5,8 +5,8 @@
 //
 // 予算・前年は係数（RATE_SETTINGS）で導出し、比率は 補足3-1 準拠（計画/予算*100・計画/前年*100）。
 import type { AggAmounts } from './aggregationCalc';
-import { RATE_SETTINGS } from '../../../constants/aggregationSourceData';
-import type { AggTreeNodeRef } from '../../../constants/aggregationTree';
+import { RATE_SETTINGS } from '@/app/constants/aggregationSourceData';
+import type { AggTreeNodeRef } from '@/app/types/aggregation';
 import { PLAN_DETAIL_DIGITS, formatPlanRate } from './planDetailNumberFormat';
 
 export interface ItemValue {

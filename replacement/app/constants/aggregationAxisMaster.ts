@@ -3,15 +3,8 @@
 // 各集計画面（販売計画(集計)・年間集計・シミュレーション集計）はこのモジュールを参照する。
 // 旧「一般卸メッシュ」「サマリ商品」は集計単位から削除済み（資料 mst シート準拠）。
 
-import type { MultiComboboxOption } from '../components/ui/multi-combobox';
-
-// 集計単位の種別（全体／メタブランド／容器容量G のみ）
-export type AggregationUnit = 'all' | 'meta-brand' | 'container-capacity';
-
-export interface AggregationUnitOption {
-  value: AggregationUnit;
-  label: string;
-}
+import type { MultiComboboxOption } from '@/app/components/ui/multi-combobox';
+import type { AggregationUnitOption } from '@/app/types/aggregation';
 
 export const AGGREGATION_UNIT_OPTIONS: AggregationUnitOption[] = [
   { value: 'all', label: '全体' },
@@ -54,10 +47,3 @@ export const CONTAINER_CAPACITY_OPTIONS: MultiComboboxOption[] = [
   { label: 'Lパック', value: 'Lパック', code: 'CG010' },
   { label: 'ギフト', value: 'ギフト', code: 'CG011' },
 ];
-
-// value（名称）からコードを引く補助
-export const getMetaBrandCode = (value: string): string | undefined =>
-  META_BRAND_OPTIONS.find((o) => o.value === value)?.code;
-
-export const getContainerCapacityCode = (value: string): string | undefined =>
-  CONTAINER_CAPACITY_OPTIONS.find((o) => o.value === value)?.code;

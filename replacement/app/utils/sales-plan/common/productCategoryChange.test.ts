@@ -3,6 +3,7 @@ import {
   GIFT_PERIODS,
   promotionForCategory,
   buildCategoryChangeRows,
+  type CategoryChangeRow,
 } from './productCategoryChange';
 
 // テスト用の採番（決定的な値を返す）。
@@ -30,7 +31,7 @@ describe('promotionForCategory', () => {
 });
 
 describe('buildCategoryChangeRows', () => {
-  const singleRow = {
+  const singleRow: CategoryChangeRow & { summaryProduct: string } = {
     id: 'reg-1',
     section: '定番商品',
     productCategory: '定番商品',

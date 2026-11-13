@@ -12,12 +12,12 @@
 // ロケ補填・拡売費(固定費)・自販機関連費は、明細の拡売費①②（変更前の計画金額）を管理区分で振り分ける
 // （計画詳細は拡売費計画タブの行を utils/sales-plan/plan-detail/expenseGridToAggregation で同じく管理区分により振り分ける）。
 // 売上連動拡売費は計画詳細と同じく管理利益額の計算に含めない（売上値引として別集計される項目）。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
-import { isPBProduct } from '../../../constants/aggregationAxisMapping';
-import { DEFAULT_COMMON_RATE_SETTINGS } from '../../../constants/commonRateSettings';
-import { managementClassFromCode } from '../../../constants/expenseRelations';
-import { computeCommonRateAmount } from '../common/commonRateAmounts';
-import type { PlanPattern } from '../common/conditionUnitPrice';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
+import { isPBProduct } from '@/app/utils/sales-plan/common/aggregationAxisMapping';
+import { DEFAULT_COMMON_RATE_SETTINGS } from '@/app/constants/commonRateSettings';
+import { managementClassFromCode } from '@/app/utils/common/expenseRelations';
+import { computeCommonRateAmount } from '@/app/utils/sales-plan/common/commonRateAmounts';
+import type { PlanPattern } from '@/app/utils/sales-plan/common/conditionUnitPrice';
 import {
   simulationSalesOf,
   type SimulationSalesAmounts,

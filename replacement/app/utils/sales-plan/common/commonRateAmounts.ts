@@ -5,10 +5,7 @@
 //   直接入力  ：入力値(金額)                              ※集計を行わない
 //
 // PB商品を除く／含むの選択は率で算出する場合のみ用いる（T5-01 補足）。
-import type {
-  CommonRateSetting,
-  CommonRateBase,
-} from '../../../constants/commonRateSettings';
+import type { CommonRateSetting, CommonRateBase } from '@/app/types/master';
 
 export function computeCommonRateAmount(
   setting: CommonRateSetting,

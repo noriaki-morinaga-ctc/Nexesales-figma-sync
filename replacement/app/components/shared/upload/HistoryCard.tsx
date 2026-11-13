@@ -14,7 +14,7 @@ import {
   GRID_STATUS_BAR,
   useGridColumnState,
   GRID_DATE_TEXT_FILTER,
-} from '../../grid';
+} from '@/app/components/grid';
 import type { UploadResultItem } from './uploadTypes';
 import { formatDateTime } from './uploadUtils';
 import {
@@ -99,49 +99,53 @@ export function HistoryCard<T extends UploadHistoryBase>({
         // 先頭データ列用の ag-cell-left で左寄せに戻す
         cellClass: 'ag-cell-left',
       },
-      {
-        field: 'uploadedAt',
-        ...GRID_DATE_TEXT_FILTER,
-        headerName: '登録日時',
-        width: 128,
-        valueFormatter: (params: ValueFormatterParams<T>) =>
-          formatDateTime(params.value ?? ''),
-        cellClass: 'cell-left',
-      },
-      {
-        field: 'uploadTargetName',
-        headerName: 'アップロード対象',
-        width: 144,
-        cellClass: 'cell-left',
-      },
-      {
-        field: 'fileName',
-        headerName: 'ファイル名',
-        flex: 1,
-        suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
-        minWidth: 160,
-        cellClass: 'cell-left',
-      },
-      {
-        field: 'uploadedBy',
-        headerName: '登録者',
-        width: 112,
-        cellClass: 'cell-left',
-      },
-      {
-        field: 'status',
-        headerName: 'ステータス',
-        width: 112,
-        cellRenderer: StatusCellRenderer,
-        cellClass: 'cell-center',
-      },
-      {
-        field: 'errorCount',
-        headerName: 'エラー件数',
-        width: 96,
-        valueFormatter: formatErrorCount,
-        cellClass: 'cell-right',
-      },
+      // 履歴の共通の列。T は UploadHistoryBase を広げた型で、AG Grid の field の型は T の項目名に限られるため、
+      // 共通の項目だけを持つ ColDef<UploadHistoryBase> で書いて T の列として並べる
+      ...([
+        {
+          field: 'uploadedAt',
+          ...GRID_DATE_TEXT_FILTER,
+          headerName: '登録日時',
+          width: 128,
+          valueFormatter: (params: ValueFormatterParams<UploadHistoryBase>) =>
+            formatDateTime(params.value ?? ''),
+          cellClass: 'cell-left',
+        },
+        {
+          field: 'uploadTargetName',
+          headerName: 'アップロード対象',
+          width: 144,
+          cellClass: 'cell-left',
+        },
+        {
+          field: 'fileName',
+          headerName: 'ファイル名',
+          flex: 1,
+          suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
+          minWidth: 160,
+          cellClass: 'cell-left',
+        },
+        {
+          field: 'uploadedBy',
+          headerName: '登録者',
+          width: 112,
+          cellClass: 'cell-left',
+        },
+        {
+          field: 'status',
+          headerName: 'ステータス',
+          width: 112,
+          cellRenderer: StatusCellRenderer,
+          cellClass: 'cell-center',
+        },
+        {
+          field: 'errorCount',
+          headerName: 'エラー件数',
+          width: 96,
+          valueFormatter: formatErrorCount,
+          cellClass: 'cell-right',
+        },
+      ] as ColDef<UploadHistoryBase>[] as unknown as ColDef<T>[]),
     ],
     [targetColumnDef]
   );

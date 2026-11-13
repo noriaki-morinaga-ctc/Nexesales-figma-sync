@@ -15,17 +15,17 @@ import type {
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
 import { Search, Clock, CheckCircle, Plus, Trash2 } from 'lucide-react';
-import { SearchRangeField } from '../../ui/search-range-field';
-import { CopyableArea } from '../../ui/copyable-area';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
-} from '../../ui/search-summary';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { SingleCombobox } from '../../ui/single-combobox';
+} from '@/app/components/ui/search-summary';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -35,24 +35,26 @@ import {
   gridFilterContextMenuItems,
   GRID_DATE_TEXT_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../grid';
+} from '@/app/components/grid';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
-  SEARCH_GRID_CLASS,
-  SEARCH_LABEL_CLASS,
-} from '../../../../styles/commonStyles';
+  FIT_CELL_CLASS,
+  FIT_GRID_CLASS,
+  FIT_LABEL_CLASS,
+} from '@/styles/commonStyles';
+import { BILLING_LIST } from '@/mocks/common/billing';
 import {
-  BILLING_LIST,
   BILLING_STATUS_OPTIONS,
-  BILLING_PROVIDER_OPTIONS,
   BILLING_DATA_SOURCE_OPTIONS,
+} from '@/app/components/payment/billing-list/constants';
+import {
+  BILLING_PROVIDER_OPTIONS,
   billingCompanyOptionsOf,
   billingOfficeOptionsOf,
-  type BillingRow,
-  type BillingStatus,
-} from '../../../constants/billingMockData';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/mocks/payment/billing-list';
+import type { BillingRow, BillingStatus } from '@/app/types/billing';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface BillingListProps {
   // 行の「入力」ボタン／行ダブルクリックで請求詳細を開く
@@ -281,6 +283,8 @@ export default function BillingList({
     () => [
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'entryAction',
         cellRenderer: DetailButtonRenderer,
         sortable: false,
@@ -426,13 +430,13 @@ export default function BillingList({
     onChange: (value: string) => void,
     options: readonly string[]
   ) => (
-    <div className="flex items-center gap-2">
-      <label htmlFor={id} className={SEARCH_LABEL_CLASS}>
+    <div className={FIT_CELL_CLASS}>
+      <label htmlFor={id} className={FIT_LABEL_CLASS}>
         {label}
       </label>
       <SingleCombobox
         id={id}
-        className="flex-1 min-w-0"
+        className="min-w-0"
         options={options.map((option) => ({ value: option, label: option }))}
         value={value}
         onChange={onChange}
@@ -455,11 +459,11 @@ export default function BillingList({
     // 値は選択肢ごとに一意な文字列（企業＝コード、事業所＝名称）
     options: { value: string; label: string; code?: string }[]
   ) => (
-    <div className="flex items-center gap-2">
-      <label htmlFor={id} className={SEARCH_LABEL_CLASS}>
+    <div className={FIT_CELL_CLASS}>
+      <label htmlFor={id} className={FIT_LABEL_CLASS}>
         {label}
       </label>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <SingleCombobox
           id={id}
           value={value}
@@ -498,9 +502,10 @@ export default function BillingList({
             collapsedSummary={searchSummary}
           >
             <div className="px-4 py-1.5">
-              {/* 一覧画面の検索条件は全画面共通の5列（→ 05 一覧画面の検索条件）。並びは一覧の列順。
-                  受付日時（範囲指定）は2列分を使う */}
-              <div className={SEARCH_GRID_CLASS}>
+              {/* 一覧画面の検索条件は5列（→ 05）。並びは一覧の列順。受付日時（範囲指定）は開始～終了をセットで1項目分に置く。
+                  「請求元企業事業所」が 5.625rem に収まらないため、項目名の列をその列で一番長い項目名の幅に
+                  合わせる並び（FIT_GRID_CLASS → 05「ラベルが幅に収まらない画面」）にする */}
+              <div className={`${FIT_GRID_CLASS} gap-y-2.5`}>
                 {/* 年月日（YYYY/MM/DD）のカレンダーピッカーで範囲指定する。
                     未設定時は 'YYYY/MM/DD' のプレースホルダを表示し、絞り込みを行わない。
                     ピッカー自身が aria-label を持つため、開始・終了それぞれに項目名を渡す。
@@ -508,12 +513,15 @@ export default function BillingList({
                     （範囲外の年・月・日はカレンダー上で選択不可になる）。
                     片方が未設定（空文字）のときは上限・下限なしとして扱われる。 */}
                 <SearchRangeField
+                  fit
+                  wide
                   label="受付日時"
                   htmlFor="billing-received-from"
                   groupLabel="検索受付日時の範囲"
                   start={
                     <DateMonthYearPicker
                       className="w-full"
+                      compact
                       id="billing-received-from"
                       ariaLabel="受付日時（開始）"
                       value={criteria.receivedFrom}
@@ -530,6 +538,7 @@ export default function BillingList({
                   end={
                     <DateMonthYearPicker
                       className="w-full"
+                      compact
                       ariaLabel="受付日時（終了）"
                       value={criteria.receivedTo}
                       min={criteria.receivedFrom}

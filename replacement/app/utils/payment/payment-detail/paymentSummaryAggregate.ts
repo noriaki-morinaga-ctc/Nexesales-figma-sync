@@ -16,7 +16,7 @@
 // 拡売費の枝番行（分割先）は金額が親行の内訳のため含めない（合計表と同じ）。
 //
 // 実販函数・納品金額・社外売上高（実販FACT）は本画面の明細からは集計しない。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
 import {
   roundHalfAway,
   sumSplitOut,

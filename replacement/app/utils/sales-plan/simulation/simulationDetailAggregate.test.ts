@@ -3,6 +3,7 @@ import {
   aggregateSimulationDetail,
   isAOnlyPromoTarget,
 } from './simulationDetailAggregate';
+import { SIMULATION_RATIOS } from '@/mocks/common/aggregationSource';
 
 const SEL = { fixed: true, a: false, b: false, c: false };
 const ROW = {
@@ -17,12 +18,16 @@ const ROW = {
 
 describe('aggregateSimulationDetail（A口のみ集計）', () => {
   it('① オプション省略時は拡売費①②を全額集計する（従来どおり）', () => {
-    expect(aggregateSimulationDetail([ROW], SEL).promo).toBeCloseTo(1500);
+    expect(
+      aggregateSimulationDetail([ROW], SEL, SIMULATION_RATIOS).promo
+    ).toBeCloseTo(1500);
   });
 
   it('② A口のみ集計では対象の管理区分の金額だけを集計する', () => {
     expect(
-      aggregateSimulationDetail([ROW], SEL, { aOnlyPromo: true }).promo
+      aggregateSimulationDetail([ROW], SEL, SIMULATION_RATIOS, {
+        aOnlyPromo: true,
+      }).promo
     ).toBeCloseTo(1000);
   });
 
@@ -33,13 +38,17 @@ describe('aggregateSimulationDetail（A口のみ集計）', () => {
       exp2ManagementCode: 'FA001',
     };
     expect(
-      aggregateSimulationDetail([row], SEL, { aOnlyPromo: true }).promo
+      aggregateSimulationDetail([row], SEL, SIMULATION_RATIOS, {
+        aOnlyPromo: true,
+      }).promo
     ).toBeCloseTo(1500);
   });
 
   it('④ A口のみ集計では、除いた拡売費の分だけ管理利益が増える', () => {
-    const all = aggregateSimulationDetail([ROW], SEL);
-    const aOnly = aggregateSimulationDetail([ROW], SEL, { aOnlyPromo: true });
+    const all = aggregateSimulationDetail([ROW], SEL, SIMULATION_RATIOS);
+    const aOnly = aggregateSimulationDetail([ROW], SEL, SIMULATION_RATIOS, {
+      aOnlyPromo: true,
+    });
     expect(aOnly.mgmtProfit - all.mgmtProfit).toBeGreaterThan(0);
   });
 

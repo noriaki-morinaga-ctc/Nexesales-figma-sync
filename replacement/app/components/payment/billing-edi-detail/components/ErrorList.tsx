@@ -12,21 +12,19 @@ import {
   gridFilterContextMenuItems,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
-import {
-  ASSIGN_OPTIONS,
-  ASSIGN_TARGET_BY_FIELD,
-} from '../../../../constants/billingEdiMockData';
+} from '@/app/components/grid';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
+import { ASSIGN_OPTIONS } from '@/mocks/common/billingEdi';
+import { ASSIGN_TARGET_BY_FIELD } from '@/app/constants/billingEdi';
 import type {
   BillingEdiDetailRow,
   BillingEdiErrorSummary,
-} from '../../../../constants/billingEdiMockData';
+} from '@/app/types/billingEdi';
 import {
   formatTargetOffices,
   targetCountOf,
   targetOfficesOf,
-} from '../../../../utils/payment/billing/billingEdiImport';
+} from '@/app/utils/payment/billing/billingEdiImport';
 
 // 変換後の値の表示文言（コードから選択肢のラベルを引く）
 const assignedLabel = (summary: BillingEdiErrorSummary): string => {
@@ -178,6 +176,7 @@ export function ErrorList({
         field: 'assignedValue',
         width: 176,
         cellClass: 'cell-left',
+        // 規約例外（変更ハイライトなし）：変換後の値は入力するとすぐ登録され（onAssign）、保存前の差分が無いため
         editable: (params) =>
           !!params.data &&
           params.data.category === '変換マスタ未登録' &&

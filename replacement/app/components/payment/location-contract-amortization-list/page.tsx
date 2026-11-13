@@ -6,8 +6,6 @@ import {
   Undo2,
   CheckCircle,
   Search,
-  CalendarIcon,
-  X,
   Check,
   Stamp,
   Send,
@@ -19,23 +17,21 @@ import { useState, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { CustomCellRendererProps } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
-import { format, parse } from 'date-fns';
-import { ja } from 'date-fns/locale';
 
-import { SearchRangeField } from '../../ui/search-range-field';
-import { CopyableArea } from '../../ui/copyable-area';
-import { Button } from '../../ui/button';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { Button } from '@/app/components/ui/button';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../ui/single-combobox';
-import { MultiCombobox } from '../../ui/multi-combobox';
+} from '@/app/components/ui/single-combobox';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
 import {
   useOrgCascadeSearch,
   toOrgComboOptions,
-} from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
-import type { OrgLevel } from '../../../constants/orgHierarchy';
+} from '@/app/components/ui/use-org-cascade-search';
+import type { OrgCascadeConfig } from '@/app/utils/common/orgCascade';
+import type { OrgLevel } from '@/app/types/organization';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -46,22 +42,25 @@ import {
   GRID_EMPTY_TEXT,
   formatEmptyAsDash,
   StatusIconCellRenderer,
-} from '../../grid';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { Calendar } from '../../ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
-import { Input } from '../../ui/input';
-import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
-import { Label } from '../../ui/label';
-import { RightPane } from '../../ui/right-pane';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/app/components/grid';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { Input } from '@/app/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { Label } from '@/app/components/ui/label';
+import { RightPane } from '@/app/components/ui/right-pane';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
   formatSummaryValue,
-} from '../../ui/search-summary';
+} from '@/app/components/ui/search-summary';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
@@ -69,8 +68,10 @@ import {
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
   TEXT_INPUT_CLASS,
-} from '../../../../styles/commonStyles';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/styles/commonStyles';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // 検索条件の初期値（クリアボタンで戻す値）
 const INITIAL_ACCRUAL_DATE_START = '2026/01/01';
@@ -96,7 +97,7 @@ const INITIAL_APPLICANT_ORG: Partial<Record<OrgLevel, string[]>> = {
 const INITIAL_RETAILER = '';
 const INITIAL_TERTIARY_STORE = '';
 const INITIAL_PRIMARY_STORE = '';
-// 摘要１(社内用)はキーワード入力のため空文字が初期値。
+// 摘要1（社内用）はキーワード入力のため空文字が初期値。
 const INITIAL_NOTE1 = '';
 
 // 事業場・部署・営業担当者／申請事業場・申請部署・申請者は複数選択で、
@@ -106,6 +107,7 @@ const INITIAL_NOTE1 = '';
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '営業担当者' },
+  units: { salesRep: '名' },
 };
 const APPLICANT_ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
@@ -114,6 +116,7 @@ const APPLICANT_ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     department: '申請部署',
     salesRep: '申請者',
   },
+  units: { salesRep: '名' },
 };
 
 // 販売店・三次店・一次店の選択肢（事業場等と同じく「名称＋コード」の2行表示・両行検索）。
@@ -300,7 +303,7 @@ interface AmortizationListData {
   amortizedTotal: number; // 償却累計額 (円)
   measureCategory: string; // 施策区分（"コード:名称"。コード列・名称列に分けて表示）
   measureCode: string; // 施策コード（"コード:名称"。コード列・名称列に分けて表示）
-  note1: string; // 摘要１(社内用)
+  note1: string; // 摘要1（社内用）
   amortStartDate: string; // 償却期間開始
   amortEndDate: string; // 償却期間終了
   crmCode: string; // CRMコード
@@ -515,85 +518,33 @@ function PaneReadOnlyBox({ value, className = '' }: PaneReadOnlyBoxProps) {
 // 入力不可の入力欄（Input）のクラス。他ペインの読み取り専用欄と同じ配色にする。
 const PANE_READONLY_INPUT_CLASS = 'bg-gray-100';
 
-// 年月日文字列（yyyy/MM/dd 等）を Date へパースする。
-const parseDateString = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  for (const fmt of ['yyyy/MM/dd', 'yyyy-MM-dd', 'yyyy/M/d']) {
-    const parsed = parse(dateStr, fmt, new Date());
-    if (!isNaN(parsed.getTime())) return parsed;
-  }
-  return null;
-};
-
 interface DateCalendarInputProps {
   value: string;
   onChange: (v: string) => void;
   // 入力欄の幅（既定 w-36。検索条件では列の幅いっぱいにするため w-full を渡す）
   className?: string;
+  // 検索条件の範囲指定（SearchRangeField）で1項目分に開始・終了を並べるときの詰めた形
+  // （共通の年月日の部品の compact と同じ。カレンダーのアイコンなし・×はマウスを乗せたとき・×にフォーカスがあるときだけ → UX-058）
+  compact?: boolean;
 }
 
-// 解約情報ペインの日付入力（カレンダーで日付を選ぶ・YYYY/MM/DD）。
-// 未入力（ブランク）を許容する。クリアは共通の年月ピッカー（MonthYearPicker）と
-// 揃えて、入力欄の右端に重ねた×ボタンで行う（値があるときだけ表示する）。
-// カレンダー側の再クリックによる選択解除は、クリア方法を1つに揃えるため required で止める。
+// 解約情報ペイン・検索条件の日付入力（YYYY/MM/DD）。共通部品 DateMonthYearPicker で、
+// カレンダーで選ぶほかに打ち込むこともできる（→ 02 §14・UX-067）。未入力（ブランク）を許容し、×で空に戻せる。
 function DateCalendarInput({
   value,
   onChange,
-  className = 'w-36',
+  // 幅は部品の既定（×付きは w-40）。w-36 に縮めると日付と×が重なり「2026/12/31」が切れる（→ UI/UX UX-092）
+  className,
+  compact = false,
 }: DateCalendarInputProps) {
-  const [open, setOpen] = useState(false);
-  const selected = parseDateString(value) ?? undefined;
-  const showClear = !!value;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      {/* クリア（×）はトリガーの入れ子ボタンにできないため、
-          相対配置のラッパー内でトリガーの右側へ重ねて配置する。 */}
-      <div className={`relative ${className}`}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={`flex h-9.5 w-full items-center justify-between rounded-md border border-gray-400 bg-white px-3 text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-              showClear ? 'pr-8' : ''
-            }`}
-          >
-            <span
-              className={`min-w-0 truncate ${value ? '' : 'text-gray-400'}`}
-            >
-              {value || 'YYYY/MM/DD'}
-            </span>
-            <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
-          </button>
-        </PopoverTrigger>
-        {showClear && (
-          <button
-            type="button"
-            aria-label="日付をクリア"
-            title="日付をクリア"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onChange('')}
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          required
-          selected={selected}
-          // 入力済みの日付があればその月を開く（未入力なら当月）。カレンダーの初期表示月は
-          // selected では決まらないため、標準プロパティ defaultMonth で指定する。
-          defaultMonth={selected}
-          onSelect={(date) => {
-            if (!date) return;
-            onChange(format(date, 'yyyy/MM/dd', { locale: ja }));
-            setOpen(false);
-          }}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <DateMonthYearPicker
+      value={value}
+      onChange={onChange}
+      clearable
+      compact={compact}
+      className={className}
+    />
   );
 }
 
@@ -681,14 +632,9 @@ const addHeaderTooltips = (cols: AmortColDef[]): AmortColDef[] =>
     return { ...col, headerTooltip };
   });
 
-interface LocationContractAmortizationListProps {
-  /** メニュー遷移（支払No リンクから支払詳細画面へ移動する際に使用）。 */
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function LocationContractAmortizationList({
-  onMenuChange,
-}: LocationContractAmortizationListProps) {
+export default function LocationContractAmortizationList() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 列状態（列幅・並び順・ソート）の保存／復元（共通フック）。
   // ※ 列の追加・削除・並び順・固定（pinned）を変更したときは、利用者のブラウザに
   //   残った旧構成の列状態が復元されて表示が崩れるのを防ぐため、キー末尾の
@@ -858,7 +804,7 @@ export default function LocationContractAmortizationList({
       label: '一次店',
       value: formatSummaryValue(primaryStore, PRIMARY_STORE_OPTIONS),
     },
-    { label: '摘要１(社内用)', value: note1 },
+    { label: '摘要1（社内用）', value: note1 },
     ...org.summaryItems(),
     ...applicantOrg.summaryItems(),
   ]);
@@ -940,7 +886,7 @@ export default function LocationContractAmortizationList({
   // 本来は行の支払No・支払回数・明細Noで表示する明細を特定するが、現時点は
   // 支払詳細(自販機)の固定表示のため引数は使わない（本実装で遷移先へ引き継ぐ）。
   const handleOpenPaymentDetail = (_data: AmortizationListData) => {
-    onMenuChange?.('payment-detail-vending');
+    navigate('payment-detail-vending');
   };
 
   // 解約情報ボタン押下：解約情報ペインを開く（タブは常に「解約情報」から表示する）。
@@ -1144,7 +1090,7 @@ export default function LocationContractAmortizationList({
         valueFormatter: (params) => nameOnly(params.value) || GRID_EMPTY_TEXT,
       },
       {
-        headerName: '摘要１(社内用)',
+        headerName: '摘要1（社内用）',
         field: 'note1',
         cellClass: 'cell-left',
         // 長文は「…」で省略表示し、マウスオーバーでツールチップに全文を表示する
@@ -1400,19 +1346,21 @@ export default function LocationContractAmortizationList({
             <div className="px-4 py-1.5">
               {/* 検索条件フィールド。計画一覧と同じ5列グリッド（→ SEARCH_GRID_CLASS）に置き、
                   画面が違っても同じ画面幅なら項目の幅・縦の線をそろえる（各セル＝ラベル＋入力欄）。
-                  1行目＝発生日（2列分）・償却期間（2列分）・契約状況／2行目＝解約ステータス・販売店・三次店・一次店・摘要１／
+                  1行目＝発生日・償却期間・契約状況（範囲指定は開始～終了をセットで1項目分）／2行目＝解約ステータス・販売店・三次店・一次店・摘要１／
                   3行目＝事業場・部署・営業担当者／4行目＝申請事業場・申請部署・申請者 */}
               <div className={SEARCH_GRID_CLASS}>
-                {/* 1行目1〜2列目: 発生日（開始 ～ 終了）。年月日（YYYY/MM/DD）で範囲指定する。
-                    開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05）。
+                {/* 1行目1列目: 発生日（開始 ～ 終了）。年月日（YYYY/MM/DD）で範囲指定する。
+                    開始～終了をセットで1項目分に置く（共通部品 SearchRangeField・部品は compact → 05）。
                     カレンダーの操作は解約情報ペインの解約日と揃えるため、
                     同じ DateCalendarInput を使う（未指定で絞り込まないので×でクリアできる）。 */}
                 <SearchRangeField
+                  wide
                   label="発生日"
                   groupLabel="検索発生日の範囲"
                   start={
                     <DateCalendarInput
                       className="w-full"
+                      compact
                       value={accrualDateStart}
                       onChange={setAccrualDateStart}
                     />
@@ -1420,20 +1368,23 @@ export default function LocationContractAmortizationList({
                   end={
                     <DateCalendarInput
                       className="w-full"
+                      compact
                       value={accrualDateEnd}
                       onChange={setAccrualDateEnd}
                     />
                   }
                 />
 
-                {/* 1行目3〜4列目: 償却期間（開始年月日 ～ 終了年月日）。年月日（YYYY/MM/DD）で範囲指定する。
+                {/* 1行目2列目: 償却期間（開始年月日 ～ 終了年月日）。年月日（YYYY/MM/DD）で範囲指定する。
                     発生日と同じく、解約日と揃えた DateCalendarInput を使う。 */}
                 <SearchRangeField
+                  wide
                   label="償却期間"
                   groupLabel="検索償却期間の範囲"
                   start={
                     <DateCalendarInput
                       className="w-full"
+                      compact
                       value={amortPeriodStart}
                       onChange={setAmortPeriodStart}
                     />
@@ -1441,13 +1392,14 @@ export default function LocationContractAmortizationList({
                   end={
                     <DateCalendarInput
                       className="w-full"
+                      compact
                       value={amortPeriodEnd}
                       onChange={setAmortPeriodEnd}
                     />
                   }
                 />
 
-                {/* 1行目5列目: 契約状況 */}
+                {/* 1行目3列目: 契約状況 */}
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor="search-contract-status"
@@ -1470,8 +1422,8 @@ export default function LocationContractAmortizationList({
                   />
                 </div>
 
-                {/* 2行目1列目: 解約ステータス */}
-                <div className="flex items-center gap-2">
+                {/* 2行目1列目: 解約ステータス（col-start-1 で2行目の先頭から並べる） */}
+                <div className="flex items-center gap-2 col-start-1">
                   <label htmlFor="search-status" className={SEARCH_LABEL_CLASS}>
                     解約ステータス
                   </label>
@@ -1566,10 +1518,10 @@ export default function LocationContractAmortizationList({
                   </div>
                 </div>
 
-                {/* 2行目5列目: 摘要１(社内用)（キーワード入力） */}
+                {/* 2行目5列目: 摘要1（社内用）（キーワード入力） */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="search-note1" className={SEARCH_LABEL_CLASS}>
-                    摘要１(社内用)
+                    摘要1（社内用）
                   </label>
                   <Input
                     id="search-note1"
@@ -1866,7 +1818,7 @@ export default function LocationContractAmortizationList({
                     解約日
                   </label>
                   {cancelFieldsDisabled ? (
-                    <PaneReadOnlyBox value={cxDate} className="w-36" />
+                    <PaneReadOnlyBox value={cxDate} className="w-40" />
                   ) : (
                     <DateCalendarInput value={cxDate} onChange={setCxDate} />
                   )}
@@ -2055,7 +2007,7 @@ export default function LocationContractAmortizationList({
                       {cancelFieldsDisabled ? (
                         <PaneReadOnlyBox
                           value={cxCollectionDate}
-                          className="w-36"
+                          className="w-40"
                         />
                       ) : (
                         <DateCalendarInput

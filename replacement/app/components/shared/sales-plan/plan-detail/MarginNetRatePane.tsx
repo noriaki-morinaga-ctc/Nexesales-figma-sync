@@ -1,10 +1,10 @@
 import { useLayoutEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { RightPane } from '../../../ui/right-pane';
-import { Button } from '../../../ui/button';
-import { NumericInput } from '../../../ui/numeric-input';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import type { MarginRate } from '../../../../types/planDetail';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { Button } from '@/app/components/ui/button';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import type { MarginRate } from '@/app/types/planDetail';
 
 // 一次店/三次店ごとの固定マージン率・固定NETを入力する共通ペイン。
 // variant で「マージン率（%）」と「固定NET」を切り替える。
@@ -199,6 +199,7 @@ export function MarginNetRatePane(props: MarginNetRatePaneProps) {
         </div>
 
         {/* 商流一覧テーブル */}
+        {/* 規約例外（カードではない枠）：右ペインの中で商流一覧の表を囲む枠のため */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           {/* テーブルヘッダー */}
           <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2 bg-gray-50 border-b border-gray-200">

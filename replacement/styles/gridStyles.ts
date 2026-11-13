@@ -13,7 +13,7 @@ export const GRID_COLORS = {
   total: '#dbeafe', // 合計・集計行：薄い青
   planValue: '#ffffff', // 計画値：白系
   actualValue: '#f3f4f6', // 実績値：灰系（計画値と区別）
-  changedBg: '#fef9c3', // 入力変更セル背景：薄い黄
+  changedBg: '#fefce8', // 入力変更セル背景：薄い黄（yellow-50。枠は付けない＝UX-035）
   // 下ペインの「選択内容を反映」等で値が入ったセルの背景：薄い水色。
   // 入力変更（薄い黄）と区別し、どのセルに反映されたかをその場で分かるようにする。
   appliedBg: '#e0f2fe',
@@ -22,16 +22,17 @@ export const GRID_COLORS = {
   // 明細を移す操作で使う。入力変更（薄い黄）・下ペインからの反映（薄い水色）と区別し、
   // どの明細が切り替わったのかを一覧上で見分けられるようにする。
   transferredBg: '#ede9fe',
-  changedBorder: '#fdba74', // 入力変更セル枠：落ち着いたオレンジ（画面設計標準）
   overText: '#b91c1c', // 100%超過：赤字（red-700。編集不可の灰のセルの上でもコントラスト 4.5:1 以上 → 06）
   // 増減（差分）列の文字色。増加分（プラス）＝青字／減少分（マイナス）＝赤字。
   // （販売計画表（自販機）経費計画の ＋青／▲・−赤 表現を標準とする）
   increaseText: '#2563eb', // 増減の増加分（プラス）：青字
   decreaseText: '#b91c1c', // 増減の減少分（マイナス）：赤字（red-700 → 06）
   neutralText: '#374151', // 増減なし（±0）・実数表示の文字：濃いグレー
-  // 既存の函数値（実績反映セル）。合計/集計の薄青フィル(total)と色が被らないよう、
-  // 背景塗りではなく「セル枠」で表現する（existingFuncCellStyle を使用）。
-  existingFuncBorder: '#93c5fd', // 既存函数値セルの枠線：落ち着いた薄青
+  // 計画詳細(自販機)の率の入力欄の枠（実績セルの印ではない）。
+  existingFuncBorder: '#93c5fd', // 落ち着いた薄青
+  // 実績セル（実績が反映された月のセル）の印。枠は付けず、セルの左上に小さな三角を出す
+  // （existingFuncCellStyle を使う。UX-045）。
+  actualMark: '#2563eb', // 実績セルの印（左上の三角）：青（blue-600）
   // 計算式（派生）セルにホバー中、その算出元セルを示す強調枠（濃い青）。
   // 実体は grid.css の `.ag-cell.formula-ref-highlight`（--grid-source-highlight-border で参照）。
   sourceHighlightBorder: '#2563eb', // 算出元セルの強調枠：濃い青
@@ -59,6 +60,10 @@ export const GRID_COLORS = {
   headerBackground: '#eaf0fb',
   headerText: '#14275e',
   headerColumnDivider: '#aeb9ca',
+  // 編集できる列があるグリッドの、編集できない列・列グループの見出し：グレーの背景・グレーの文字
+  // （編集できる列の見出しは上の薄い青＋紺のまま。gridHeaderStyle で使う。UX-050）
+  headerReadonlyBackground: '#f3f4f6', // gray-100
+  headerReadonlyText: '#4b5563', // gray-600（背景の上でコントラスト 4.5:1 以上 → 06）
   // 数式ガイド：クリック（起点）セルの強調。青背景＋青「実線」枠。
   // 背景は合計行(total)と同色だが、青実線枠と用途（クリック時のみ表示）で区別する。
   clickHighlightBg: '#dbeafe', // クリックセル背景：薄い青
@@ -71,7 +76,7 @@ export const GRID_COLORS = {
   dependentBg: '#fed7aa', // 依存セル背景：薄いオレンジ
   dependentBorder: '#f97316', // 依存セル枠：オレンジ（破線）
   // 必須項目が未入力のセルの強調。赤「破線」枠＋赤字（背景は塗らない）。
-  // 「未保存の差分（changedBg/Border＝黄背景＋オレンジ実線枠）」とは用途が異なるため、
+  // 「未保存の差分（changedBg＝薄い黄の背景だけ・枠なし）」とは用途が異なるため、
   // 色・線種・背景の有無で分ける。数式ガイドの依存セル（オレンジ破線）とは背景の有無で区別する。
   requiredEmptyBorder: '#b91c1c', // 必須未入力セルの枠・文字：赤（破線。red-700 → 06）
   // 固定上段（単位・税抜き注記行＝pinnedTopRowData）とデータ行の境目に引く罫線。
@@ -183,13 +188,10 @@ export function rateCellStyle(value: unknown, base: CellStyle = {}): CellStyle {
   return isOver ? { ...base, color: GRID_COLORS.overText } : { ...base };
 }
 
-// 入力変更セルの強調スタイル（薄い黄背景＋オレンジ枠）。一覧上のみで使用。
+// 入力変更セルの強調スタイル（薄い黄の背景だけ。枠は付けない）。一覧上のみで使用。
 export function changedCellStyle(base: CellStyle = {}): CellStyle {
   return {
     backgroundColor: GRID_COLORS.changedBg,
-    borderColor: GRID_COLORS.changedBorder,
-    borderWidth: '1px',
-    borderStyle: 'solid',
     ...base,
   };
 }
@@ -209,12 +211,15 @@ export function requiredEmptyCellStyle(base: CellStyle = {}): CellStyle {
   };
 }
 
-// 既存の函数値（実績反映セル）の強調。合計/集計行の薄青フィル(total)と
-// 区別するため、背景は塗らず内側の枠線（inset box-shadow）でマークする。
-// base に背景色（通常は planValue=白）を渡してマージできる。
+// 実績セル（実績が反映された月のセル）の印。枠は付けず、セルの左上に小さな青い三角を出す
+// （背景のグラデーションで描く。三角の一辺 0.625rem。→ 02 §7「実績セルの印」・UX-045）。
+// base に背景色（通常は planValue=白・readonly=灰）を渡してマージできる（背景色はそのまま残る）。
 export function existingFuncCellStyle(base: CellStyle = {}): CellStyle {
   return {
     ...base,
-    boxShadow: `inset 0 0 0 2px ${GRID_COLORS.existingFuncBorder}`,
+    backgroundImage: `linear-gradient(135deg, ${GRID_COLORS.actualMark} 50%, transparent 50%)`,
+    backgroundSize: '0.625rem 0.625rem',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'left top',
   };
 }

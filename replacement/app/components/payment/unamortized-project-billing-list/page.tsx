@@ -7,14 +7,19 @@ import {
   type CellValueChangedEvent,
 } from 'ag-grid-community';
 
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { Button } from '../../ui/button';
-import { Checkbox } from '../../ui/checkbox';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { RequiredBadge } from '../../ui/required-badge';
-import { BottomPane } from '../../ui/bottom-pane';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { Button } from '@/app/components/ui/button';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Input } from '@/app/components/ui/input';
+import {
+  TEXT_INPUT_CLASS,
+  CARD_CLASS,
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
+} from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -24,8 +29,9 @@ import {
   useGridColumnState,
   useChangedCells,
   withComparableCellValues,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // AG Gridヘッダー用：必須列はヘッダー名の後ろに必須バッジ（RequiredBadge）を表示する。
 // 全ヘッダーで書式を統一する（左寄せ・折り返し表示で文字が見切れないようにする）。
@@ -464,108 +470,90 @@ export default function UnamortizedProjectBillingList() {
           open={isOpen}
           onOpenChange={setIsOpen}
         >
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            {/* 1行目: 8列グリッド */}
-            <div className="grid grid-cols-8 gap-3 mb-2">
+          <div className="p-4">
+            {/* 1行目: 5列グリッド */}
+            <div className={`${SEARCH_GRID_CLASS} mb-2`}>
               {/* 対象年度 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  対象年度
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>対象年度</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   2026
                 </div>
               </div>
 
               {/* 対象月 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  対象月
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>対象月</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   7
                 </div>
               </div>
 
               {/* 計画No. */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  計画No.
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>計画No.</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900"></div>
               </div>
             </div>
 
-            {/* 2行目: 8列グリッド */}
-            <div className="grid grid-cols-8 gap-3 mb-2">
+            {/* 2行目: 5列グリッド */}
+            <div className={`${SEARCH_GRID_CLASS} mb-2`}>
               {/* 販売店 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  販売店
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>販売店</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   ▲▲
                 </div>
               </div>
 
               {/* 三次店 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  三次店
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>三次店</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   A支店
                 </div>
               </div>
 
               {/* 一次店 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  一次店
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>一次店</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   峠台A
                 </div>
               </div>
 
               {/* 空 */}
-              <div className="col-span-2"></div>
+              <div />
             </div>
 
-            {/* 3行目: 8列グリッド */}
-            <div className="grid grid-cols-8 gap-3 mb-2">
+            {/* 3行目: 5列グリッド */}
+            <div className={`${SEARCH_GRID_CLASS} mb-2`}>
               {/* 事務所 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  事業場
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>事業場</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   首都圏
                 </div>
               </div>
 
               {/* 部署 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  部署
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>部署</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   首都圏営業第一
                 </div>
               </div>
 
               {/* 営業担当者 */}
-              <div className="col-span-2 flex items-center gap-1">
-                <label className="text-sm text-blue-900 whitespace-nowrap w-40 font-bold px-2 py-1">
-                  営業担当者
-                </label>
+              <div className="flex items-center gap-2">
+                <label className={SEARCH_LABEL_CLASS}>営業担当者</label>
                 <div className="flex-1 h-8 flex items-center text-sm text-gray-900">
                   xxxxxx
                 </div>
               </div>
 
               {/* 空 */}
-              <div className="col-span-2"></div>
+              <div />
             </div>
           </div>
         </CollapsibleCard>
@@ -578,7 +566,7 @@ export default function UnamortizedProjectBillingList() {
             onOpenChange={setIsSalesPlanOpen}
             className="mb-0"
           >
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="p-4">
               {/* 最左にチェックボックス列を表示（計画一覧に準拠）。単一選択で借方・貸方カードを表示する。 */}
               <div className="sales-plan-grid overflow-x-auto w-full">
                 <AgGridReact
@@ -763,7 +751,7 @@ export default function UnamortizedProjectBillingList() {
       {/* 固定フッター（計画詳細画面に準拠：高さ h-9 の btn-action-base。ルートで min-w-[75rem] 済みのため mt-4/min-w は付けない） */}
       <div
         data-screen-footer
-        className="bg-white border-t border-gray-200 px-6 py-4 sticky bottom-0 z-10"
+        className="bg-white border-t border-gray-200 px-6 py-2 sticky bottom-0 z-10"
       >
         <div className="flex flex-wrap gap-3 justify-between">
           <div>
@@ -775,23 +763,12 @@ export default function UnamortizedProjectBillingList() {
               戻る
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="billing-unbilled-comment"
-                className="text-sm text-gray-600 whitespace-nowrap"
-              >
-                コメント
-              </label>
-              <textarea
-                id="billing-unbilled-comment"
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                placeholder="コメントを入力（差戻し理由など）"
-                rows={2}
-                className="h-12 w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-              />
-            </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+            <FooterCommentField
+              id="billing-unbilled-comment"
+              value={commentInput}
+              onChange={setCommentInput}
+            />
             <button
               className="btn-action-base btn-action-red"
               aria-label="差戻し"

@@ -9,7 +9,7 @@
 // ※ 支社受渡原価は productMasters の costOfSales（商品支社受渡バラ保証金抜き価格）。
 //    実原価は「オンラインCD × 年間計」の粒度で持つ想定だが本モックではマスタを持たず、
 //    ACTUAL_COST_FACTOR を乗じたダミー値で代替する。
-import { ACTUAL_COST_FACTOR } from '../../../constants/aggregationMasterDummy';
+import { ACTUAL_COST_FACTOR } from '@/app/constants/aggregationMasterDummy';
 
 // 原価軸。transfer=支社受渡原価 / actual=実原価。
 export type CostAxis = 'transfer' | 'actual';

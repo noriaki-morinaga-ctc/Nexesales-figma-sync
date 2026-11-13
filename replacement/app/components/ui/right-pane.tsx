@@ -15,7 +15,7 @@ import {
 import { cn } from './utils';
 import { useExclusivePane } from './use-exclusive-pane';
 import { requestConfirm } from './confirm-dialog';
-import { BUTTON_STYLES, SCREEN_TITLE_CLASS } from '../../../styles/commonStyles';
+import { BUTTON_STYLES, SCREEN_TITLE_CLASS } from '@/styles/commonStyles';
 
 interface RightPaneProps {
   open: boolean;

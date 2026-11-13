@@ -6,14 +6,14 @@
 //
 // 量経追加口率・条件口単価は計画詳細（utils/sales-plan/plan-detail/planGridToAggregation → utils/sales-plan/common/aggregationCalc）と
 // 同じマスタ・導出ロジックを使い、計画詳細の集計と値の求め方をそろえる。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
-import { toAxisMetaBrand } from '../../../constants/aggregationAxisMapping';
-import { volumeAddRateOf } from '../../../constants/aggregationMasterDummy';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
+import { toAxisMetaBrand } from '@/app/utils/sales-plan/common/aggregationAxisMapping';
+import { volumeAddRateOf } from '@/app/utils/sales-plan/common/aggregationMasterDummy';
 import {
   deriveConditionUnitPrice,
   DEFAULT_STORE_KEY,
   type PlanPattern,
-} from '../common/conditionUnitPrice';
+} from '@/app/utils/sales-plan/common/conditionUnitPrice';
 
 // 算出に必要な項目のみ参照する緩い行型（シミュレーション2画面の ProductData と構造互換）。
 export interface SimulationSalesRow {

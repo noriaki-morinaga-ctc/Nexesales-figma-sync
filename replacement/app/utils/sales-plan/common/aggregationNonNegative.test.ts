@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_AGGREGATION_SOURCE,
-  DEFAULT_TARGET_MONTH_IDX0,
-} from '../../../constants/defaultAggregationSource';
+import { DEFAULT_TARGET_MONTH_IDX0 } from '@/app/constants/defaultAggregationSource';
+import { DEFAULT_AGGREGATION_SOURCE } from '@/mocks/common/aggregationSource';
 import {
   computeMonth,
   computeMonthsRange,
@@ -12,20 +10,19 @@ import {
   type AggAmounts,
   type ExpenseMonthBasis,
 } from './aggregationCalc';
-import {
-  RATE_SETTINGS,
-  type AggregationSource,
-} from '../../../constants/aggregationSourceData';
-import { toAggregationProducts } from '../plan-detail/planGridToAggregation';
-import { toAggregationExpenses } from '../plan-detail/expenseGridToAggregation';
-import { NON_PRODUCT_EXPENSE_ROWS } from '../../../constants/nonProductExpenseMockData';
+import { RATE_SETTINGS } from '@/app/constants/aggregationSourceData';
+import type { AggregationSource } from '@/app/types/aggregation';
+import { toAggregationProducts } from '@/app/utils/sales-plan/plan-detail/planGridToAggregation';
+import { toAggregationExpenses } from '@/app/utils/sales-plan/plan-detail/expenseGridToAggregation';
+import { NON_PRODUCT_EXPENSE_ROWS } from '@/mocks/common/nonProductExpense';
 import {
   REGULAR_PRODUCTS_DATA as WHOLESALE_REGULAR_PRODUCTS_DATA,
   NEW_PRODUCTS_DATA as WHOLESALE_NEW_PRODUCTS_DATA,
   PROMOTION_PRODUCTS_DATA as WHOLESALE_PROMOTION_PRODUCTS_DATA,
   GIFT_PRODUCTS_DATA as WHOLESALE_GIFT_PRODUCTS_DATA,
-  withWholesaleRowDummies,
-} from '../../../constants/salesPlanWholesaleMockData';
+} from '@/mocks/sales-plan/plan-detail-net-fixed';
+import { withWholesaleRowDummies } from '@/mocks/common/salesPlanWholesale';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
 
 // 集計エリアに表示される金額・数量項目。率は金額から導出されるため、
 // 金額が非負なら率も破綻しない（分母0のときは0を返す実装）。
@@ -65,7 +62,7 @@ const AMOUNT_KEYS: (keyof AggAmounts)[] = [
 const PERIODS = ['monthly', 'cumulative', 'yearly'] as const;
 
 // 計画詳細(NET固定) の集計ソース。plan-detail-net-fixed/page.tsx と同じ組み立て方をする：
-//   ・商品行は「一般卸メッシュ」ダミー（salesPlanWholesaleMockData）を
+//   ・商品行は「一般卸メッシュ」ダミー（src/mocks/common/salesPlanWholesale）を
 //     withWholesaleRowDummies で補完した行（DetailTable.tsx の
 //     regularProductsData/newProductsData/promotionProductsData/giftProductsData の初期化と同一）。
 //   ・拡売費行は計画詳細(マージン率固定・NET入力)と同じ NON_PRODUCT_EXPENSE_ROWS。
@@ -81,7 +78,11 @@ const NET_FIXED_AGGREGATION_SOURCE: AggregationSource = {
       ...withWholesaleRowDummies(WHOLESALE_PROMOTION_PRODUCTS_DATA, 'promo'),
       ...withWholesaleRowDummies(WHOLESALE_GIFT_PRODUCTS_DATA, 'gift'),
     ],
-    { planPattern: 'netFixed', targetMonthIdx0: DEFAULT_TARGET_MONTH_IDX0 }
+    {
+      planPattern: 'netFixed',
+      targetMonthIdx0: DEFAULT_TARGET_MONTH_IDX0,
+      unitPriceKbn: UNIT_PRICE_KBN,
+    }
   ),
   expenses: toAggregationExpenses(NON_PRODUCT_EXPENSE_ROWS, {
     targetMonthIdx0: DEFAULT_TARGET_MONTH_IDX0,

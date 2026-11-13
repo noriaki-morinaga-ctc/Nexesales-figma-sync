@@ -1,12 +1,12 @@
 // 支払一覧の検索条件で使う選択肢（単一選択・「コード:名称」で表示／コード・名称どちらでも検索）。
 // 振替詳細の「検印済み明細（振替元）」の検索条件も同じ項目・同じ選択肢を使うため、
 // 画面コンポーネントから本ファイルへ切り出して一元管理する。
-import type { SingleComboboxOption } from '../components/ui/single-combobox';
+import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
 import {
   NO_PAYMENT_STATUS,
   STATUS_FILTER_ALL,
   STATUS_FILTER_EXCLUDING_NO_PAYMENT,
-} from '../utils/payment/payment-list/paymentApplicationList';
+} from '@/app/utils/payment/payment-list/paymentApplicationList';
 
 // 事業場
 export const OFFICE_OPTIONS: SingleComboboxOption[] = [
@@ -44,12 +44,7 @@ export const RETAILER_OPTIONS: SingleComboboxOption[] = [
   { value: '30200742', label: '30200742:ローソン' },
   { value: '30200743', label: '30200743:イオン' },
 ];
-
-// 一次店・三次店の選択肢。value に店コードを持たせ、絞り込みに直接使う。
-// retailerCode＝その店が属する商流の販売店コード（販売店を選んだときに候補を絞るために使う）。
-export interface StoreOption extends SingleComboboxOption {
-  retailerCode: string;
-}
+import type { StoreOption } from '@/app/types/paymentList';
 
 // 一次店
 export const PRIMARY_STORE_OPTIONS: StoreOption[] = [
@@ -98,15 +93,6 @@ export const TERTIARY_STORE_OPTIONS: StoreOption[] = [
     retailerCode: '30200743',
   },
 ];
-
-// 販売店で一次店・三次店の候補を絞る。販売店が未選択（''）なら全件を返す。
-export const storeOptionsForRetailer = (
-  options: StoreOption[],
-  retailerCode: string
-): StoreOption[] =>
-  retailerCode
-    ? options.filter((option) => option.retailerCode === retailerCode)
-    : options;
 
 // 末端組織（部署配下の営業所単位）。組織階層は 事業場→部署→末端組織→営業担当者。
 export const TERMINAL_ORG_OPTIONS: SingleComboboxOption[] = [

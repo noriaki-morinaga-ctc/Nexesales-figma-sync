@@ -23,18 +23,19 @@ import type {
   ColDef,
   ColGroupDef,
   ICellRendererParams,
+  NewValueParams,
 } from 'ag-grid-community';
 import { Copy, EllipsisVertical, Plus, Trash2 } from 'lucide-react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '../../../ui/dropdown-menu';
-import { EditableComboboxCellEditor } from '../../../ui/editable-combobox-cell-editor';
-import { MonthYearCellEditor } from '../../../ui/month-year-cell-editor';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
+} from '@/app/components/ui/dropdown-menu';
+import { EditableComboboxCellEditor } from '@/app/components/ui/editable-combobox-cell-editor';
+import { MonthYearCellEditor } from '@/app/components/ui/month-year-cell-editor';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -53,45 +54,51 @@ import {
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
   formatEmptyAsDash,
-} from '../../../grid';
-import { parseFormulaNumber } from '../../../grid/gridCommon';
+} from '@/app/components/grid';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
 import {
   formatBillingUnitPrice,
   roundBillingNumber,
-} from '../../../../utils/payment/billing/billingNumberFormat';
+} from '@/app/utils/payment/billing/billingNumberFormat';
 import {
   billingCalcAmountOf,
   billingDiffOf,
   billingFormulaTooltipOf,
   billingUnitPriceOf,
   isBillingAmountMismatch,
-} from '../../../../utils/payment/billing/billingDetailFormula';
+} from '@/app/utils/payment/billing/billingDetailFormula';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   CARD_TITLE_CLASS,
-} from '../../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   BILLING_EXPENSE_TYPE_OPTIONS,
   BILLING_UNIT_OPTIONS,
   BILLING_TAX_KBN_OPTIONS,
-  isBillingDetailStatusLocked,
-  type BillingDetailStatus,
-  BILLING_CUSTOMER_LINK_BY_CODE,
-  BILLING_STAFF_BY_STORE_NAME,
-  BILLING_SUMMARY_PRODUCT_BY_NAME,
   BILLING_UNSET_CUSTOMER_CODE,
   BILLING_UNSET_CUSTOMER_NAME,
+} from '@/app/constants/billing';
+import {
+  isBillingDetailStatusLocked,
   aggregateBillingDetailRows,
+} from '@/app/utils/payment/billing/billing';
+import {
+  BILLING_CUSTOMER_LINK_BY_CODE,
+  BILLING_SUMMARY_PRODUCT_BY_NAME,
   billingCustomerByStores,
   billingCustomerComboOptions,
   billingCustomerCodeComboOptions,
   billingStoreComboOptions,
   billingStoreDisplayName,
   billingSummaryProductComboOptions,
-  createEmptyBillingDetailRow,
-  type BillingDetailRow,
-} from '../../../../constants/billingMockData';
+} from '@/mocks/common/billing';
+import { BILLING_STAFF_BY_STORE_NAME } from '@/mocks/payment/billing-detail-aic';
+import { createEmptyBillingDetailRow } from '@/app/utils/payment/billing/billing';
+import type {
+  BillingDetailStatus,
+  BillingDetailRow,
+} from '@/app/types/billing';
 
 interface DetailTableProps {
   rows: BillingDetailRow[];
@@ -386,7 +393,7 @@ export function DetailTable({
   // ステータス・得意先は行の3項目から一意に決まる純粋な導出のため、変更のたびに計算し直す。
   // Undo/Redo でも onCellValueChanged が再発火するため、同じ計算で正しい値になる。
   const handleStoreChanged = useCallback(
-    (params: CellValueChangedEvent<BillingDetailRow>) => {
+    (params: NewValueParams<BillingDetailRow>) => {
       const row = params.data;
       if (!row || isLockedRow(row)) return;
       const next = resolveStoreStatus(row);
@@ -407,7 +414,7 @@ export function DetailTable({
       }
       row.status = next;
       // 行の色（rowClassRules）と得意先セルも再評価させるため、行ごと描き直す
-      params.api.redrawRows({ rowNodes: [params.node] });
+      if (params.node) params.api.redrawRows({ rowNodes: [params.node] });
     },
     // resolveStoreStatus は素の関数のため依存に含めない（毎レンダー同一の判定）
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -719,7 +726,7 @@ export function DetailTable({
         width: 192,
       },
       {
-        headerName: '担当者',
+        headerName: '営業担当者',
         field: 'staffName',
         // 担当者は販売店が決まれば一意に決まるため、どのケースでも非活性
         //（→ 20260825_第32回 決定事項17）。販売店の選択時に商流販売店変換マスタから反映する。
@@ -867,7 +874,8 @@ export function DetailTable({
   // Undo履歴を維持するため参照を固定する（→ 02 §7.1）
   const defaultColDef = useMemo<ColDef<BillingDetailRow>>(
     () => ({
-      ...GRID_DEFAULT_COL_DEF,
+      // 共通の既定（行の型を持たない ColDef）を、この表の行の型の列設定として混ぜる
+      ...(GRID_DEFAULT_COL_DEF as ColDef<BillingDetailRow>),
       tooltipValueGetter: (params) => {
         // 列の識別子は colId（算出列）→ field（データ列）の順に見る
         const colDef = params.colDef as ColDef<BillingDetailRow> | undefined;

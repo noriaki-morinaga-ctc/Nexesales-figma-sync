@@ -389,29 +389,29 @@ export interface LinkedCellUndoConfig<R> {
   rowIdOf?: (params: any) => string;
 }
 
+// 行データから depFields ぶんだけ抜き出す（useLinkedCellUndo 用。部品の値を読まないためフックの外に置く）。
+function pickDeps<R>(row: any, fields: (keyof R)[]): Partial<R> {
+  const picked: any = {};
+  for (const f of fields) picked[f] = row[f as string];
+  return picked;
+}
+
+// node.data 直接更新＋当該行 refreshCells ＋ state 同期（Undoスタックに乗せない。useLinkedCellUndo 用）。
+function commitLinkedDeps<R>(
+  params: any,
+  deps: Partial<R>,
+  cfg: LinkedCellUndoConfig<R>
+): void {
+  Object.assign(params.data, deps);
+  params.api.refreshCells({ rowNodes: [params.node], force: true });
+  cfg.syncState?.({ ...params.data });
+}
+
 export function useLinkedCellUndo<R>() {
   // (行ID::主フィールド::主セル値) → 従属セル値スナップショット。
   const cacheRef = useRef<Map<string, Partial<R>>>(new Map());
   // (行ID::主フィールド) → 最新リクエスト番号（非同期取得の古い応答を破棄するレースガード）。
   const reqSeqRef = useRef<Map<string, number>>(new Map());
-
-  // 行データから depFields ぶんだけ抜き出す。
-  const pickDeps = (row: any, fields: (keyof R)[]): Partial<R> => {
-    const picked: any = {};
-    for (const f of fields) picked[f] = row[f as string];
-    return picked;
-  };
-
-  // node.data 直接更新＋当該行 refreshCells ＋ state 同期（Undoスタックに乗せない）。
-  const commit = (
-    params: any,
-    deps: Partial<R>,
-    cfg: LinkedCellUndoConfig<R>
-  ): void => {
-    Object.assign(params.data, deps);
-    params.api.refreshCells({ rowNodes: [params.node], force: true });
-    cfg.syncState?.({ ...params.data });
-  };
 
   // 列の onCellValueChanged に差し込む共通ハンドラを生成する。
   const makeHandler = useCallback(
@@ -432,7 +432,7 @@ export function useLinkedCellUndo<R>() {
         // 既訪の値（Undo/Redo・再選択）＝ キャッシュから同期復元（deriveDeps を呼ばない）。
         const cached = cacheRef.current.get(newKey);
         if (cached) {
-          commit(params, cached, cfg);
+          commitLinkedDeps(params, cached, cfg);
           return;
         }
 
@@ -446,7 +446,7 @@ export function useLinkedCellUndo<R>() {
         if (reqSeqRef.current.get(base) !== seq) return; // 古い応答は破棄
         const picked = pickDeps(deps, cfg.depFields);
         cacheRef.current.set(newKey, picked);
-        commit(params, picked, cfg);
+        commitLinkedDeps(params, picked, cfg);
       },
     []
   );

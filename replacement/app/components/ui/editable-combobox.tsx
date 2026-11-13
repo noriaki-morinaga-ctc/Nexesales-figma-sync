@@ -4,7 +4,7 @@ import { Check, ChevronDown, X } from 'lucide-react';
 import {
   matchesSearchQuery,
   normalizeForSearch,
-} from '../../utils/common/searchNormalize';
+} from '@/app/utils/common/searchNormalize';
 
 // 入力可能コンボボックス（自作）。
 // SingleCombobox（検索付き単一選択）との違いは「候補から選ぶだけでなく、候補に無い値を

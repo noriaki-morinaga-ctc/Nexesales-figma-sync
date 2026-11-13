@@ -35,37 +35,19 @@ import {
   useGridColumnState,
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { CARD_TITLE_CLASS } from '../../../../../styles/commonStyles';
-import { WITHOUT_INVOICE_DATA_SOURCE_COLUMNS } from '../../../../constants/dataSource';
-import { createWithoutInvoiceEntryRows } from '../../../../constants/paymentWithoutInvoiceMockData';
-import { toEntryNumber as toNum } from '../../../../utils/payment/payment-detail/additionalEntryRules';
-import { computeWithoutInvoiceEntryBreakdown as computeEntryBreakdown } from '../../../../utils/payment/payment-detail/paymentBreakdownItems';
-import type { AmountBreakdown } from '../../../../utils/payment/payment-detail/paymentAmountBreakdown';
-import { PaymentAmountBreakdownTable } from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
-
-// 追加口明細データ（本グリッドの1行）。項目名・フィールド名は請求書有の追加口明細
-// （AdditionalEntryData）に合わせる。親行・子行（枝行）は持たず、1行ずつが明細番号（No.）を持つ。
-export interface EntryRow {
-  lineNo: number; // No.（明細番号。行の識別にも使う）
-  productCode: string; // サマリ商品コード
-  productName: string; // サマリ商品名
-  capacity: number | string; // 入数
-  // 計画情報
-  seihan: number | string; // 社外売上高単価
-  planNet: number | string; // 計画NET
-  // 支払情報
-  addNet: number | string; // 支払NET（追加口分）
-  payCases: number | string; // ケース
-  payLoose: number | string; // バラ
-  addUnit: number | string; // 追加口バラ単価
-  addAmount: number | string; // 追加口金額
-  payAmount: number | string; // 支払金額
-  summary: string; // 摘要2（社外用）
-  summary1: string; // 摘要1（社内用）
-}
+} from '@/app/components/grid';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { WITHOUT_INVOICE_DATA_SOURCE_COLUMNS } from '@/app/constants/dataSource';
+import { createWithoutInvoiceEntryRows } from '@/mocks/payment/payment-detail-without-invoice';
+import { toEntryNumber as toNum } from '@/app/utils/payment/payment-detail/additionalEntryRules';
+import { computeWithoutInvoiceEntryBreakdown as computeEntryBreakdown } from '@/app/utils/payment/payment-detail/paymentBreakdownItems';
+import type { AmountBreakdown } from '@/app/utils/payment/payment-detail/paymentAmountBreakdown';
+import { PaymentAmountBreakdownTable } from '@/app/components/shared/payment/payment-detail/PaymentAmountBreakdownTable';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
+import type { WithoutInvoiceEntryRow as EntryRow } from '@/app/types/paymentDetail';
 
 // 数値表示（カンマ区切り、空は「-」）。
 const numFmt = (params: { value: unknown }) => {
@@ -122,7 +104,7 @@ const leftStyle = () => ({
   textAlign: 'left' as const,
 });
 
-// 支払回数1の追加口明細を新規生成する（モックデータ → constants/paymentWithoutInvoiceMockData）。
+// 支払回数1の追加口明細を新規生成する（モックデータ → src/mocks/payment/payment-detail-without-invoice）。
 // 画面は支払回数ごとのデータセットを initialRows で渡す。派生項目（追加口バラ単価・追加口金額・
 // 支払金額）は utils/payment/payment-detail/additionalEntryRules の deriveWithoutInvoiceEntryRow で導く。
 export const createEntryRows = (): EntryRow[] =>
@@ -348,7 +330,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         cellDataType: false,
         // 計算式セルは計算式テキストを、それ以外は従来どおりセル値をツールチップ表示する。
         tooltipValueGetter: (params) => {
-          const field = params.colDef.field;
+          // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+          const field = (params.colDef as ColDef).field;
           const row = params.data as EntryRow | undefined;
           if (field && row) {
             const f = getFormula(row, field);
@@ -358,8 +341,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         },
         // マウスオーバー中の計算式セルの参照元セル（`field::rowId`）に枠線を付ける。
         cellClassRules: {
+          // 共通の決まり（値が無いセルを灰色の「-」にする cell-empty など）を引き継ぐ（→ UI/UX UX-080）
+          ...GRID_DEFAULT_COL_DEF.cellClassRules,
           'formula-ref-highlight': (params) => {
-            const field = params.colDef.field;
+            // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+            const field = (params.colDef as ColDef).field;
             const rowId = params.node?.id ?? '';
             return !!field && hoverRefsRef.current.has(`${field}::${rowId}`);
           },
@@ -413,7 +399,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             getContextMenuItems={gridFilterContextMenuItems}
             onCellMouseOver={handleCellMouseOver}
             onCellMouseOut={handleCellMouseOut}
-            suppressMovableColumns={true}
+            // 列は見出しをドラッグして入れ替えられる（計画・支払の明細で同じ → 02 §7「列の入れ替え」・UX-086）
             ensureDomOrder={true}
             // 横スクロールバーを常時表示し、左右スクロールの存在を分かりやすくする
             alwaysShowHorizontalScroll={true}

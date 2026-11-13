@@ -2,7 +2,7 @@
 // 帯の表示は No. 列などの左端の列の cellStyle で copySourceLeftBorder() が行う
 //（→ guidelines/02_component-rules.md §10.1 コピー由来カラーバー）。
 // React / AG Grid に依存させず、単体テストで確認できるようにする。
-import type { CopySource } from '../../components/grid';
+import type { CopySource } from '@/app/components/grid';
 
 /** 追加経路を持てる行 */
 export interface CopySourceMarked {

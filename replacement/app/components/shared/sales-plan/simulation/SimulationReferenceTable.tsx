@@ -12,15 +12,15 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
   CopyRowCellRenderer,
-} from '../../../grid';
+} from '@/app/components/grid';
 import {
   PLAN_DETAIL_DIGITS,
   planAmountFormatter,
   planRateFormatter,
-} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { PROMOTION_NONE_LABEL } from '../../../../constants/promotionCategories';
-import type { ProductData } from '../../../../types/simulation';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
+import { PROMOTION_NONE_LABEL } from '@/app/constants/promotionCategories';
+import type { ProductData } from '@/app/types/simulation';
 
 interface SimulationReferenceTableProps {
   // 参照表に表示する行（自計画の参照候補）
@@ -71,6 +71,8 @@ export function SimulationReferenceTable({
       () => [
         {
           headerName: '',
+          // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+          suppressColumnsToolPanel: true,
           colId: 'actions',
           width: 72,
           sortable: false,
@@ -258,7 +260,8 @@ export function SimulationReferenceTable({
   );
 
   return (
-    <div className="reference-grid flex-1 w-full flex flex-col">
+    // 下ペインの高さに合わせて伸び縮みする（下限を付けない。下ペインは初めて開いたときに明細5行分の高さになる → 02 BottomPane）
+    <div className="reference-grid flex min-h-0 w-full flex-1 flex-col">
       {/* 対象期間（シミュレーション（詳細）の対象期間をテキストで表示） */}
       <div className="flex items-center gap-2 mb-2">
         <span className={`${FORM_LABEL_CLASS} whitespace-nowrap px-2 py-1`}>
@@ -277,7 +280,7 @@ export function SimulationReferenceTable({
         .reference-grid .ag-cell-center { text-align: center; }
         .reference-grid .ag-cell-left { text-align: left; }
       `}</style>
-      <div className="flex-1 w-full min-h-75">
+      <div className="min-h-0 w-full flex-1">
         <AgGridReact
           {...GRID_BASE_PROPS}
           {...gridColumnStateProps}

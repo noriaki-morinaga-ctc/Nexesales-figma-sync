@@ -5,16 +5,16 @@
 // 支払は商流販売店単位でEDIとは粒度が異なり、支払との紐づけは請求一覧・請求詳細が担う。
 import { useMemo, useState } from 'react';
 
-import { CollapsibleCard } from '../../ui/collapsible-card';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import { SearchPane } from './components/SearchPane';
 import { ResultList } from './components/ResultList';
-import {
-  INITIAL_SEARCH_CRITERIA,
-  type BillingEdiImportRow,
-  type BillingEdiSearchCriteria,
-} from '../../../constants/billingEdiMockData';
-import { filterBillingEdiRows } from '../../../utils/payment/billing/billingEdiImport';
-import { ScreenTitle } from '../../ui/screen-title';
+import { INITIAL_SEARCH_CRITERIA } from '@/mocks/payment/billing-edi-list';
+import type {
+  BillingEdiImportRow,
+  BillingEdiSearchCriteria,
+} from '@/app/types/billingEdi';
+import { filterBillingEdiRows } from '@/app/utils/payment/billing/billingEdiImport';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface BillingEdiListProps {
   // 一覧の行データ（App.tsx が state で保持。再取込指示による更新を反映する）

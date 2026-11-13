@@ -3,13 +3,17 @@
 // 区分をギフトへ変更したら 1行→3行、ギフトから他区分へ変更したら 3行→1行 に変換する。
 // あわせてタブ振り分けに使う section と、区分に連動する販促区分も自動反映する。
 // 計画詳細（マージン率固定／NET固定）・シミュレーション（同2画面）の明細表で共有する。
-import { getPromotionLabels } from '../../../constants/promotionCategories';
+import { getPromotionLabels } from '@/app/utils/sales-plan/common/promotionCategories';
 
 // 商品区分「ギフト」のラベル。
 export const GIFT_CATEGORY = 'ギフト';
 
 // ギフトの販売期間（3行1セットの並び順）。
 export const GIFT_PERIODS = ['上旬', '中旬', '下旬'];
+
+// ギフトのセット（上旬・中旬・下旬の3行1セット）の新しい識別キーを採番する
+export const newGiftSetId = (): string =>
+  `giftset-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 // 販売期間の並び順インデックス（未設定・対象外は末尾扱い）。
 export const giftPeriodIndex = (period?: string): number => {

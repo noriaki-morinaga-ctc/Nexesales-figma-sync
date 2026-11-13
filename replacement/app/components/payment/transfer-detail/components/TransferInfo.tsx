@@ -1,15 +1,22 @@
 // Todo：朴：C追加口・拡売費支払モック修正中
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { History } from 'lucide-react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { valueOrEmpty } from '../../../ui/empty-value';
-import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import { Label } from '../../../ui/label';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { toYearMonth } from '../../../../utils/common/yearMonth';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import {
+  FIT_CELL_CLASS,
+  FIT_GRID_CLASS,
+  FIT_LABEL_CLASS,
+  FIT_ROW_CLASS,
+  FIT_WIDE_CELL_CLASS,
+  FIT_WIDE_VALUE_CLASS,
+} from '@/styles/commonStyles';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { Label } from '@/app/components/ui/label';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { toYearMonth } from '@/app/utils/common/yearMonth';
 import {
   STORE_NONE,
   PRIMARY_STORE_OPTIONS,
@@ -17,9 +24,9 @@ import {
   TERTIARY_BY_STORE,
   tertiaryOptionsFor,
   storeOptionsFor,
-} from '../../../../constants/storeHierarchy';
-import { ownerOrgOf } from '../../../../constants/paymentOrgCascade';
-import type { SingleComboboxOption } from '../../../ui/single-combobox';
+} from '@/app/constants/storeHierarchy';
+import { ownerOrgOf } from '@/app/utils/payment/payment-detail/paymentOrgCascade';
+import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
 
 // 基本情報の項目値（モック）。費用分割の分割元情報など、他画面から参照するため export する。
 export const BASIC_INFO = {
@@ -249,13 +256,9 @@ export function TransferDetailSearch({
 
   // ヘッダー項目（テキストラベル）の共通描画
   const renderLabelField = (label: string, value: string) => (
-    <div className="flex items-center gap-2">
-      <label
-        className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
-      >
-        {label}
-      </label>
-      <span className="h-8 flex items-center text-sm text-gray-900">
+    <div className={FIT_CELL_CLASS}>
+      <label className={FIT_LABEL_CLASS}>{label}</label>
+      <span className="h-8 min-w-0 flex items-center text-sm text-gray-900">
         {valueOrEmpty(value)}
       </span>
     </div>
@@ -270,14 +273,11 @@ export function TransferDetailSearch({
     onChange: (v: string) => void,
     placeholder: string
   ) => (
-    <div className="flex items-center gap-2">
-      <label
-        htmlFor={id}
-        className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
-      >
+    <div className={FIT_CELL_CLASS}>
+      <label htmlFor={id} className={FIT_LABEL_CLASS}>
         {label}
       </label>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         <SingleCombobox
           id={id}
           options={options}
@@ -298,22 +298,22 @@ export function TransferDetailSearch({
         open={isBasicInfoOpen}
         onOpenChange={setIsBasicInfoOpen}
       >
-        <div className="p-4">
+        {/* 5列。「振替元担当末端組織」などが 5.625rem に収まらないため、項目名の列をその列で一番長い
+            項目名の幅に合わせる並び FIT_GRID_CLASS（各行は subgrid で列を受け継ぐ → 05「ラベルが幅に収まらない画面」） */}
+        <div className={`p-4 ${FIT_GRID_CLASS}`}>
           {/* 1行目: 振替元・振替先のどちらを固定するかの指定（基本情報の最上段・左端）。
               対象年月より上に置き、以降の入力がどちらの立場のものかを先に決める。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
-            <div className="col-span-2 flex items-center gap-2">
-              <label
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
-              >
-                固定する側
-              </label>
+          <div
+            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
+            <div className={FIT_WIDE_CELL_CLASS}>
+              <label className={FIT_LABEL_CLASS}>固定する側</label>
               <RadioGroup
                 value={executor}
                 onValueChange={(v) =>
                   handleExecutorChange(v as 'source' | 'destination')
                 }
-                className="flex h-8 items-center gap-4"
+                className={`flex h-8 items-center gap-4 ${FIT_WIDE_VALUE_CLASS}`}
                 aria-label="振替元・振替先のどちらを固定するか"
               >
                 <div className="flex items-center gap-2">
@@ -339,16 +339,17 @@ export function TransferDetailSearch({
                 </div>
               </RadioGroup>
             </div>
-            <div className="col-span-2" />
           </div>
 
           {/* 2行目: 対象年月 / 計上年月 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+          <div
+            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {/* 対象年月（カレンダー選択） */}
-            <div className="flex items-center gap-2">
+            <div className={FIT_CELL_CLASS}>
               <label
                 htmlFor="allocate-target-month"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
+                className={FIT_LABEL_CLASS}
               >
                 対象年月
               </label>
@@ -364,10 +365,10 @@ export function TransferDetailSearch({
             </div>
 
             {/* 計上年月（カレンダー選択） */}
-            <div className="flex items-center gap-2">
+            <div className={FIT_CELL_CLASS}>
               <label
                 htmlFor="allocate-posting-month"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
+                className={FIT_LABEL_CLASS}
               >
                 計上年月
               </label>
@@ -384,12 +385,13 @@ export function TransferDetailSearch({
 
             {/* 振替No（振替詳細画面1枚に1つ。参照専用） */}
             {renderLabelField('振替No', BASIC_INFO.transferNo)}
-            <div />
           </div>
 
           {/* 3行目: 販売店 / 三次店 / 一次店（単一選択・コード/名称で検索）。
               並びはグリッド・支払詳細(追加口請求書有)と揃える。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {renderComboField(
               `${STORE_LABEL_PREFIX[executor]}販売店`,
               'allocate-store',
@@ -414,7 +416,6 @@ export function TransferDetailSearch({
               handlePrimaryChange,
               '一次店を選択／検索'
             )}
-            <div />
           </div>
 
           {/* 組織欄は上下2段で表す（20260728_第24回 決定事項7・18／課題 No.0956）。
@@ -427,7 +428,9 @@ export function TransferDetailSearch({
               （STORE_LABEL_PREFIX を共用。課題管理表 No.1080）。
               営業担当者は振替元・振替先で呼び分ける項目ではないためラベルは据え置き、
               値のみ担当組織に追従させる。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {renderLabelField(
               `${STORE_LABEL_PREFIX[executor]}事業場`,
               ownerOrg.office
@@ -450,7 +453,9 @@ export function TransferDetailSearch({
 
           {/* 下段（支払申請者）: 申請事業場 / 申請部署 / 申請末端組織 / 申請者。
               並びは支払詳細(追加口請求書有) の支払情報エリアに合わせる。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {renderLabelField('申請事業場', BASIC_INFO.applicantOffice)}
             {renderLabelField('申請部署', BASIC_INFO.applicantDept)}
             {renderLabelField('申請末端組織', BASIC_INFO.applicantTerminalOrg)}
@@ -459,27 +464,26 @@ export function TransferDetailSearch({
 
           {/* ステータス（基本情報の最終行・下ボーダーなし）。
               横にコメント履歴ボタンを配置（支払詳細(追加口請求書有)の支払情報と同形式）。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2">
-            <div className="flex items-center gap-2 col-span-2">
-              <label
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
+          <div className={`${FIT_ROW_CLASS} mb-2`}>
+            <div className={FIT_WIDE_CELL_CLASS}>
+              <label className={FIT_LABEL_CLASS}>ステータス</label>
+              <div
+                className={`flex items-center gap-2 ${FIT_WIDE_VALUE_CLASS}`}
               >
-                ステータス
-              </label>
-              <span className="h-8 flex items-center text-sm text-gray-900">
-                {BASIC_INFO.status}
-              </span>
-              <button
-                type="button"
-                onClick={onStatusClick}
-                className="btn-toolbar-outline"
-                aria-label="コメント履歴"
-              >
-                <History className="h-4 w-4" />
-                コメント履歴
-              </button>
+                <span className="h-8 flex items-center text-sm text-gray-900">
+                  {BASIC_INFO.status}
+                </span>
+                <button
+                  type="button"
+                  onClick={onStatusClick}
+                  className="btn-toolbar-outline"
+                  aria-label="コメント履歴"
+                >
+                  <History className="h-4 w-4" />
+                  コメント履歴
+                </button>
+              </div>
             </div>
-            <div className="col-span-2" />
           </div>
         </div>
       </CollapsibleCard>

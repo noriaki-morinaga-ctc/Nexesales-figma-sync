@@ -10,15 +10,16 @@ import {
   type NonProductExpensePaneHandle,
   type ExpenseRow,
 } from './components/NonProductExpensePane';
-import { RightPane } from '../../ui/right-pane';
-import { STORE_NONE } from '../../../constants/storeHierarchy';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { STORE_NONE } from '@/app/constants/storeHierarchy';
 import {
   ReferenceTable,
   INITIAL_REFERENCE_ROWS,
   TRANSFER_TERMINAL_ORG_OPTIONS,
   type ReferenceRow,
 } from './components/ReferenceTable';
-import { ScreenTitle } from '../../ui/screen-title';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // ── モックデータ ────────────────────────────────────────────
 
@@ -285,22 +286,11 @@ export default function TransferDetail() {
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
               {/* コメント欄（支払詳細(その他)と同一の複数行テキストエリア） */}
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label
-                  htmlFor="payment-c-comment"
-                  className="text-sm text-gray-600 whitespace-nowrap"
-                >
-                  コメント
-                </label>
-                <textarea
-                  id="payment-c-comment"
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder="コメントを入力（差戻し理由など）"
-                  rows={2}
-                  className="h-10 w-full min-w-40 max-w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-                />
-              </div>
+              <FooterCommentField
+                id="payment-c-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+              />
               <button
                 className="btn-action-base btn-action-red"
                 aria-label="取消し"

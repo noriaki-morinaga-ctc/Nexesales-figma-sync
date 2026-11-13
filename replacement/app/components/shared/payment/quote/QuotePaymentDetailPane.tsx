@@ -1,13 +1,13 @@
 // 支払詳細(引用)画面用：PaymentDetailPane をベースに作成
 import { useState } from 'react';
 import { History } from 'lucide-react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
-import { Input } from '../../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../../styles/commonStyles';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 
 interface PaymentDetailPaneProps {
   // 支払明細情報のステータス（モック。画面ごとに違う）

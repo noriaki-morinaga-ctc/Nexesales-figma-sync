@@ -11,11 +11,9 @@ import {
   billingUnitPriceOf,
   isBillingAmountMismatch,
 } from './billingDetailFormula';
-import {
-  BILLING_DETAIL_BY_DATA_SOURCE,
-  createEmptyBillingDetailRow,
-  type BillingDetailRow,
-} from '../../../constants/billingMockData';
+import { BILLING_DETAIL_BY_DATA_SOURCE } from '@/mocks/common/billing';
+import { createEmptyBillingDetailRow } from '@/app/utils/payment/billing/billing';
+import type { BillingDetailRow } from '@/app/types/billing';
 
 // 検証用の明細行（必要な項目だけ差し替える）
 const rowOf = (over: Partial<BillingDetailRow>): BillingDetailRow => ({

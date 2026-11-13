@@ -4,16 +4,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '../../ui/button';
-import { YearPicker } from '../../ui/year-picker';
+import { Button } from '@/app/components/ui/button';
+import { YearPicker } from '@/app/components/ui/year-picker';
 // Progress は実画面と同じく進捗トースト（予算参照登録の ProgressToast）の中で表示する
-import { ProgressToast } from '../../budget/budget-reference-registration/components/ProgressToast';
+import { ProgressToast } from '@/app/components/budget/budget-reference-registration/components/ProgressToast';
 import {
   CARD_TITLE_CLASS,
   FORM_LABEL_CLASS,
   FORM_VALUE_CLASS,
   SCREEN_TITLE_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 
 // 進捗トーストの動き（予算参照登録・ファイルアップロード画面と同じ値）
 const UPLOAD_PROGRESS_TOAST_ID = 'showcase-upload-progress';

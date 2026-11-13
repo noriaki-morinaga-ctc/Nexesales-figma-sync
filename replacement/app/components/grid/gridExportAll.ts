@@ -33,8 +33,8 @@ import type {
   ProcessCellForExportParams,
 } from 'ag-grid-community';
 import { toast } from 'sonner';
-import { getCurrentScreenTitle } from '../ui/screen-title';
-import { requestConfirm } from '../ui/confirm-dialog';
+import { getCurrentScreenTitle } from '@/app/components/ui/screen-title';
+import { requestConfirm } from '@/app/components/ui/confirm-dialog';
 
 // 全件取得時にサーバーへ渡す、画面の絞り込み・並び替えの状態
 export interface GridExportAllFetchParams {

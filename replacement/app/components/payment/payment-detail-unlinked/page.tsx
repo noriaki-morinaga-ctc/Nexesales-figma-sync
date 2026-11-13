@@ -15,12 +15,14 @@ import {
   ArrowRight,
   CornerUpLeft,
   Stamp,
+  Plus,
+  Copy,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
 import { toast } from 'sonner';
 
-import { Button } from '../../ui/button';
+import { Button } from '@/app/components/ui/button';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -30,34 +32,37 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
   useGridColumnState,
-} from '../../grid';
+} from '@/app/components/grid';
 // 管理区分の「名称→区分値」導出（拡売費明細・支払情報サマリと共通）。
-import { managementClassCode } from '../../../constants/paymentComboFieldOptions';
+import { managementClassCode } from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
 import { SearchPane, TARGET_MONTH } from './components/SearchPane';
-import { DUMMY_STORE_LABEL } from '../../../utils/payment/payment-detail/paymentNoLink';
+import { DUMMY_STORE_LABEL } from './utils';
 import { PaymentDetailPane } from './components/PaymentDetailPane';
 import {
   AggregationPane,
   type SummarySourceRow,
 } from './components/AggregationPane';
+import { PaymentNonProductExpensePane } from '@/app/components/shared/payment/payment-detail/PaymentNonProductExpensePane';
+import { createExpenseRows } from '@/mocks/payment/payment-detail-unlinked';
 import {
-  PaymentNonProductExpensePane,
-  createExpenseRows,
   createEmptyExpenseRows,
   createQuotedExpenseRows,
-  type ExpenseRow,
-  type PaymentNonProductExpensePaneHandle,
-  type ExpenseFormValues,
-} from '../../shared/payment/payment-detail/PaymentNonProductExpensePane';
+} from '@/app/utils/payment/payment-detail/nonProductExpenseRows';
+import type {
+  ExpenseRow,
+  PaymentNonProductExpensePaneHandle,
+  ExpenseFormValues,
+  ExpenseBasicInfo,
+} from '@/app/types/paymentDetail';
 // 支払回数の切替・追加（支払詳細の各画面で共通）。
-import { usePaymentRounds } from '../../shared/payment/payment-detail/usePaymentRounds';
-import { PaymentRoundConfirmDialog } from '../../shared/payment/payment-detail/PaymentRoundConfirmDialog';
+import { usePaymentRounds } from '@/app/components/shared/payment/payment-detail/usePaymentRounds';
+import { PaymentRoundConfirmDialog } from '@/app/components/shared/payment/payment-detail/PaymentRoundConfirmDialog';
 
 // 支払回数の選択肢の初期値（＋支払回数追加で最大回数＋1を末尾へ足す）。
 const INVOICE_COUNT_OPTIONS = ['1', '2', '3'];
-import { CommentHistoryPane } from '../../shared/common/CommentHistoryPane';
-import { BottomPane } from '../../ui/bottom-pane';
-import { PaymentPlanSelectionPane } from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
+import { CommentHistoryPane } from '@/app/components/shared/common/CommentHistoryPane';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
+import { PaymentPlanSelectionPane } from '@/app/components/shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   QuoteSelectionPane,
   QUOTE_TARGET_MONTH_FROM,
@@ -66,15 +71,15 @@ import {
   QUOTE_PAYEE_OPTIONS,
   type QuoteSelectionPaneHandle,
   QUOTE_SELECTION_CONFIG,
-} from './components/quoteSelectionConfig';
-import { MonthYearPicker } from '../../ui/month-year-picker';
+} from './constants';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 import {
   BUTTON_BASE,
   BUTTON_STYLES,
   FORM_LABEL_CLASS,
   TEXT_INPUT_CLASS,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   Dialog,
   DialogContent,
@@ -82,13 +87,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
-import { Input } from '../../ui/input';
-import { Label } from '../../ui/label';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { ScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import type { ExpenseBasicInfo } from '../../../types/paymentDetail';
+} from '@/app/components/ui/dialog';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
+import { PAYMENT_DETAIL_STATUS } from './constants';
+import {
+  paymentFooterActionStateOf,
+  NO_PAYMENT_TITLE,
+} from '@/app/utils/payment/payment-detail/paymentFooterActions';
 
 // 拡売費一覧の明細行（親行）の商流・組織列に表示する、画面の基本情報の値。
 // 本画面は商流販売店に紐づかない支払のため、一次店・三次店・販売店はダミーコードを表示する。
@@ -438,15 +449,12 @@ const CONFIRM_MESSAGE_MAP: Record<
 };
 // ── モックデータ ────────────────────────────────────────────
 
-interface PaymentDetailUnlinkedProps {
-  // メニュー遷移（フッターの「一覧へ戻る」等で使用）
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function PaymentDetailUnlinked({
-  onMenuChange,
-}: PaymentDetailUnlinkedProps) {
+export default function PaymentDetailUnlinked() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // フッターの操作確認ダイアログ（PaymentDetailOther と同一方式）
+  // フッターのコメント欄の入力値
+  const [commentInput, setCommentInput] = useState('');
   const [isBackDialogOpen, setIsBackDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [isImportDialogShown, setIsImportDialogShown] = useState(false);
@@ -551,7 +559,7 @@ export default function PaymentDetailUnlinked({
   // 戻る確定 → 支払申請一覧参照画面へ遷移
   const handleBackConfirm = () => {
     setIsBackDialogOpen(false);
-    onMenuChange?.('payment-list');
+    navigate('payment-list');
   };
 
   // 支払確認ダイアログの確定（申請／引戻し／承認／検印／差戻し共通）
@@ -569,8 +577,13 @@ export default function PaymentDetailUnlinked({
   // 販売計画選択（下ペイン）。本画面は商流販売店に紐づかない支払を扱うが、
   // 計画パターン②〜④も選択の対象に含める（→ 20260821_第31回 決定事項6）。
   // 支払無し（当月は支払が発生しない伝票）。支払一覧と同じく未申請との間を
-  // 行き来する。理由は備考欄へ書く（→ 20260724_第23回_共通 決定事項8）。
+  // 行き来する。理由は画面下部のコメント欄へ書く（本画面は支払情報に備考が無いため）。
   const [isNoPayment, setIsNoPayment] = useState(false);
+  // フッターのボタンの活性（支払詳細(追加口請求書有・無)と同じくステータスで決める。UI/UX UX-072）。
+  // 支払無しを押した回は、ステータスを「支払無し」として扱う。
+  const footerActions = paymentFooterActionStateOf(
+    isNoPayment ? '支払無し' : PAYMENT_DETAIL_STATUS
+  );
   const [isPlanSelectionPaneShown, setIsPlanSelectionPaneShown] =
     useState(false);
   // 拡売費一覧（明細の追加・計画項目の設定）操作用。
@@ -695,7 +708,8 @@ export default function PaymentDetailUnlinked({
                     aria-label="支払回数追加"
                     onClick={rounds.requestAddRound}
                   >
-                    ＋支払回数追加
+                    <Plus className="h-4 w-4" />
+                    支払回数追加
                   </button>
                   {/* 支払情報引用（支払回数追加ボタンの右に配置）。
                       押下で引用明細選択ペイン（下ペイン）のみを開く。
@@ -706,6 +720,7 @@ export default function PaymentDetailUnlinked({
                     onClick={handleQuote}
                     aria-label="支払情報引用"
                   >
+                    <Copy className="h-4 w-4" />
                     支払情報引用
                   </button>
                 </div>
@@ -787,15 +802,16 @@ export default function PaymentDetailUnlinked({
                 <ArrowRight className="h-4 w-4" />
                 次の伝票へ
               </button>
-              {/* 支払無し：当月は支払が発生しない伝票にする。理由は備考欄へ書く
+              {/* 支払無し：当月は支払が発生しない伝票にする。理由はコメント欄へ書く
                   （→ 20260724_第23回_共通 決定事項8）。押下でステータスが
                   未申請⇔支払無しの間を行き来する（支払一覧のボタンと同じ扱い）。 */}
               <button
                 type="button"
                 onClick={() => setIsNoPayment((prev) => !prev)}
+                disabled={!footerActions.noPayment}
                 className="btn-action-base btn-action-outline"
                 aria-label={isNoPayment ? '支払無しを解除' : '支払無しにする'}
-                title="当月は支払が発生しない伝票にします。理由は備考欄へ入力してください"
+                title={NO_PAYMENT_TITLE.comment}
               >
                 <Ban className="h-4 w-4" />
                 {isNoPayment ? '支払無しを解除' : '支払無し'}
@@ -803,21 +819,17 @@ export default function PaymentDetailUnlinked({
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-700 whitespace-nowrap font-medium">
-                  コメント
-                </label>
-                <Input
-                  type="text"
-                  placeholder="コメントを入力"
-                  aria-label="コメント"
-                  className={`${TEXT_INPUT_CLASS} w-full min-w-40 max-w-128`}
-                />
-              </div>
+              <FooterCommentField
+                id="payment-unlinked-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+                disabled={!footerActions.comment}
+              />
               <button
                 className="btn-action-base btn-action-red"
                 aria-label="差戻し"
                 onClick={() => setConfirmAction('reject')}
+                disabled={!footerActions.sendBack}
               >
                 <CornerUpLeft className="h-4 w-4" />
                 差戻し
@@ -826,6 +838,7 @@ export default function PaymentDetailUnlinked({
                 className="btn-action-base btn-action-green"
                 aria-label="承認"
                 onClick={() => setConfirmAction('approve')}
+                disabled={!footerActions.approve}
               >
                 <Check className="h-4 w-4" />
                 承認
@@ -834,6 +847,7 @@ export default function PaymentDetailUnlinked({
                 className="btn-action-base btn-action-green"
                 aria-label="検印"
                 onClick={() => setConfirmAction('seal')}
+                disabled={!footerActions.seal}
               >
                 <Stamp className="h-4 w-4" />
                 検印
@@ -842,6 +856,7 @@ export default function PaymentDetailUnlinked({
                 className="btn-action-base btn-action-outline-blue"
                 aria-label="引戻し"
                 onClick={() => setConfirmAction('withdraw')}
+                disabled={!footerActions.retrieve}
               >
                 <CornerUpLeft className="h-4 w-4" />
                 引戻し
@@ -850,6 +865,7 @@ export default function PaymentDetailUnlinked({
                 className="btn-action-base btn-action-green"
                 aria-label="申請"
                 onClick={() => setConfirmAction('apply')}
+                disabled={!footerActions.apply}
               >
                 <Send className="h-4 w-4" />
                 申請
@@ -858,6 +874,7 @@ export default function PaymentDetailUnlinked({
                 className="btn-action-base btn-action-blue"
                 aria-label="保存"
                 onClick={handleSave}
+                disabled={!footerActions.save}
               >
                 <Save className="h-4 w-4" />
                 保存

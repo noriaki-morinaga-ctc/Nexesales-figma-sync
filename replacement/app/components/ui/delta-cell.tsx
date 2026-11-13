@@ -1,6 +1,6 @@
 
 import { Diff, Plus, Triangle } from 'lucide-react';
-import { GRID_COLORS } from '../grid';
+import { GRID_COLORS } from '@/app/components/grid';
 
 // 増減（差分）の共通表示ユーティリティ＋セルコンポーネント（UI共通）。
 // gridStyles には配色定数（increaseText/decreaseText）のみを置き、

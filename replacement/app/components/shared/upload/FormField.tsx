@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { RequiredBadge } from '../../ui/required-badge';
-import { FORM_LABEL_CLASS } from '../../../../styles/commonStyles';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
 
 interface FormFieldProps {
   label: string;

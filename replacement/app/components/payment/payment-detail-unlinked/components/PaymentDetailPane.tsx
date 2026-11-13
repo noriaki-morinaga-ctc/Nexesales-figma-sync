@@ -2,13 +2,15 @@
 import { useState } from 'react';
 import type React from 'react';
 import { History, ReceiptText } from 'lucide-react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SingleCombobox } from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { joinCodeName } from '../../../../utils/common/nameCode';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
+import { joinCodeName } from '@/app/utils/common/nameCode';
+import { PAYMENT_DETAIL_STATUS } from '@/app/components/payment/payment-detail-unlinked/constants';
 
 interface PaymentDetailPaneProps {
   // ステータス横のコメント履歴ボタン押下時のハンドラ
@@ -19,10 +21,6 @@ interface PaymentDetailPaneProps {
   // true のときは真っさらな入力画面とする（→ 20260804_第26回 決定事項23）。
   isNewRound?: boolean;
 }
-
-// 支払情報のステータス（モック）。
-// 値は支払一覧のステータス（未申請／承認待ち／承認差戻し／検印待ち／検印差戻し／検印済）に合わせる。
-const PAYMENT_DETAIL_STATUS = '承認待ち';
 
 // 未着請求書の有無（モック）。支払データの未着請求書区分を参照専用のテキストで表示する。
 const HAS_UNARRIVED_INVOICE = false;
@@ -85,7 +83,8 @@ export function PaymentDetailPane({
         {label}
       </label>
       <span className="h-8 flex items-center text-sm text-gray-900">
-        {value}
+        {/* 値が無いときはグレーの「-」（→ 05 値が空の項目・UX-068） */}
+        {valueOrEmpty(value)}
       </span>
     </div>
   );

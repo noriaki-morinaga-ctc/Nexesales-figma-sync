@@ -5,7 +5,7 @@ import {
   Hourglass,
   Inbox,
 } from 'lucide-react';
-import { Alert, AlertDescription } from '../../ui/alert';
+import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import type { UploadResultItem, UploadStatusType } from './uploadTypes';
 import {
   CARD_ICON_CLASS,

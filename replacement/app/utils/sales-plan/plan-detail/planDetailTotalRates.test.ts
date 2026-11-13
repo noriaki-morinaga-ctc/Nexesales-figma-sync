@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { planDetailTotalRatesOf } from './planDetailTotalRates';
-import { simulationManagementProfitOf } from '../simulation/simulationManagementProfit';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
+import { simulationManagementProfitOf } from '@/app/utils/sales-plan/simulation/simulationManagementProfit';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
 
 const master = SUMMARY_PRODUCT_OPTIONS[0];
 const base = {

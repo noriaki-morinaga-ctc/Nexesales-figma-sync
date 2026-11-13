@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeCommonRateAmount } from './commonRateAmounts';
-import {
-  DEFAULT_COMMON_RATE_SETTINGS,
-  type CommonRateBase,
-} from '../../../constants/commonRateSettings';
+import { DEFAULT_COMMON_RATE_SETTINGS } from '@/app/constants/commonRateSettings';
+import type { CommonRateBase } from '@/app/types/master';
 
 const base: CommonRateBase = {
   extSalesAll: 1000000,

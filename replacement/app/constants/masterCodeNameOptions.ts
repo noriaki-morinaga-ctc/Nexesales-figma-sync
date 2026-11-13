@@ -8,13 +8,10 @@ import {
   SUMMARY_PRODUCT_OPTIONS,
   WHOLESALE_MESH_BY_VALUE,
 } from './productMasters';
-import { wholesaleMeshCodeOf } from './comboFieldOptions';
+import { wholesaleMeshCodeOf } from '@/app/utils/common/comboFieldOptions';
 import { STORE_HIERARCHY } from './storeHierarchy';
-
-export interface CodeNameOption {
-  code: string;
-  name: string;
-}
+import type { CodeNameOption } from '@/app/types/master';
+import { isDummySummaryProductCode } from '@/app/utils/common/masterCodeNameOptions';
 
 // 「名称:コード」（storeHierarchy の表記）→ { code, name }
 const fromNameCode = (value: string): CodeNameOption => {
@@ -40,7 +37,7 @@ export const META_BRAND_CODE_NAME: CodeNameOption[] = META_BRAND_MASTER.map(
 
 // 容器容量Ｇコードは現行どおり数字2桁（Q&A No.36。新ドメインの確定待ち）。
 // 業務画面のモック（productMasters）は CG 始まりのコードのため、マスタ画面では並び順で 01〜 に読み替える。
-const CONTAINER_GROUP_CODE_BY_MASTER_CODE = new Map<string, string>(
+export const CONTAINER_GROUP_CODE_BY_MASTER_CODE = new Map<string, string>(
   CONTAINER_CAPACITY_MASTER.map((c, i) => [
     c.code,
     String(i + 1).padStart(2, '0'),
@@ -54,10 +51,6 @@ export const CONTAINER_GROUP_CODE_NAME: CodeNameOption[] =
     name: c.name,
   }));
 
-/** 業務画面モックの容器容量Gコード（CG…）→ マスタ画面の容器容量Ｇコード（2桁） */
-export const containerGroupCodeOf = (masterCode: string): string =>
-  CONTAINER_GROUP_CODE_BY_MASTER_CODE.get(masterCode) ?? '';
-
 /** 容器容量（容器容量グループの代表容器容量の候補。モックでは容器容量Gと同じ粒度で CC コードを振る） */
 export const CONTAINER_CAPACITY_CODE_NAME: CodeNameOption[] =
   CONTAINER_CAPACITY_MASTER.map((c, i) => ({
@@ -67,7 +60,7 @@ export const CONTAINER_CAPACITY_CODE_NAME: CodeNameOption[] =
 
 // サマリ商品コードはマスタに実値が無いため、一覧順に P0001 から決定的に採番する（モック）。
 // 新商品コード対応のダミーのサマリ商品は含めない（代表サマリ商品・戦略NETには設定しない：10/8 決定9・14）。
-const SUMMARY_PRODUCT_CODE_BY_VALUE = new Map<string, string>();
+export const SUMMARY_PRODUCT_CODE_BY_VALUE = new Map<string, string>();
 SUMMARY_PRODUCT_OPTIONS.forEach((p) => {
   if (!SUMMARY_PRODUCT_CODE_BY_VALUE.has(p.value)) {
     SUMMARY_PRODUCT_CODE_BY_VALUE.set(
@@ -82,17 +75,9 @@ export const SUMMARY_PRODUCT_CODE_NAME: CodeNameOption[] = Array.from(
   SUMMARY_PRODUCT_CODE_BY_VALUE.entries()
 ).map(([name, code]) => ({ code, name }));
 
-/** ダミーのサマリ商品か（コード先頭が「D」。判定は暫定で、新商品・新価格用サマリ商品の設計で変わり得る。Q&A No.31） */
-export const isDummySummaryProductCode = (code: string): boolean =>
-  code.startsWith('D');
-
 /** ダミーを除いたサマリ商品（一般卸メッシュの代表サマリ商品・戦略NETのサマリ商品の候補。10/8 決定9・14） */
 export const SUMMARY_PRODUCT_CODE_NAME_NO_DUMMY: CodeNameOption[] =
   SUMMARY_PRODUCT_CODE_NAME.filter((o) => !isDummySummaryProductCode(o.code));
-
-/** サマリ商品名 → サマリ商品コード */
-export const summaryProductCodeOf = (name?: string): string =>
-  SUMMARY_PRODUCT_CODE_BY_VALUE.get(String(name ?? '')) ?? '';
 
 /** 一般卸メッシュ（コード＝WM0001〜、名称＝メッシュ名） */
 export const WHOLESALE_MESH_CODE_NAME: CodeNameOption[] = Array.from(

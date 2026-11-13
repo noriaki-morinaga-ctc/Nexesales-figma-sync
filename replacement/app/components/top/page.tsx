@@ -1,6 +1,6 @@
 import React from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { GridApi, ColDef, GetRowIdParams } from 'ag-grid-community';
+import { ColDef, GetRowIdParams } from 'ag-grid-community';
 import {
   Store,
   Box,
@@ -11,22 +11,22 @@ import {
   Info,
 } from 'lucide-react';
 
-import { GRID_BASE_PROPS, GRID_COLORS } from '../grid';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import { CARD_TITLE_CLASS, CARD_CLASS } from '../../../styles/commonStyles';
-
-interface TopDashboardProps {
-  onMenuChange?: (menuId: string) => void;
-}
+import { GRID_BASE_PROPS, GRID_COLORS } from '@/app/components/grid';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/app/components/ui/tabs';
+import { CARD_TITLE_CLASS, CARD_CLASS } from '@/styles/commonStyles';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // ToDo・支払表の行ID（→ 画面設計標準 4.7）。各表の区分名 category は表内で一意かつ編集しない
 const getRowId = (params: GetRowIdParams) => String(params.data.category);
 
-export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
-  const [todoGridApi, setTodoGridApi] = React.useState<GridApi | null>(null);
-  const [paymentGridApi, setPaymentGridApi] = React.useState<GridApi | null>(
-    null
-  );
+export default function TopDashboard() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
 
   // 連絡情報のサンプルデータ
   const notifications = [
@@ -254,10 +254,9 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
             // 販売計画表の未登録未申請の6月分がクリックされた場合、販売計画一覧に遷移
             if (
               props.data.category === '未登録未申請' &&
-              props.colDef.field === 'jun' &&
-              onMenuChange
+              props.colDef.field === 'jun'
             ) {
-              onMenuChange('plan-list');
+              navigate('plan-list');
             }
           }}
         >
@@ -394,9 +393,7 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
         <div className="mb-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={() =>
-              onMenuChange?.('location-contract-amortization-list')
-            }
+            onClick={() => navigate('location-contract-amortization-list')}
             className="btn-toolbar-outline"
             aria-label="ロケ契約(償却)一覧へ移動"
           >
@@ -420,6 +417,7 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
             </div>
 
             {/* ToDo一覧テーブル */}
+            {/* 規約例外（カードではない枠）：ToDo一覧カードの中でタブと表を囲む枠のため */}
             <div className="bg-white border border-gray-200 rounded-lg p-1 flex-1 overflow-hidden flex flex-col">
               <Tabs
                 defaultValue="手売り"
@@ -449,7 +447,7 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                     <div className="flex flex-col">
                       <div className="flex justify-end mb-2"></div>
                       <div className="grid-unified grid-sales-plan ag-theme-quartz shadow-md">
-                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
+                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表で、列の幅・並び・並べ替えを変えられない（resizable・sortable・移動なし）ため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                         <AgGridReact
                           className="grid-summary-table"
                           rowData={todoData}
@@ -464,14 +462,13 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                             sortable: false,
                             resizable: false,
                           }}
-                          onGridReady={(params) => setTodoGridApi(params.api)}
                         />
                       </div>
                     </div>
 
                     {/* 支払表 */}
                     <div className="grid-unified grid-payment ag-theme-quartz shadow-md">
-                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
+                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表で、列の幅・並び・並べ替えを変えられない（resizable・sortable・移動なし）ため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                       <AgGridReact
                         className="grid-summary-table"
                         rowData={paymentData}
@@ -486,7 +483,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                           sortable: false,
                           resizable: false,
                         }}
-                        onGridReady={(params) => setPaymentGridApi(params.api)}
                       />
                     </div>
                   </div>
@@ -499,7 +495,7 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                     <div className="flex flex-col">
                       <div className="flex justify-end mb-2"></div>
                       <div className="grid-unified grid-sales-plan ag-theme-quartz">
-                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
+                        {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表で、列の幅・並び・並べ替えを変えられない（resizable・sortable・移動なし）ため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                         <AgGridReact
                           className="grid-summary-table"
                           rowData={todoDataVending}
@@ -514,14 +510,13 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                             sortable: false,
                             resizable: false,
                           }}
-                          onGridReady={(params) => setTodoGridApi(params.api)}
                         />
                       </div>
                     </div>
 
                     {/* 支払表 */}
                     <div className="grid-unified grid-payment ag-theme-quartz">
-                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表のため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
+                      {/* 規約例外（集計表）：状態・項目ごとの行が決まっている集計表で、列の幅・並び・並べ替えを変えられない（resizable・sortable・移動なし）ため、件数表示（statusBar）と列の状態の保存（useGridColumnState）は付けない */}
                       <AgGridReact
                         className="grid-summary-table"
                         rowData={paymentDataVending}
@@ -536,7 +531,6 @@ export default function TopDashboard({ onMenuChange }: TopDashboardProps) {
                           sortable: false,
                           resizable: false,
                         }}
-                        onGridReady={(params) => setPaymentGridApi(params.api)}
                       />
                     </div>
                   </div>

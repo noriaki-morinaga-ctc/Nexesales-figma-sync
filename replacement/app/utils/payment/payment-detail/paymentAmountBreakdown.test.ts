@@ -8,7 +8,7 @@ import {
   type AmountBreakdownAccessors,
   type TaxRateColumn,
 } from './paymentAmountBreakdown';
-import type { DataSource } from '../../../constants/dataSource';
+import type { DataSource } from '@/app/constants/dataSource';
 
 interface Row {
   bill: number | null;

@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { aggregateBillingDetailRows } from '@/app/utils/payment/billing/billing';
 import {
-  aggregateBillingDetailRows,
   BILLING_DETAIL_BY_DATA_SOURCE,
   BILLING_LIST,
-  createEmptyBillingDetailRow,
-  type BillingDetailRow,
-  type BillingDetailStatus,
-} from './billingMockData';
+} from '@/mocks/common/billing';
+import { createEmptyBillingDetailRow } from '@/app/utils/payment/billing/billing';
+import type {
+  BillingDetailRow,
+  BillingDetailStatus,
+} from '@/app/types/billing';
 
 // 補足3-1 請求の合計項目の具体例を作るための明細（ステータス・請求金額・支払金額だけを持つ）。
 const rowOf = (
@@ -38,8 +40,8 @@ describe('aggregateBillingDetailRows（補足3-1 の定義）', () => {
 
   it('例2：支払金額が空欄の明細は請求金額だけが差額に入る', () => {
     const totals = aggregateBillingDetailRows([
-      rowOf('1', '', 400, null),
-      rowOf('2', '', 300, null),
+      rowOf('1', '支払画面未反映', 400, null),
+      rowOf('2', '支払画面未反映', 300, null),
       rowOf('3', '商流未設定', 100, null),
     ]);
     expect(totals.billAmount).toBe(800);
@@ -84,7 +86,7 @@ describe('aggregateBillingDetailRows（補足3-1 の定義）', () => {
   it('差額は小数第3位を四捨五入して小数第2位まで持つ', () => {
     const totals = aggregateBillingDetailRows([
       rowOf('1', '支払画面反映済', 10.105, 0.1),
-      rowOf('2', '', 0.004, null),
+      rowOf('2', '支払画面未反映', 0.004, null),
     ]);
     expect(totals.correction).toBe(10.01);
   });

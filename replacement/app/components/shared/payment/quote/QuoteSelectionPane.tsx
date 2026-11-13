@@ -37,15 +37,15 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { addMonths, toYearMonth } from '../../../../utils/common/yearMonth';
+} from '@/app/components/grid';
+import { addMonths, toYearMonth } from '@/app/utils/common/yearMonth';
 import {
   campaignClassCode,
   managementClassCode,
   managementCodeName,
-} from '../../../../constants/paymentComboFieldOptions';
-import { campaignCodeNameOf } from '../../../../constants/comboFieldOptions';
-import type { ExpenseBasicInfo } from '../../../../types/paymentDetail';
+} from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import { campaignCodeNameOf } from '@/app/utils/common/comboFieldOptions';
+import type { ExpenseBasicInfo } from '@/app/types/paymentDetail';
 
 // 引用元となる支払明細データ（拡売費一覧の明細と同じ項目構成）。
 // 管理区分・施策区分は拡売費一覧と同様に「名称」を保持し、コードは表示時に導出する。
@@ -1558,6 +1558,8 @@ export const QuoteSelectionPane = forwardRef<
         // 選択：引用元の伝票を1件だけ選ぶラジオ。伝票行にのみ表示する。
         // 幅はラジオ（1rem）とセル左右の余白が収まる最小限にとどめる。
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'selectQuote',
         width: 45,
         minWidth: 45,
@@ -1575,6 +1577,8 @@ export const QuoteSelectionPane = forwardRef<
         // 幅はボタン（w-5＝1.25rem）とセル左右の余白が収まる最小限にとどめる
         //（拡売費一覧の折りたたみ機能列と同じ幅）。
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         headerComponent: VoucherCollapseHeader,
         colId: 'voucherCollapse',
         width: 32,
@@ -1762,7 +1766,7 @@ export const QuoteSelectionPane = forwardRef<
         cellStyle: ownCellStyle,
       },
       {
-        headerName: '担当者',
+        headerName: '営業担当者',
         colId: 'staff',
         width: 128,
         valueGetter: storeOrgValueGetter('splitStaff', 'staff'),

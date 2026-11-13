@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  NEW_PRODUCT_MONTHS,
-  SUMMARY_PRODUCT_OPTIONS,
-  isNewProductAt,
-} from './productMasters';
+import { NEW_PRODUCT_MONTHS, SUMMARY_PRODUCT_OPTIONS } from './productMasters';
+import { isNewProductAt } from '@/app/utils/common/productMasters';
 
 describe('isNewProductAt（対象年月時点の新商品判定）', () => {
   const product = { isNew: true, newFrom: '2025/04' };

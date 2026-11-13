@@ -2,7 +2,7 @@
 // PaymentDetailWithInvoice（支払詳細(マージン率固定・NET入力)）をベースに、追加口エリア（追加口一覧テーブル
 // と、そこから開く明細追加・編集・削除・コピー／年契基本分／センターフィ／取組強化マージンの
 // 各右ペイン）を除外した、拡売費のみを扱う画面。
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Save,
   Send,
@@ -18,8 +18,13 @@ import { AgGridReact } from 'ag-grid-react';
 import type { ColDef } from 'ag-grid-community';
 import { toast } from 'sonner';
 
-import { Button } from '../../ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
+import { Button } from '@/app/components/ui/button';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -29,17 +34,17 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
   useGridColumnState,
-} from '../../grid';
-import { QuoteBasicInfoPane } from '../../shared/payment/quote/QuoteBasicInfoPane';
-import { QuotePaymentDetailPane } from '../../shared/payment/quote/QuotePaymentDetailPane';
+} from '@/app/components/grid';
+import { QuoteBasicInfoPane } from '@/app/components/shared/payment/quote/QuoteBasicInfoPane';
+import { QuotePaymentDetailPane } from '@/app/components/shared/payment/quote/QuotePaymentDetailPane';
 import {
   QuoteNonProductExpensePane,
   type NonProductExpenseData,
-} from '../../shared/payment/quote/QuoteNonProductExpensePane';
-import { QuotePlanSelectionPane } from '../../shared/payment/quote/QuotePlanSelectionPane';
-import { RightPane } from '../../ui/right-pane';
-import { BottomPane } from '../../ui/bottom-pane';
-import { NumericInput } from '../../ui/numeric-input';
+} from '@/app/components/shared/payment/quote/QuoteNonProductExpensePane';
+import { QuotePlanSelectionPane } from '@/app/components/shared/payment/quote/QuotePlanSelectionPane';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
+import { NumericInput } from '@/app/components/ui/numeric-input';
 import {
   Dialog,
   DialogContent,
@@ -47,22 +52,28 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { Textarea } from '../../ui/textarea';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../constants/matchPaymentType';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
+} from '@/app/components/ui/dialog';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
 
-import type { ExpenseRow } from '../../shared/payment/quote/QuoteNonProductExpensePane';
-import { ScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { MATCH_PAYMENT_TYPE_OPTIONS } from '@/app/constants/matchPaymentType';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+
+import type { ExpenseRow } from '@/app/components/shared/payment/quote/QuoteNonProductExpensePane';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import {
   campaignClassComboOptions,
   campaignCodeComboOptions,
-} from '../../../constants/comboFieldOptions';
+} from '@/app/constants/comboFieldOptions';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import {
+  DEFAULT_QUOTE_BASIC_INFO,
+  QUOTE_STORE_OPTIONS,
+} from '@/mocks/common/quoteBasicInfo';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 照合支払区分の選択肢（右ペイン用）。
 const MATCH_TYPE_PANE_OPTIONS = MATCH_PAYMENT_TYPE_OPTIONS.map((v) => ({
@@ -373,26 +384,23 @@ const EMPTY_EXPENSE_EDIT_FORM: ExpenseEditFormValues = {
   matchType: '',
 };
 
-interface PaymentDetailQuoteProps {
-  // メニュー遷移（フッターの「一覧へ戻る」等で使用）
-  onMenuChange?: (menuId: string) => void;
-}
-
 // 税区分の選択肢（値をそのまま表示名にする。SingleCombobox は表示名が必須）
 const TAX_CLASS_COMBO_OPTIONS = EXPENSE_TAX_CLASS_OPTIONS.map((o) => ({
   value: o.value,
   label: o.value,
 }));
 
-export default function PaymentDetailQuote({
-  onMenuChange,
-}: PaymentDetailQuoteProps) {
+export default function PaymentDetailQuote() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 追加口一覧から連動する「未承認NET拡売費」データ（拡売費一覧へ渡す）
   const [netUnapproved] = useState<{
     total: number;
     byProduct: Record<string, number>;
   }>({ total: 0, byProduct: {} });
   // フッターの操作確認ダイアログ（PaymentDetailOther と同一方式）
+  // フッターのコメント欄の入力値
+  const [commentInput, setCommentInput] = useState('');
   const [isBackDialogOpen, setIsBackDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [isImportDialogShown, setIsImportDialogShown] = useState(false);
@@ -427,7 +435,7 @@ export default function PaymentDetailQuote({
   // 戻る確定 → 支払申請一覧参照画面へ遷移
   const handleBackConfirm = () => {
     setIsBackDialogOpen(false);
-    onMenuChange?.('payment-list');
+    navigate('payment-list');
   };
 
   // 支払確認ダイアログの確定（申請／引戻し／承認／検印／差戻し共通）
@@ -515,121 +523,11 @@ export default function PaymentDetailQuote({
     setIsEditExpensePaneShown(true);
   };
 
-  // ダミーデータ生成（実際のアプリではAPIから取得）
-  const generateDummyProductData = () => {
-    const brands = ['三ツ矢', 'カルピス', 'ウィルキンソン', '十六茶', 'ワンダ'];
-    const promotionTypes = ['定番・EDLP', '新商品', '特殊商品', 'ギフト'];
-    const data = [];
-
-    for (let i = 0; i < 20; i++) {
-      data.push({
-        promotionType: promotionTypes[i % 4],
-        metaBrand: brands[i % 5],
-        summaryProductName: `${brands[i % 5]}商品${i + 1}`,
-        generalMesh: `M${100000 + i}`,
-        endSale: i % 10 === 0 ? '終売' : '',
-        quantity: [8, 12, 24, 30][i % 4],
-        planBoxes: [800, 500, 300, 200][i % 4],
-        currentEstimate: [800, 480, 290, 190][i % 4],
-        currentActual: [445, 250, 150, 100][i % 4],
-        prevYearActual: [800, 500, 300, 200][i % 4],
-        planVsPrevYear: [100.0, 96.0, 96.7, 95.0][i % 4],
-        net: [62.13, 58.5, 50.0, 36.68][i % 4],
-        deliveryPrice: [55.0, 52.0, 45.0, 33.0][i % 4],
-        sellingPrice: [120, 115, 100, 80][i % 4],
-        marginRate: [11.2, 10.5, 9.8, 9.0][i % 4],
-        markupRate: [54.2, 54.8, 55.0, 58.8][i % 4],
-        seihan: [11000, 14000, 10500, 8800][i % 4],
-        ukewatashi: [10500, 13500, 10000, 8400][i % 4],
-        profitRate: [23.1, 18.5, 23.1, 8.5][i % 4],
-        exp1Amount: i % 3 === 0 ? 50000 : 0,
-        exp1PostingMonth: i % 3 === 0 ? 10 : 0,
-        exp1DeliveryMonth: i % 3 === 0 ? 10 : 0,
-        exp1ManagementClass: i % 3 === 0 ? '販促費' : '',
-        exp1ManagementCode: i % 3 === 0 ? 'A001' : '',
-        exp1Description: i % 3 === 0 ? '新商品導入費' : '',
-        exp2Amount: 0,
-        exp2PostingMonth: 0,
-        exp2DeliveryMonth: 0,
-        exp2ManagementClass: '',
-        exp2ManagementCode: '',
-        exp2Description: '',
-      });
-    }
-    return data;
-  };
-
-  const generateDummyNonProductExpenseData = () => {
-    return [
-      {
-        metaBrand: '三ツ矢',
-        accountItem: '販促費',
-        managementClass: '拡売費A',
-        managementCode: 'A001',
-        description: '店頭POP費用',
-        amount: 150000,
-        postingMonth: '2025-10',
-      },
-      {
-        metaBrand: 'カルピス',
-        accountItem: '広告費',
-        managementClass: '拡売費B',
-        managementCode: 'B002',
-        description: 'TV-CM放映費',
-        amount: 300000,
-        postingMonth: '2025-10',
-      },
-      {
-        metaBrand: 'ウィルキンソン',
-        accountItem: '販促費',
-        managementClass: '拡売費A',
-        managementCode: 'A003',
-        description: 'サンプリング費用',
-        amount: 200000,
-        postingMonth: '2025-10',
-      },
-    ];
-  };
-
-  const handleExport = (
-    includeSeihanPrice: boolean,
-    includeUkewatashiPrice: boolean
-  ) => {
-    const productData = generateDummyProductData();
-    const nonProductExpenseData = generateDummyNonProductExpenseData();
-
-    const searchConditions = {
-      targetYear: '2025年',
-      targetMonth: '10月',
-      status: '全て',
-      applicationStatus: '未申請',
-      businessLocation: '首都圏本部',
-      department: '首都圏営業第二部',
-      manager: 'アサヒ　早苗',
-      area: '首都圏',
-      tradingSystem: 'マージン率固定',
-      salesPerson: 'アサヒ　太郎',
-      channel: '全国SM',
-      retailer: 'イオンリテール',
-      firstTier1: '三菱食品株式会社（イオン）',
-      firstTier2: '加藤産業株式会社　仙台支店イオンＲＤＣ',
-      firstTier3: '伊藤忠食品株式会社　仙台支店',
-      copyTargetMonth: '2025年9月',
-      centerFeeRate: 3.0,
-      fixedMarginRate: 11.0,
-    };
-
-    const options = {
-      includeSeihanPrice,
-      includeUkewatashiPrice,
-    };
-
-    exportSalesPlanToExcel(
-      productData,
-      nonProductExpenseData,
-      searchConditions,
-      options
-    );
+  // エクスポート：Excel への出力は未実装のため、案内のトーストだけ出す。
+  // TODO: 実装するときは、商品の明細・商品外の拡売費・基本情報の条件を Excel に出力する
+  //       （以前は定義の無い exportSalesPlanToExcel を呼んでいて、押すとエラーになっていた）。
+  const handleExport = () => {
+    toast.info('エクスポートは準備中です。');
   };
 
   // 列幅・並び・ソートの状態を保存／復元する（→ 02 §7 列状態の永続化）
@@ -654,9 +552,9 @@ export default function PaymentDetailQuote({
                 </h2>
                 <QuoteBasicInfoPane
                   storesEditable
-                  onImport={() => setIsImportDialogShown(true)}
-                  onExport={() => handleExport(true, true)}
-                  onQuoteExport={() => handleExport(true, true)}
+                  onExport={handleExport}
+                  basicInfo={DEFAULT_QUOTE_BASIC_INFO}
+                  storeOptions={QUOTE_STORE_OPTIONS}
                 />
               </section>
 
@@ -826,6 +724,7 @@ export default function PaymentDetailQuote({
           maxHeight={48}
         >
           <QuotePlanSelectionPane
+            initialTargetMonth={DEFAULT_QUOTE_BASIC_INFO.targetMonth}
             columnStateKey="支払詳細(見積).計画明細選択.columnState"
             onSelect={() => {
               // TODO: 選択された計画明細を支払明細に紐づける（未実装）
@@ -852,17 +751,11 @@ export default function PaymentDetailQuote({
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label className="text-sm text-gray-700 whitespace-nowrap font-medium">
-                  コメント
-                </label>
-                <Input
-                  type="text"
-                  placeholder="コメントを入力"
-                  aria-label="コメント"
-                  className={`${TEXT_INPUT_CLASS} w-full min-w-40 max-w-128`}
-                />
-              </div>
+              <FooterCommentField
+                id="payment-quote-comment"
+                value={commentInput}
+                onChange={setCommentInput}
+              />
               <button
                 className="btn-action-base btn-action-red"
                 aria-label="差戻し"

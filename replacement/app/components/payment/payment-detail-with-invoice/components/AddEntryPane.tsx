@@ -20,26 +20,26 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../../constants/matchPaymentType';
-import { DEFAULT_DATA_SOURCE } from '../../../../constants/dataSource';
+import { MATCH_PAYMENT_TYPE_OPTIONS } from '@/app/constants/matchPaymentType';
+import { DEFAULT_DATA_SOURCE } from '@/app/constants/dataSource';
+import { BILL_RETAILER_NAME } from '@/mocks/payment/payment-detail-with-invoice/paymentDetail';
 import {
-  BILL_RETAILER_NAME,
   entryMasterNetOf,
   entryReferenceOf,
-  type EntryFormValues,
-} from './DetailTable';
-import { entrySummaryProductComboOptions } from './entrySummaryProductOptions';
+} from '@/app/components/payment/payment-detail-with-invoice/utilsEntryRows';
+import type { EntryFormValues } from '@/app/types/paymentDetail';
+import { entrySummaryProductComboOptions } from '@/app/components/payment/payment-detail-with-invoice/utils';
 import {
   updateEntryBillingDraft,
   type EntryBillingDraftField,
-} from '../../../../utils/payment/payment-detail/additionalEntryRules';
+} from '@/app/utils/payment/payment-detail/additionalEntryRules';
 import {
   FieldGroup,
   InputField,
   SelectField,
   ReadOnlyField,
   CheckField,
-} from '../../../shared/payment/payment-detail/AddDetailFields';
+} from '@/app/components/shared/payment/payment-detail/AddDetailFields';
 
 // 親（画面）から「追加」ボタンで呼ぶハンドル。
 export interface AddEntryPaneHandle {

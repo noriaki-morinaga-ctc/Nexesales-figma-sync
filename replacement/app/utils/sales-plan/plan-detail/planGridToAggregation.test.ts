@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { toAggregationProducts } from './planGridToAggregation';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
 
 // 2025/10 が対象年月 → index0 = 9
-const CONTEXT = { planPattern: 'marginRateFixed' as const, targetMonthIdx0: 9 };
+const CONTEXT = {
+  planPattern: 'marginRateFixed' as const,
+  targetMonthIdx0: 9,
+  unitPriceKbn: UNIT_PRICE_KBN,
+};
 
 const row = (over: Record<string, string> = {}) => ({
   section: '定番商品',
@@ -48,7 +53,7 @@ describe('toAggregationProducts', () => {
   //   このマスタの itemBaraPrice: '70.00' / costOfSales: '52.00'。
   //
   // 【社外売単価】補足2-2 の判定は No.5→No.1→No.2→No.3/4 の順。
-  //   単価取得区分は constants/planBasicInfoMockData の UNIT_PRICE_KBN（'取得不可'）が
+  //   単価取得区分は src/mocks/common/planBasicInfo の UNIT_PRICE_KBN（'取得不可'）が
   //   使われるため No.5（納価をそのまま採用）は成立せず、No.1
   //   （飲料単価マスタ_アイテムバラ保証金抜き単価）が itemBaraPrice: '70.00' で
   //   数値として取得できるためこれを採用 → extUnitPrice = 70。
@@ -125,6 +130,7 @@ describe('toAggregationProducts', () => {
     const [product] = toAggregationProducts([netFixedRow], {
       planPattern: 'netFixed',
       targetMonthIdx0: 9,
+      unitPriceKbn: UNIT_PRICE_KBN,
     });
     expect(product.extUnitPrice).toBeGreaterThan(0);
     expect(product.costUnitPriceTransfer).toBeGreaterThan(0);

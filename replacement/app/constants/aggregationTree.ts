@@ -10,22 +10,9 @@
 import type {
   AggregationView,
   DisplayVisibility,
-} from './aggregationDisplayItems';
+} from '@/app/types/aggregation';
 import { AGGREGATION_DISPLAY_ITEMS } from './aggregationDisplayItems';
-
-export interface AggTreeNode {
-  // 木内で一意なキー（hierarchyPath の要素に使う）
-  key: string;
-  // 表示ラベル（資料の「金額」「率」「函単価」等の総称ラベルを含む）
-  label: string;
-  // 対応する 30項目マスタの id（数値・可視性の引き当て元）。補助ノードは未指定。
-  itemId?: number;
-  // itemId を持たない補助ノードの可視性（ビュー別）。省略時は親に追従。
-  visibility?: Partial<Record<AggregationView, DisplayVisibility>>;
-  // 項目のマウスオーバーで表示する注記（例：納品金額の NO_DELIVERY_PRICE_NOTE）
-  note?: string;
-  children?: AggTreeNode[];
-}
+import type { AggTreeNode } from '@/app/types/aggregation';
 
 // 売上高単価の表示ラベル。量経追加口だけを控除した特殊な指標のため、項目名に括弧書きで計算式を出す
 //（10/16 手売りセッション 決定事項15・16）。年間計画集計（AnnualTotalTab）でも同じラベルを使う。
@@ -198,148 +185,7 @@ export const AGGREGATION_TREE: AggTreeNode[] = [
   },
 ];
 
-// ノードの指定ビューでの可視性を解決する。
-//   1) visibility（補助ノードの明示指定）
-//   2) itemId 経由の 30項目マスタ
-//   3) どちらも無ければ 'always'（構造ノード）
-const resolveVisibility = (
-  node: AggTreeNode,
-  view: AggregationView,
-  labelVisibility: (itemId: number, view: AggregationView) => DisplayVisibility
-): DisplayVisibility => {
-  if (node.visibility && node.visibility[view]) {
-    return node.visibility[view] as DisplayVisibility;
-  }
-  if (node.itemId != null) return labelVisibility(node.itemId, view);
-  return 'always';
-};
-
-// treeData 用のフラット行（描画側はこの配列を rowData に渡す）
-export interface AggTreeRow {
-  key: string;
-  label: string;
-  itemId?: number;
-  level: number;
-  hierarchyPath: string[];
-  hasChildren: boolean;
-  // 折りたたみ時に表示する直下の可視子ノード数
-  descendantCount: number;
-  // 項目のマウスオーバーで表示する注記
-  note?: string;
-}
-
-// 木のノード参照（key / label / itemId のみ）。
-// 計算式ツールチップの実値行のように、可視性に依らずノードの値だけを引きたい用途で使う。
-// 表示行（AggTreeRow）とは別物で、level・hierarchyPath・hasChildren・descendantCount は持たない
-// （これらは「可視な子」を前提にした表示専用の意味論のため、可視性を無視する用途に持たせない）。
-export type AggTreeNodeRef = Pick<AggTreeRow, 'key' | 'label' | 'itemId'>;
-
-export interface FlattenOptions {
-  // △（optional）項目のうち、＋ボタンで表示ONにされている itemId 集合
-  shownOptionalIds?: Set<number>;
-  // itemId→ビュー別可視性を返す関数（呼び出し側で overrides 適用済みを渡せる）
-  visibilityOf?: (itemId: number, view: AggregationView) => DisplayVisibility;
-}
-
-// 既定の可視性解決（30項目マスタ直参照）
-const defaultVisibilityOf = (
-  itemId: number,
-  view: AggregationView
-): DisplayVisibility => {
-  // id から項目を引く（label 経由のマスタ関数しか無いため線形探索は避け、id 一致で解決）
-  const item = AGGREGATION_ITEMS_BY_ID.get(itemId);
-  return item ? item.visibility[view] : 'always';
-};
-
 // id 逆引き（default 可視性解決用）
-const AGGREGATION_ITEMS_BY_ID = new Map(
+export const AGGREGATION_ITEMS_BY_ID = new Map(
   AGGREGATION_DISPLAY_ITEMS.map((i) => [i.id, i])
 );
-
-// 木を treeData 行へフラット化する。
-// 可視性ルール：〇=常時表示 / △=shownOptionalIds に含まれる時のみ表示 / ×=非表示。
-// 親が非表示なら子孫も出さない。
-export const flattenAggregationTree = (
-  view: AggregationView,
-  options: FlattenOptions = {}
-): AggTreeRow[] => {
-  const shown = options.shownOptionalIds ?? new Set<number>();
-  const visibilityOf = options.visibilityOf ?? defaultVisibilityOf;
-  const rows: AggTreeRow[] = [];
-
-  const isVisible = (node: AggTreeNode): boolean => {
-    const vis = resolveVisibility(node, view, visibilityOf);
-    if (vis === 'hidden') return false;
-    if (vis === 'optional') {
-      // itemId を持つ △ は＋ボタンの選択に従う。補助ノード（itemId 無し）は常時表示扱い。
-      if (node.itemId == null) return true;
-      return shown.has(node.itemId);
-    }
-    return true; // always
-  };
-
-  const walk = (nodes: AggTreeNode[], parentPath: string[], level: number) => {
-    nodes.forEach((node) => {
-      if (!isVisible(node)) return;
-      const path = [...parentPath, node.key];
-      const visibleChildren = (node.children ?? []).filter(isVisible);
-      rows.push({
-        key: node.key,
-        label: node.label,
-        itemId: node.itemId,
-        level,
-        hierarchyPath: path,
-        hasChildren: visibleChildren.length > 0,
-        descendantCount: visibleChildren.length,
-        note: node.note,
-      });
-      if (visibleChildren.length > 0) {
-        walk(node.children ?? [], path, level + 1);
-      }
-    });
-  };
-
-  walk(AGGREGATION_TREE, [], 0);
-  return rows;
-};
-
-// 指定ビューで△（＋ボタン切替対象）となる itemId の一覧（表示切替UIの対象）。
-export const getOptionalItemIds = (
-  view: AggregationView,
-  visibilityOf: (
-    itemId: number,
-    view: AggregationView
-  ) => DisplayVisibility = defaultVisibilityOf
-): number[] => {
-  const ids: number[] = [];
-  const walk = (nodes: AggTreeNode[]) => {
-    nodes.forEach((node) => {
-      if (
-        node.itemId != null &&
-        visibilityOf(node.itemId, view) === 'optional'
-      ) {
-        ids.push(node.itemId);
-      }
-      if (node.children) walk(node.children);
-    });
-  };
-  walk(AGGREGATION_TREE);
-  return ids;
-};
-
-// 可視性（〇/△/×）を無視して木の全ノードをフラットに返す。
-// 計算式ツールチップの実値行は、画面に出ていない算出元の値も表示するため、
-// 全ノードの値を引けるようにする用途で使う（表示行の生成には使わない）。
-// 木を再帰して { key, label, itemId } だけを集める単純な処理であり、
-// level・hierarchyPath・hasChildren・descendantCount のような表示専用メタ情報は持たない。
-export const flattenAllTreeNodes = (): AggTreeNodeRef[] => {
-  const refs: AggTreeNodeRef[] = [];
-  const walk = (nodes: AggTreeNode[]) => {
-    nodes.forEach((node) => {
-      refs.push({ key: node.key, label: node.label, itemId: node.itemId });
-      if (node.children) walk(node.children);
-    });
-  };
-  walk(AGGREGATION_TREE);
-  return refs;
-};

@@ -16,20 +16,16 @@ import type {
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef } from 'ag-grid-community';
-import { Redo2 } from 'lucide-react';
+import { Redo2, Plus, Split } from 'lucide-react';
 
 import {
   SingleComboboxCellEditor,
   toComboOptions,
-} from '../../../ui/single-combobox-cell-editor';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { DropdownMenuItem } from '../../../ui/dropdown-menu';
-import { SplitPresenceBadge } from '../../../shared/payment/payment-detail/PaymentStatusIcons';
-import {
-  CARD_TITLE_CLASS,
-  BUTTON_STYLES,
-  BUTTON_BASE,
-} from '../../../../../styles/commonStyles';
+} from '@/app/components/ui/single-combobox-cell-editor';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { DropdownMenuItem } from '@/app/components/ui/dropdown-menu';
+import { SplitPresenceBadge } from '@/app/components/shared/payment/payment-detail/PaymentStatusIcons';
+import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -45,129 +41,38 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import type { CellColorLegendItem } from '../../../grid';
-import {
-  DEFAULT_DATA_SOURCE,
-  type DataSource,
-} from '../../../../constants/dataSource';
-import {
-  BILL_RETAILER_NAME,
-  ENTRY_PRODUCT_CODE_BY_NAME,
-  centerFeeRateOf,
-  createWithInvoiceEntryRows,
-  entryPlanOf,
-  withInvoiceMasterValuesOf,
-} from '../../../../constants/paymentWithInvoiceMockData';
+  asCellStyle,
+} from '@/app/components/grid';
+import type { CellColorLegendItem } from '@/app/components/grid';
 import {
   netUnapprovedLinkOf,
   type NetUnapprovedLink,
-} from '../../../../utils/payment/payment-detail/netUnapprovedLink';
+} from '@/app/utils/payment/payment-detail/netUnapprovedLink';
 import {
   applyEntryCellEdit,
-  calcEntryAmount,
   computeEntryCenterFeeTotal,
-  calcEntryUnitPrice,
-  isSameEntryNumber,
   isEntryAlertRow,
   isEntryCellEditable,
-  recalcEntryRow,
   toEntryNumber as toNum,
-  type PlanType,
-} from '../../../../utils/payment/payment-detail/additionalEntryRules';
-import { computeEntryBreakdown } from '../../../../utils/payment/payment-detail/paymentBreakdownItems';
-import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../../constants/matchPaymentType';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../../constants/productMasters';
-import { deriveExternalUnitPrice } from '../../../../utils/common/externalUnitPrice';
-import type { AmountBreakdown } from '../../../../utils/payment/payment-detail/paymentAmountBreakdown';
-import { PaymentAmountBreakdownTable } from '../../../shared/payment/payment-detail/PaymentAmountBreakdownTable';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
-
-// 追加口明細データ（請求情報・支払情報・請求-支払・NET）
-// 支払回数ごとのデータセットを親（PaymentDetailWithInvoice）が保持するため export する。
-export interface AdditionalEntryData {
-  isTotal?: boolean;
-  lineNo: number | string;
-  // データ元（請求EDI／AIC入力／手入力）。合計行は持たない（空白表示）。
-  // 請求EDI・AIC入力の明細は、項目を手で直すと手入力に変わる（→ utils/payment/payment-detail/paymentDataSource）。
-  dataSource?: DataSource;
-  // 手で直す前の元のデータ元。活性は元のデータ元で決める（表示・集計は dataSource）。
-  originDataSource?: DataSource;
-  // 紐づく計画行を作った方法（一般卸メッシュ／サマリ商品）。計画に無いサマリ商品は持たない。
-  // 赤表示と一般卸メッシュの自動振替の判定に使う（→ utils/payment/payment-detail/additionalEntryRules）。
-  planType?: PlanType;
-  // 手入力の明細でバラ単価・金額を手で直したか（直した値を計算で上書きしない → applyEntryCellEdit）。
-  unitPriceManual?: boolean;
-  amountManual?: boolean;
-  productCode: string;
-  productName: string;
-  // 請求情報
-  capacity: number | string; // 入数
-  cases: number | string; // ケース
-  loose: number | string; // バラ
-  unitPrice: number | string; // バラ単価
-  amount: number | string; // 金額
-  // 支払情報
-  payCases: number | string; // ケース
-  payLoose: number | string; // バラ
-  addUnit: number | string; // 追加口バラ単価
-  expUnit: number | string; // 拡売費バラ単価（NET未承認）
-  addAmount: number | string; // 追加口金額
-  expAmount: number | string; // 拡売費金額（NET未承認）
-  payAmount: number | string; // 支払金額
-  // 請求-支払
-  diff: number | string; // 差額
-  matchType: string; // 照合支払区分
-  expProcess: string; // 拡売費処理
-  // NET
-  seihan: number | string; // 生販
-  planNet: number | string; // 計画NET
-  // センターフィ率（計画情報。画面の列には出さず裏で持つダミー値 → centerFeeRateOf）。
-  // センターフィ額＝社外売上高単価×数量×センターフィ率（→ computeCenterFeeAmount）。
-  centerFeeRate?: number | '';
-  billNet: number | string; // 請求NET
-  addNet: number | string; // 支払NET（追加口分）
-  payNet: number | string; // 支払NET（全体）
-  billDetailNo: string; // 請求明細番号（拡売費明細の同名の項目と対応する）
-  billPage: string; // 請求書ページ
-  retailerName: string; // 販売店名（請求書明細から引き継ぐ表示専用項目）
-  // 拡売費明細から「追加口処理」で移してきた明細。一覧が切り替わったことが分かるよう、
-  // 入力セルの背景を薄い紫（GRID_COLORS.transferredBg）にする。
-  fromExpense?: boolean;
-  summary1?: string; // 摘要1（社内用）
-  summary: string; // 摘要2（社外用）
-  funcCheck: boolean | string; // 函数無効チェック
-  finalNet: number | string; // 最終NET（函数無効チェックONのときに手入力する確定NET）
-}
-
-// 明細追加ペインの入力値（追加口グリッドで編集できる列＋起点となるサマリ商品名）。
-export interface EntryFormValues {
-  productName: string; // サマリ商品名
-  payCases: string; // 支払ケース
-  payLoose: string; // 支払バラ
-  addNet: string; // 支払NET（追加口分）
-  payNet: string; // 支払NET（全体）
-  matchType: string; // 照合支払区分
-  expProcess: string; // 拡売費処理
-  summary1: string; // 摘要1（社内用）
-  summary2: string; // 摘要2（社外用）
-  funcCheck: boolean; // 函数無効チェック
-  finalNet: string; // 最終NET（函数無効チェックONのときに手入力する確定NET）
-  billNet: string; // 請求NET（担当者が請求書を見て入力する → 補足1-5 b24.t7）
-  cases: string; // ケース（請求）
-  loose: string; // バラ（請求）
-  // バラ単価（請求）・金額（請求）。ペインは計算した値を初めから表示し、手で直せる
-  //（→ updateEntryBillingDraft）。手で直したかを unitPriceManual・amountManual で渡す。
-  unitPrice: string;
-  amount: string;
-  // 手で直したか。省略時は、値が入っていれば手で直した値とみなす。どちらの場合も、
-  // 計算した値と同じなら手で直した値として扱わない（→ createManualEntryRow）。
-  unitPriceManual?: boolean;
-  amountManual?: boolean;
-  billPage: string; // 請求書ページ
-  billDetailNo: string; // 請求明細番号
-  retailerName: string; // 販売店名
-}
+} from '@/app/utils/payment/payment-detail/additionalEntryRules';
+import { computeEntryBreakdown } from '@/app/utils/payment/payment-detail/paymentBreakdownItems';
+import { MATCH_PAYMENT_TYPE_OPTIONS } from '@/app/constants/matchPaymentType';
+import type { AmountBreakdown } from '@/app/utils/payment/payment-detail/paymentAmountBreakdown';
+import { PaymentAmountBreakdownTable } from '@/app/components/shared/payment/payment-detail/PaymentAmountBreakdownTable';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
+import type {
+  AdditionalEntryData,
+  EntryFormValues,
+  ExpenseToEntryItem,
+} from '@/app/types/paymentDetail';
+import {
+  createEntryRows,
+  createEntryRowFromExpense,
+  createManualEntryRow,
+} from '@/app/components/payment/payment-detail-with-invoice/utilsEntryRows';
 
 export interface DetailTableHandle {
   // 拡売費一覧の「追加口処理」ボタンから呼ばれ、「拡売費処理／に移動」で外した明細を
@@ -175,17 +80,7 @@ export interface DetailTableHandle {
   restoreEntry: (row: AdditionalEntryData) => void;
   // 拡売費一覧の「追加口処理」ボタンから呼ばれ、当該明細を追加口明細として1行追加する。
   // 追加口から移した明細（拡売費処理）ではなく、拡売費一覧で作られた明細が対象。
-  addFromExpense: (item: {
-    productName: string;
-    billAmount: number | string;
-    payAmount: number | string;
-    matchType?: string;
-    summary1?: string;
-    summary2?: string;
-    // 拡売費明細から引き継ぐ請求書情報（追加口明細では billDetailNo／billPage に入る）。
-    billNo?: string;
-    billPage?: string;
-  }) => void;
+  addFromExpense: (item: ExpenseToEntryItem) => void;
   // 「明細追加」ペインの「追加」から呼ばれ、入力値をもとに明細を1行足す。
   addManualRow: (values: EntryFormValues) => void;
 }
@@ -228,7 +123,6 @@ const ENTRY_COLOR_LEGEND: CellColorLegendItem[] = [
   { color: GRID_COLORS.transferredBg, label: '拡売費から移した明細' },
   {
     color: GRID_COLORS.changedBg,
-    borderColor: GRID_COLORS.changedBorder,
     label: '編集したセル',
   },
   {
@@ -245,14 +139,6 @@ const ENTRY_COLOR_LEGEND: CellColorLegendItem[] = [
 const isOverBilled = (data: AdditionalEntryData | undefined): boolean =>
   isEntryAlertRow(data);
 
-// 販売店名（請求書明細から引き継ぐ表示専用項目）。明細追加ペインでも使うため再公開する。
-export { BILL_RETAILER_NAME };
-
-// 支払回数1の追加口明細を新規生成する（モックデータ → constants/paymentWithInvoiceMockData）。
-// 画面は支払回数ごとのデータセット（createWithInvoiceEntryRows）を initialRows で渡す。
-export const createEntryRows = (): AdditionalEntryData[] =>
-  createWithInvoiceEntryRows('1');
-
 // 明細行に次へ採番する No.（明細行の最大 No.＋1）。
 const nextEntryLineNo = (rows: AdditionalEntryData[]): number =>
   rows.reduce((max, row) => {
@@ -265,289 +151,6 @@ const nextEntryLineNo = (rows: AdditionalEntryData[]): number =>
 // 明細行の最大 No.＋1 で採番）、セル編集でも変わらない。モジュール直下に置いて参照を固定する（→ 02 §7.1）。
 const getEntryRowId = (params: GetRowIdParams<AdditionalEntryData>): string =>
   String(params.data.lineNo);
-
-// 追加口明細の空行（拡売費一覧の「追加口処理」で追加する行の既定値）。
-const EMPTY_ENTRY_ROW: AdditionalEntryData = {
-  lineNo: '',
-  productCode: '',
-  productName: '',
-  capacity: '',
-  cases: '',
-  loose: '',
-  unitPrice: '',
-  amount: '',
-  payCases: '',
-  payLoose: '',
-  addUnit: '',
-  expUnit: '',
-  addAmount: '',
-  expAmount: 0,
-  payAmount: '',
-  diff: '',
-  matchType: '',
-  expProcess: '-',
-  seihan: '',
-  planNet: '',
-  billNet: '',
-  addNet: '',
-  payNet: '',
-  billDetailNo: '',
-  billPage: '',
-  retailerName: '',
-  summary1: '',
-  summary: '',
-  funcCheck: false,
-  finalNet: '',
-};
-
-// 追加口明細に現れないサマリ商品のコード（拡売費明細から移した明細で使う）。
-// 追加口明細のサンプルと同じ8桁の体裁でそろえる。
-const EXTRA_SUMMARY_PRODUCT_CODES: Record<string, string> = {
-  カルピスウォーター500mL24本: '45120169',
-  ウィルキンソン炭酸水500mL24本: '45140103',
-  十六茶630mL24本: '45150110',
-  '三ツ矢サイダー1.5L8本': '45130073',
-  'ワンダ ボトルコーヒー微糖500mL24本': '45160035',
-};
-
-// サマリ商品名 → サマリ商品コードの逆引き（追加口明細の行を追加するときに使う）。
-const BILLING_SUMMARY_PRODUCT_CODE_BY_NAME: Record<string, string> = {
-  ...EXTRA_SUMMARY_PRODUCT_CODES,
-  ...ENTRY_PRODUCT_CODE_BY_NAME,
-};
-
-// サマリ商品名 → 商品マスタの参照値（入数・NET単価・社外売上高単価）。
-// 拡売費明細から「追加口処理」で移した明細は請求EDIの取込データを持たないため、
-// サマリ商品名で商品マスタを引き、参照列（灰色セル）をこの値で埋める。
-// 社外売上高単価は補足2-2「社外売単価の導出方法」に従って導く。ただしモックの商品マスタには
-// 導出値が NET 以下になる商品（アイテムバラ単価・オペレータバラ単価を持たない商品）があり、
-// そのままではバラ単価（社外売上高単価−NET）が負になるため、NET を上回る売価で代替する。
-// 商品マスタの数値項目（文字列）を数値へ。空欄・数値化できない値は空文字にする。
-const masterNum = (value: string): number | '' => {
-  const n = Number.parseFloat(value);
-  return Number.isFinite(n) ? n : '';
-};
-
-// NET・社外売上高単価は、共通の商品マスタの値をこの画面の計画の水準にそろえた値
-//（→ constants/paymentWithInvoiceMockData の withInvoiceMasterValuesOf）。
-// 明細追加ペインでも同じ参照値を表示するため export する。
-export const SUMMARY_PRODUCT_ENTRY_REFERENCE: Record<
-  string,
-  {
-    capacity: number | '';
-    net: number | '';
-    seihan: number | '';
-    productCode: string;
-  }
-> = SUMMARY_PRODUCT_OPTIONS.reduce(
-  (map, option) => {
-    if (!option.value || map[option.value]) return map;
-    const capacity = masterNum(option.quantity);
-    const net = masterNum(option.net);
-    if (capacity === '' && net === '') return map;
-    const external = deriveExternalUnitPrice(option, '', '').value;
-    const price = masterNum(option.price);
-    const seihan =
-      net === ''
-        ? ''
-        : Number.isFinite(external) && external > net
-          ? external
-          : price !== '' && price > net
-            ? price
-            : '';
-    // この画面の計画の水準にそろえたマスタの値（→ withInvoiceMasterValuesOf）。
-    const scaled = withInvoiceMasterValuesOf(option.value, { net, seihan });
-    map[option.value] = {
-      capacity,
-      net: scaled.net,
-      seihan: scaled.seihan,
-      productCode: BILLING_SUMMARY_PRODUCT_CODE_BY_NAME[option.value] ?? '',
-    };
-    return map;
-  },
-  {} as Record<
-    string,
-    {
-      capacity: number | '';
-      net: number | '';
-      seihan: number | '';
-      productCode: string;
-    }
-  >
-);
-
-// 明細追加・追加口処理で足す明細の参照値（入数・計画NET・社外売上高単価・計画の種類）。
-// 当月の販売計画にあるサマリ商品は計画の値（計画NETは最も安い値 → 補足1-5 b24.t5・t6）と
-// 計画の種類を使う。計画に無いサマリ商品はマスタの値（計画NETはマスタのNET → 利用者の決定 Q6）とし、
-// 計画の種類を持たない。
-export interface EntryReference {
-  capacity: number | '';
-  net: number | '';
-  seihan: number | '';
-  productCode: string;
-  planType?: PlanType;
-}
-// サマリ商品のマスタNET（商品マスタのNET。計画の有無によらない）。明細追加で足す明細の
-// 支払NET（追加口分）・（全体）の初期値（→ 補足1-5 b24.t12・t13、利用者の決定 2026-10-05）。
-export const entryMasterNetOf = (productName: string): number | '' =>
-  SUMMARY_PRODUCT_ENTRY_REFERENCE[productName]?.net ?? '';
-
-export const entryReferenceOf = (
-  productName: string
-): EntryReference | undefined => {
-  const master = SUMMARY_PRODUCT_ENTRY_REFERENCE[productName];
-  const plan = entryPlanOf(productName);
-  if (!plan) return master;
-  return {
-    capacity: plan.capacity,
-    net: plan.planNet,
-    seihan: plan.seihan,
-    productCode:
-      master?.productCode ||
-      (BILLING_SUMMARY_PRODUCT_CODE_BY_NAME[productName] ?? ''),
-    planType: plan.planType,
-  };
-};
-
-// 金額から「ケース／バラ」を割り戻す（拡売費明細から移した明細の初期値を作るために使う）。
-// 金額をバラ単価で割ったバラ換算の本数を、入数でケースと端数のバラに分ける。
-// バラ単価が0以下（＝社外売上高単価がNET以下）の商品は割り戻せないため空欄にする。
-const splitCasesAndLoose = (
-  amount: number,
-  capacity: number | '',
-  unitPrice: number
-): { cases: number | ''; loose: number | '' } => {
-  if (!(unitPrice > 0) || !(amount > 0)) return { cases: '', loose: '' };
-  const totalLoose = Math.round(amount / unitPrice);
-  if (capacity === '' || capacity <= 0) return { cases: 0, loose: totalLoose };
-  const cases = Math.floor(totalLoose / capacity);
-  return { cases, loose: totalLoose - cases * capacity };
-};
-
-// 拡売費一覧の「追加口処理」で外した明細から、追加口明細の1行を作る。
-// 金額は請求金額・支払金額を引き継ぎ、追加口として支払う明細のため追加口金額へ同じ値を入れる。
-// 入数・NET・社外売上高単価・計画の種類はサマリ商品名で引き（entryReferenceOf）、
-// 請求・支払のケース／バラは引き継いだ金額をバラ単価で割り戻して埋める。
-// バラ単価・追加口バラ単価・拡売費バラ単価・追加口金額・支払金額・差額は数式で導く（recalcEntryRow）。
-// 請求書番号・請求書ページは拡売費明細の値をそのまま引き継ぐ。
-// 画面の操作で作る明細のためデータ元は手入力（一般卸メッシュの自動振替は行わない）。
-export const createEntryRowFromExpense = (
-  item: Parameters<DetailTableHandle['addFromExpense']>[0],
-  lineNo: number
-): AdditionalEntryData => {
-  const amount = toNum(item.billAmount) ?? 0;
-  const payAmount = toNum(item.payAmount) ?? 0;
-  const reference = entryReferenceOf(item.productName);
-  const capacity = reference?.capacity ?? '';
-  const net = reference?.net ?? '';
-  const seihan = reference?.seihan ?? '';
-  // バラ単価＝社外売上高単価−請求NET。追加口バラ単価も同じNETを使うため同値になる。
-  // この単価で請求金額・支払金額を割り戻し、請求・支払のケース／バラを埋める。
-  const unitPrice = seihan !== '' && net !== '' ? seihan - net : Number.NaN;
-  const billQty = splitCasesAndLoose(amount, capacity, unitPrice);
-  const payQty = splitCasesAndLoose(payAmount, capacity, unitPrice);
-  const newRow: AdditionalEntryData = {
-    ...EMPTY_ENTRY_ROW,
-    lineNo,
-    dataSource: DEFAULT_DATA_SOURCE,
-    productName: item.productName,
-    productCode: BILLING_SUMMARY_PRODUCT_CODE_BY_NAME[item.productName] ?? '',
-    capacity,
-    planNet: net,
-    planType: reference?.planType,
-    centerFeeRate: centerFeeRateOf(item.productName),
-    billNet: net,
-    addNet: net,
-    payNet: net,
-    seihan,
-    cases: billQty.cases,
-    loose: billQty.loose,
-    payCases: payQty.cases,
-    payLoose: payQty.loose,
-    amount,
-    addAmount: payAmount,
-    expAmount: 0,
-    payAmount,
-    matchType: item.matchType ?? '',
-    summary1: item.summary1 ?? '',
-    summary: item.summary2 ?? '',
-    billDetailNo: item.billNo ?? '',
-    billPage: item.billPage ?? '',
-    retailerName: BILL_RETAILER_NAME,
-    // 拡売費一覧から移してきた明細であることを示す（入力セルの背景を変える）。
-    fromExpense: true,
-  };
-  recalcEntryRow(newRow);
-  return newRow;
-};
-
-// 「明細追加」ペインの入力値から、追加口明細の1行を作る。
-// 入数・計画NET・社外売上高単価・計画の種類はサマリ商品名で引く（entryReferenceOf）。
-// 請求NETはペインの値をそのまま使う（補足1-5 b24.t7：初期値なし・担当者が請求書を見て入力する）。
-// ペインの請求NETは空欄から始まり、担当者が空欄のまま追加したら空欄のまま追加して、
-// バラ単価・金額も計算しない（ペインの表示と一致させる）。
-// サマリ商品で作った計画に紐づく明細は、請求NETが計画NETを下回ると赤く表示する
-//（isEntryAlertRow。空欄は比べられないため赤くしない）。
-// 請求情報（ケース・バラ・バラ単価・金額）もペインの入力値を使う（→ 補足1-5 b24.t7〜t11）。
-// バラ単価・金額はペインの値を入れ、計算した値と違う値だけ手で直した値として残す。
-// 追加口金額・支払金額・差額は数式で導く（recalcEntryRow）。
-export const createManualEntryRow = (
-  values: EntryFormValues,
-  lineNo: number
-): AdditionalEntryData => {
-  const reference = entryReferenceOf(values.productName);
-  const net = reference?.net ?? '';
-  const masterNet = entryMasterNetOf(values.productName);
-  const typedUnitPrice = toNum(values.unitPrice);
-  const typedAmount = toNum(values.amount);
-  const newRow: AdditionalEntryData = {
-    ...EMPTY_ENTRY_ROW,
-    lineNo,
-    dataSource: DEFAULT_DATA_SOURCE,
-    productName: values.productName,
-    productCode: reference?.productCode ?? '',
-    capacity: reference?.capacity ?? '',
-    planNet: net,
-    planType: reference?.planType,
-    centerFeeRate: centerFeeRateOf(values.productName),
-    billNet: toNum(values.billNet) ?? '',
-    cases: toNum(values.cases) ?? '',
-    loose: toNum(values.loose) ?? '',
-    seihan: reference?.seihan ?? '',
-    payCases: toNum(values.payCases) ?? '',
-    payLoose: toNum(values.payLoose) ?? '',
-    // 支払NET（追加口分）・（全体）はペインの値。未入力ならサマリ商品のマスタNET（→ b24.t12・t13）。
-    addNet: toNum(values.addNet) ?? masterNet,
-    payNet: toNum(values.payNet) ?? masterNet,
-    matchType: values.matchType,
-    expProcess: values.expProcess || '-',
-    billPage: values.billPage,
-    billDetailNo: values.billDetailNo,
-    retailerName: values.retailerName,
-    summary1: values.summary1,
-    summary: values.summary2,
-    funcCheck: values.funcCheck,
-    finalNet: values.finalNet,
-  };
-  // バラ単価・金額はペインの値を入れ、手で直した値（計算した値と違う値）にだけ印を付ける。
-  // 印の無い値は計算式で求め直す（計算した値と同じ）。函数無効チェックONの明細は計算しないため、
-  // ペインの値をそのまま持つ。以後のグリッドの編集も同じ決まり（→ applyEntryCellEdit）。
-  if (typedUnitPrice !== null) {
-    newRow.unitPriceManual =
-      (values.unitPriceManual ?? true) &&
-      !isSameEntryNumber(typedUnitPrice, calcEntryUnitPrice(newRow));
-    newRow.unitPrice = typedUnitPrice;
-  }
-  recalcEntryRow(newRow);
-  if (typedAmount !== null) {
-    newRow.amountManual =
-      (values.amountManual ?? true) &&
-      !isSameEntryNumber(typedAmount, calcEntryAmount(newRow));
-    newRow.amount = typedAmount;
-    recalcEntryRow(newRow); // 印の無い金額は計算し直し、差額を金額に合わせる
-  }
-  return newRow;
-};
 
 const TOTAL_ROW: AdditionalEntryData = {
   isTotal: true,
@@ -1027,8 +630,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       params.data?.fromExpense ? GRID_COLORS.transferredBg : normal;
 
     // 手入力可能セル（数値・右寄せ）スタイル。データ行は白（gridStyles の editable）、
-    // 編集後は落ち着いたオレンジ（gridStyles の changedBorder）に統一。
-    const inputCellStyle = (params: any) =>
+    // 編集後は変更ハイライト（gridStyles の changedCellStyle）に統一。
+    const inputCellStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
             fontWeight: 'bold',
@@ -1042,10 +645,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             : {
                 backgroundColor: rowBgOf(params, GRID_COLORS.editable),
                 textAlign: 'right',
-              };
+              }
+    );
 
     // 非活性（表示のみ）右寄せスタイル。データ行は灰（gridStyles の readonly）。
-    const rightStyle = (params: any) =>
+    const rightStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
             fontWeight: 'bold',
@@ -1057,30 +661,33 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           : {
               backgroundColor: rowBgOf(params, GRID_COLORS.readonly),
               textAlign: 'right',
-            };
+            }
+    );
 
     // 非活性（表示のみ）スタイル。データ行は灰（gridStyles の readonly）。
-    const totalStyle = (params: any) =>
+    const totalStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
         : isOverBilled(params.data)
           ? { backgroundColor: OVER_BILLED_BG }
-          : { backgroundColor: rowBgOf(params, GRID_COLORS.readonly) };
+          : { backgroundColor: rowBgOf(params, GRID_COLORS.readonly) }
+    );
 
     // 手入力可能セル（テキスト・左寄せ）スタイル。データ行は白（gridStyles の editable）、
-    // 編集後は落ち着いたオレンジ（gridStyles の changedBorder）に統一。
-    const inputTextStyle = (params: any) =>
+    // 編集後は変更ハイライト（gridStyles の changedCellStyle）に統一。
+    const inputTextStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
         : isOverBilled(params.data)
           ? { backgroundColor: OVER_BILLED_BG }
           : isCellChanged(params)
             ? changedCellStyle()
-            : { backgroundColor: rowBgOf(params, GRID_COLORS.editable) };
+            : { backgroundColor: rowBgOf(params, GRID_COLORS.editable) }
+    );
 
     // 手入力可能セル（チェックボックス・中央寄せ）スタイル。データ行は白（gridStyles の editable）、
-    // 変更後は落ち着いたオレンジ（gridStyles の changedBorder）に統一。
-    const inputCenterStyle = (params: any) =>
+    // 変更後は変更ハイライト（gridStyles の changedCellStyle）に統一。
+    const inputCenterStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
             fontWeight: 'bold',
@@ -1094,10 +701,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             : {
                 backgroundColor: rowBgOf(params, GRID_COLORS.editable),
                 textAlign: 'center',
-              };
+              }
+    );
 
     // 操作メニュー列（三点リーダー）用：データ行は白背景・中央寄せ。
-    const widgetCenterStyle = (params: any) =>
+    const widgetCenterStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
             fontWeight: 'bold',
@@ -1109,7 +717,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           : {
               backgroundColor: rowBgOf(params, GRID_COLORS.editable),
               textAlign: 'center',
-            };
+            }
+    );
 
     // 手入力の明細だけ直せる列（請求情報・請求書情報）の編集可否とセル背景。
     // 直せる行は白（入力セル）、直せない行は灰（非活性）にする。
@@ -1265,7 +874,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               width: 128,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
-              editable: (p) => !p.data?.isTotal,
+              editable: (p: any) => !p.data?.isTotal,
               // 数値入力ボックス（小数第2位まで＝小数第3位を四捨五入）。
               cellEditor: 'agNumberCellEditor',
               cellEditorParams: { precision: 2 },
@@ -1278,7 +887,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               width: 104,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
-              editable: (p) => !p.data?.isTotal,
+              editable: (p: any) => !p.data?.isTotal,
               // 数値入力ボックス（小数第2位まで＝小数第3位を四捨五入）。
               cellEditor: 'agNumberCellEditor',
               cellEditorParams: { precision: 2 },
@@ -1291,7 +900,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               width: 64,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
-              editable: (p) => !p.data?.isTotal,
+              editable: (p: any) => !p.data?.isTotal,
               // 数値入力ボックス（整数）。
               cellEditor: 'agNumberCellEditor',
               cellEditorParams: { precision: 0 },
@@ -1304,7 +913,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               width: 56,
               valueFormatter: numFmt,
               cellStyle: inputCellStyle,
-              editable: (p) => !p.data?.isTotal,
+              editable: (p: any) => !p.data?.isTotal,
               // 数値入力ボックス（整数）。
               cellEditor: 'agNumberCellEditor',
               cellEditorParams: { precision: 0 },
@@ -1376,7 +985,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               field: 'matchType',
               width: 120,
               cellStyle: inputTextStyle,
-              editable: (p) => !p.data?.isTotal,
+              editable: (p: any) => !p.data?.isTotal,
               cellEditor: SingleComboboxCellEditor,
               cellEditorPopup: true,
               cellEditorParams: {
@@ -1467,6 +1076,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 操作メニュー（拡売費処理）。拡売費一覧の操作列と同様、
           // 一番右へ右固定し、横スクロールしても常に見えるようにする。
           headerName: '',
+          // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+          suppressColumnsToolPanel: true,
           colId: 'rowMenu',
           pinned: 'right',
           lockPinned: true,
@@ -1482,6 +1093,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           cellStyle: widgetCenterStyle,
         },
       ],
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 列定義は最初の描画で1回だけ作る（作り直すと列幅・並びが戻る）。中のセルの書式の関数が読むのは描画で変わらない値（変更ハイライトの判定・ref・モジュールの関数）だけ
       []
     );
 
@@ -1494,7 +1106,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         cellDataType: false,
         // 計算式セルは計算式テキストを、それ以外は従来どおりセル値をツールチップ表示する。
         tooltipValueGetter: (params) => {
-          const field = params.colDef.field;
+          // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+          const field = (params.colDef as ColDef).field;
           const row = params.data as AdditionalEntryData | undefined;
           if (field && row && isFormulaCell(field, row)) {
             return FORMULA_DEFS[field].tooltip(row);
@@ -1506,8 +1119,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         },
         // マウスオーバー中の計算式セルの参照元セル（`field::rowId`）に枠線を付ける。
         cellClassRules: {
+          // 共通の決まり（値が無いセルを灰色の「-」にする cell-empty など）を引き継ぐ（→ UI/UX UX-080）
+          ...GRID_DEFAULT_COL_DEF.cellClassRules,
           'formula-ref-highlight': (params) => {
-            const field = params.colDef.field;
+            // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+            const field = (params.colDef as ColDef).field;
             const rowId = params.node?.id ?? '';
             return !!field && hoverRefsRef.current.has(`${field}::${rowId}`);
           },
@@ -1538,15 +1154,17 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               className="btn-toolbar-outline"
               aria-label="追加口分割"
             >
+              <Split className="h-4 w-4" />
               追加口分割
             </button>
             {/* 明細追加ボタン（販売計画表（NET固定）の販売計画（詳細）と同様） */}
             <button
               onClick={() => onOpenAddDetail?.()}
-              className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
-              aria-label="＋明細追加"
+              className="btn-toolbar-outline"
+              aria-label="明細追加"
             >
-              ＋明細追加
+              <Plus className="h-4 w-4" />
+              明細追加
             </button>
           </div>
         }
@@ -1594,7 +1212,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 onCellValueChanged={handleCellValueChanged}
                 onCellMouseOver={handleCellMouseOver}
                 onCellMouseOut={handleCellMouseOut}
-                suppressMovableColumns={true}
+                // 列は見出しをドラッグして入れ替えられる（計画・支払の明細で同じ → 02 §7「列の入れ替え」・UX-086）
                 ensureDomOrder={true}
                 // 横スクロールバーを常時表示し、左右スクロールの存在を分かりやすくする
                 alwaysShowHorizontalScroll={true}

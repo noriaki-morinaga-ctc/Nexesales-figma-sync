@@ -5,6 +5,7 @@ import {
   ColDef,
   GetRowIdParams,
   type CellValueChangedEvent,
+  type ValueFormatterParams,
 } from 'ag-grid-community';
 
 import {
@@ -16,32 +17,35 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   useChangedCells,
   withComparableCellValues,
-} from '../../grid';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { FORM_LABEL_CLASS } from '../../../../styles/commonStyles';
+  gridHeaderStyle,
+  FloatingFormulaTooltip,
+  type FloatingFormulaTooltipValue,
+} from '@/app/components/grid';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
 import {
-  PLAN_BASIC_INFO_LABEL_WIDTH,
   PlanBasicInfoField,
   PlanBasicInfoRow,
   PlanBasicInfoSpacer,
-} from '../../ui/plan-basic-info';
-import { MonthStripPicker } from '../../ui/month-strip-picker';
-import { Switch } from '../../ui/switch';
+} from '@/app/components/ui/plan-basic-info';
+import { MonthStripPicker } from '@/app/components/ui/month-strip-picker';
 import {
   BASIC_INFO_CREATOR,
   BASIC_INFO_DEALER,
   BASIC_INFO_DEPARTMENT,
   BASIC_INFO_OFFICE,
-} from '../../../constants/planBasicInfoMockData';
+  PLAN_NO_DATA_MONTHS,
+} from '@/mocks/common/planBasicInfo';
 import {
   STORE_TIER_LIST,
   firstStoreCode,
   thirdStoreCode,
-} from '../../../constants/storeTierMockData';
-import { joinCodeName } from '../../../utils/common/nameCode';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/mocks/common/storeTier';
+import { joinCodeName } from '@/app/utils/common/nameCode';
+import { FormulaGuideToggle } from '@/app/components/shared/common/FormulaGuideToggle';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
-// 基本情報に表示する一次店/三次店。販売計画(自販機)と同じ参照元（storeTierMockData）
+// 基本情報に表示する一次店/三次店。販売計画(自販機)と同じ参照元（src/mocks/common/storeTier）
 // の先頭ペアを用いる。
 const BASIC_INFO_STORE_TIER = STORE_TIER_LIST[0];
 
@@ -56,7 +60,7 @@ const getSalesPlanRowId = (params: GetRowIdParams) =>
     ? `pinned-${params.data.category}`
     : String(params.data.category);
 
-// 固定上段（（金額は税抜き）行＝pinnedTopRowData）のセルスタイル。
+// 固定上段（単位の行＝pinnedTopRowData）のセルスタイル。
 // 背景は下の <style> の .ag-floating-top .ag-cell がテーマのヘッダー色で上書きする
 // （インライン指定はその上書き前のフォールバック）。
 // 文字サイズは共通テーマ GRID_THEME の 0.875rem を継承するため指定しない。
@@ -66,7 +70,7 @@ const UNIT_ROW_CELL_STYLE = {
 } as const;
 
 // セルの横寄せ（→ 02 §7「横寄せはセルの内容で決める」／grid.css の共通クラス）。
-//  ・行タイトル（文字列）＝左寄せ。固定上段の「（金額は税抜き）」も同じ左寄せに揃える。
+//  ・行タイトル（文字列）＝左寄せ。固定上段（単位の行）も同じ左寄せに揃える。
 //  ・数値列＝右寄せ。ただし固定上段は単位表記のため中央寄せにする。
 // 行タイトル列は先頭列（aria-colindex=1）のため、grid.css のチェックボックス
 // 中央寄せ規則（display:flex／justify-content:center／padding:0）が効いてしまう。
@@ -366,11 +370,8 @@ export default function SalesActualDetail() {
     rowIndex: number;
     field: string;
   } | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{
-    x: number;
-    y: number;
-    text: string;
-  } | null>(null);
+  const [tooltipPosition, setTooltipPosition] =
+    useState<FloatingFormulaTooltipValue | null>(null);
   const [highlightedCells, setHighlightedCells] = useState<{
     references: string[]; // このセルが参照するセル（グリーン）
     affects: string[]; // このセルが影響を与えるセル（オレンジ）
@@ -463,13 +464,13 @@ export default function SalesActualDetail() {
     '2-col23': '数式: 実販 － 提携機 － その他(手売り) － アライアンス品',
     '2-col24': '数式: 本数 ÷ 函数',
     '2-col25': '数式: 実販 － 提携機 － その他(手売り) － アライアンス品',
-    '2-col26': '数式: 本数 ÷ 稼働台数(コラム)',
+    '2-col26': '数式: 本数 ÷ 稼働台数（コラム）',
     '2-col28': '数式: 当月実績額 ÷ 函数',
     '3-col20': '数式: 函数 × 函単価',
     '3-col21': '数式: 当月実績 ÷ 当月計画',
     '3-col22': '数式: 当月実績 ÷ 前年同月実績',
     '3-col23': '数式: 本数 ÷ 入数',
-    '3-col26': '数式: 本数 ÷ 稼働台数(コラム)',
+    '3-col26': '数式: 本数 ÷ 稼働台数（コラム）',
     // 提携機の稼働台数(コラム)・函単価はファイルアップロードでも登録されるが、
     // 画面で手入力した値を優先する（→ 20260609_第7回_自販機／本スレッド返信 宮澤 2026-08-19）。
     '3-col27': '提携機実績（アップロード値より手入力値を優先します）',
@@ -487,7 +488,7 @@ export default function SalesActualDetail() {
     '5-col25': '数式: 函数 × 入数',
     '7-col20': '数式: 函数 × 函単価',
     '7-col23': '数式: 本数 ÷ 入数',
-    '7-col26': '数式: 本数 ÷ 稼働台数(コラム)',
+    '7-col26': '数式: 本数 ÷ 稼働台数（コラム）',
   };
 
   // 数式の説明をセルのネイティブツールチップとして返す（一部の列の tooltipValueGetter で使用）。
@@ -749,10 +750,10 @@ export default function SalesActualDetail() {
   const unitRowData = useMemo(
     () => [
       {
-        category: '（金額は税抜き）',
+        category: '単位',
         col20: '円',
-        col21: '%',
-        col22: '%',
+        col21: '',
+        col22: '',
         col23: '函',
         col24: '本',
         col25: '本',
@@ -889,6 +890,8 @@ export default function SalesActualDetail() {
     () => [
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         field: 'category',
         width: 144,
         lockPosition: true,
@@ -919,10 +922,10 @@ export default function SalesActualDetail() {
                 field: 'col20',
                 cellClass: numericCellClass,
                 minWidth: 96,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col20'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   const baseStyle = getCellStyle(params);
                   const value = params.value || '';
                   const rowIndex = params.node?.rowIndex ?? -1;
@@ -946,10 +949,10 @@ export default function SalesActualDetail() {
                 field: 'col21',
                 cellClass: numericCellClass,
                 minWidth: 72,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col21'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -997,10 +1000,10 @@ export default function SalesActualDetail() {
                 field: 'col22',
                 cellClass: numericCellClass,
                 minWidth: 72,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col22'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -1053,10 +1056,10 @@ export default function SalesActualDetail() {
                 field: 'col23',
                 cellClass: numericCellClass,
                 minWidth: 80,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col23'),
-                cellStyle: (params) => getCellStyle(params),
+                cellStyle: (params: any) => getCellStyle(params),
                 onCellValueChanged: handleCellChange,
               },
               {
@@ -1064,10 +1067,10 @@ export default function SalesActualDetail() {
                 field: 'col24',
                 cellClass: numericCellClass,
                 minWidth: 72,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col24'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -1116,10 +1119,10 @@ export default function SalesActualDetail() {
                 field: 'col25',
                 cellClass: numericCellClass,
                 minWidth: 72,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col25'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -1168,10 +1171,10 @@ export default function SalesActualDetail() {
                 field: 'col26',
                 cellClass: numericCellClass,
                 minWidth: 136,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col26'),
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -1220,15 +1223,15 @@ export default function SalesActualDetail() {
                 onCellValueChanged: handleCellChange,
               },
               {
-                headerName: '稼働台数(コラム)',
+                headerName: '稼働台数（コラム）',
                 field: 'col27',
                 cellClass: numericCellClass,
                 minWidth: 128,
-                editable: (params) =>
+                editable: (params: any) =>
                   !params.node?.rowPinned &&
                   isCellEditable(params.node?.rowIndex ?? -1, 'col27'),
                 tooltipValueGetter: getTooltip,
-                cellStyle: (params) => {
+                cellStyle: (params: any) => {
                   if (params.node?.rowPinned === 'top') {
                     return UNIT_ROW_CELL_STYLE;
                   }
@@ -1283,11 +1286,11 @@ export default function SalesActualDetail() {
             field: 'col28',
             cellClass: numericCellClass,
             minWidth: 72,
-            editable: (params) =>
+            editable: (params: any) =>
               !params.node?.rowPinned &&
               isCellEditable(params.node?.rowIndex ?? -1, 'col28'),
             tooltipValueGetter: getTooltip,
-            cellStyle: (params) => {
+            cellStyle: (params: any) => {
               if (params.node?.rowPinned === 'top') {
                 return UNIT_ROW_CELL_STYLE;
               }
@@ -1364,14 +1367,20 @@ export default function SalesActualDetail() {
   );
   const defaultColDef = useMemo(
     () => ({
+      // 編集できない列の見出しをグレーにする（GRID_DEFAULT_COL_DEF を引き継がないため明示。→ grid/gridCommon）
+      headerStyle: gridHeaderStyle,
       sortable: false,
       resizable: true,
       filter: false,
       suppressMovable: true,
       suppressSizeToFit: false,
       suppressHeaderMenuButton: true,
-      // 値が無いセルはグレーの半角「-」を表示する（共通の既定列設定と同じ。画面設計標準 3.11）
-      valueFormatter: formatEmptyAsDash,
+      // 値が無いセルはグレーの半角「-」を表示する（共通の既定列設定と同じ。画面設計標準 3.11）。
+      // 単位の行（固定上段）は単位の無い列を空欄のままにする（→ UI/UX UX-079）
+      valueFormatter: (params: ValueFormatterParams) =>
+        params.node?.rowPinned
+          ? String(params.value ?? '')
+          : formatEmptyAsDash(params),
       cellClassRules: {
         'cell-empty': GRID_DEFAULT_COL_DEF.cellClassRules!['cell-empty'],
         // 値を変えたセルの強調（判定はグリッドの context.isCellChanged → 02 §7.2）
@@ -1420,13 +1429,10 @@ export default function SalesActualDetail() {
                 2行目以降の列位置と縦に揃う。 */}
             <PlanBasicInfoRow>
               <div className="col-span-4 flex items-center gap-2">
-                <label
-                  className={`${FORM_LABEL_CLASS} whitespace-nowrap ${PLAN_BASIC_INFO_LABEL_WIDTH} px-2 py-1 text-right`}
-                >
-                  対象年月
-                </label>
+                <label className={SEARCH_LABEL_CLASS}>対象年月</label>
                 <div className="min-w-0">
                   <MonthStripPicker
+                    disabledMonths={PLAN_NO_DATA_MONTHS}
                     value={targetYearMonth}
                     onChange={setTargetYearMonth}
                   />
@@ -1512,46 +1518,15 @@ export default function SalesActualDetail() {
             onOpenChange={setIsSalesPlanOpen}
             headerActions={
               <>
-                {isFormulaGuideShown && (
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 h-4 rounded-sm border-2 border-solid border-blue-500" />
-                      選択セル
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 h-4 rounded-sm border-2 border-solid border-green-500" />
-                      参照セル
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 h-4 rounded-sm border-2 border-dashed border-orange-500" />
-                      影響セル
-                    </span>
-                  </div>
-                )}
-                {/* 数式ガイドの ON/OFF。切替は共通部品 Switch（shadcn）を使い、画面ごとに
-                    トグルの見た目を自作しない。つまみの左右＝形／配色／ON・OFF の文言の
-                    3つで状態を示す（→ 06 色以外の手がかり）。計画詳細(自販機)と同一体裁。 */}
-                <span className="flex h-8 items-center gap-2">
-                  <Switch
-                    id="formula-guide"
-                    checked={isFormulaGuideShown}
-                    onCheckedChange={setIsFormulaGuideShown}
-                    className="h-5 w-9 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300"
-                    aria-label="数式ガイドを切り替える"
-                  />
-                  <label
-                    htmlFor="formula-guide"
-                    className={`cursor-pointer text-sm font-medium whitespace-nowrap ${
-                      isFormulaGuideShown ? 'text-green-700' : 'text-gray-500'
-                    }`}
-                  >
-                    数式ガイド {isFormulaGuideShown ? 'ON' : 'OFF'}
-                  </label>
-                </span>
+                {/* 数式ガイドの ON/OFF（共通部品。ON のときは凡例も出す → 02 §6・UX-063） */}
+                <FormulaGuideToggle
+                  shown={isFormulaGuideShown}
+                  onChange={setIsFormulaGuideShown}
+                />
               </>
             }
           >
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="p-4">
               <div className="sales-plan-grid overflow-x-auto w-full">
                 <style>{`
                     /* ヘッダー・データ行は共通テーマ(GRID_THEME / themeBalham)本来の
@@ -1575,7 +1550,7 @@ export default function SalesActualDetail() {
                       background-color: inherit !important;
                     }
 
-                    /* 固定上段（（金額は税抜き）行）の太字・下罫線。計画詳細(自販機)の
+                    /* 固定上段（単位の行）の太字・下罫線。計画詳細(自販機)の
                        販売計画グリッドと同じ指定に揃える。
                        ※ AG Grid が固定行へ付与するクラスは ag-row-pinned。
                           ag-row-pinned-top は存在せず、指定が効かないため使わない。 */
@@ -1584,7 +1559,7 @@ export default function SalesActualDetail() {
                       border-bottom: 0.125rem solid ${GRID_COLORS.pinnedRowBorder};
                     }
 
-                    /* 固定上段（（金額は税抜き）行＝floating top）の背景・文字色・太さを
+                    /* 固定上段（単位の行＝floating top）の背景・文字色・太さを
                        themeBalham のヘッダー用変数に束ねる。インラインの cellStyle 背景を
                        上書きするため !important。「販売・経費計画申請承認」の固定上段と
                        同じ標準準拠。 */
@@ -1665,19 +1640,8 @@ export default function SalesActualDetail() {
         </div>
       </div>
 
-      {/* 数式ガイドの浮遊ツールチップ（計画詳細(自販機)と同じスタイル）。
-          表示位置のみ動的値のため inline style、他は Tailwind で指定する。 */}
-      {tooltipPosition && (
-        <div
-          className="fixed z-70 bg-gray-800 text-gray-50 text-xs py-1.5 px-2.5 rounded-md max-w-90 shadow-lg pointer-events-none whitespace-pre-wrap leading-normal"
-          style={{
-            left: tooltipPosition.x,
-            top: tooltipPosition.y - window.scrollY,
-          }}
-        >
-          {tooltipPosition.text}
-        </div>
-      )}
+      {/* 数式ガイドの浮遊ツールチップ（共通部品。式・実値の各行は折り返さない） */}
+      <FloatingFormulaTooltip tooltip={tooltipPosition} />
     </div>
   );
 }

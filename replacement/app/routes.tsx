@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
-import type { BillingRow } from './constants/billingMockData';
-import type { BillingEdiImportRow } from './constants/billingEdiMockData';
+import type { BillingRow } from '@/app/types/billing';
+import type { BillingEdiImportRow } from '@/app/types/billingEdi';
 
 import TopDashboard from './components/top/page';
 // 販売計画
@@ -64,17 +64,9 @@ import NewProductSubBrandMaster from './components/master/new-product-sub-brand-
 import NewProductUnitPriceMaster from './components/master/new-product-unit-price-master/page';
 import NewProductBulkChangeMaster from './components/master/new-product-bulk-change-master/page';
 
-/** 年間計画作成へ引き継ぐ遷移元情報（計画詳細2画面の取引制度）。 */
-export interface AnnualPlanCreationContext {
-  tradingSystem: string;
-}
-
-/** 画面遷移のペイロード。遷移元によって引用の基本情報か取引制度のいずれかを載せる。 */
-export type MenuChangePayload = QuoteBasicInfo | AnnualPlanCreationContext;
-
-/** 画面へ渡す共有ハンドラ・状態。App.tsx が組み立てて render に渡す。 */
+/** 画面へ渡す共有ハンドラ・状態。App.tsx が組み立てて render に渡す。
+ * 画面の切り替え（遷移先のルート ID）は props で渡さず、ui/use-app-navigation の useAppNavigation で受け取る。 */
 export interface RouteContext {
-  onMenuChange: (menuId: string, payload?: MenuChangePayload) => void;
   /** 引用ペインから受け取った基本情報（支払詳細(引用) 入力へのプリフィル）。 */
   quoteBasicInfo?: QuoteBasicInfo;
   /** 年間計画作成へ引き継ぐ取引制度。 */
@@ -93,7 +85,7 @@ export interface RouteContext {
   selectedBillingEdiId?: string;
   onOpenBillingEdiDetail: (row: BillingEdiImportRow) => void;
   onBackToBillingEdiList: () => void;
-  /** 請求EDI取込結果詳細の再取込指示（対象行のステータスを「再取込指示済」に更新する）。 */
+  /** 請求EDI取込結果詳細の再取込指示（指示したエラーを取り除き、対象行のステータスを正常／エラーに付け直す）。 */
   onReimportBillingEdiSummary: (rowId: string, summaryId: string) => void;
   onAssignBillingEdiValue: (
     rowId: string,
@@ -122,34 +114,34 @@ export interface RouteDef {
 export const ROUTES: Record<string, RouteDef> = {
   top: {
     dir: 'top',
-    render: (c) => <TopDashboard onMenuChange={c.onMenuChange} />,
+    render: () => <TopDashboard />,
   },
 
   // ── 販売計画 ──────────────────────────────────────────────
   'plan-list': {
     dir: 'sales-plan/plan-list',
-    render: (c) => <PlanList onMenuChange={c.onMenuChange} />,
+    render: () => <PlanList />,
   },
   // 実績登録メニュー：作成パターンフィルターを自販機のみに絞って同じ画面を表示する
   'plan-list-actual': {
     dir: 'sales-plan/plan-list',
-    render: (c) => <PlanList onMenuChange={c.onMenuChange} jihanki={true} />,
+    render: () => <PlanList jihanki={true} />,
   },
   'managed-product-plan-list': {
     dir: 'sales-plan/managed-product-plan-list',
-    render: (c) => <ManagedProductPlanList onMenuChange={c.onMenuChange} />,
+    render: () => <ManagedProductPlanList />,
   },
   'plan-detail-margin-rate-fixed': {
     dir: 'sales-plan/plan-detail-margin-rate-fixed',
-    render: (c) => <PlanDetailMarginRateFixed onMenuChange={c.onMenuChange} />,
+    render: () => <PlanDetailMarginRateFixed />,
   },
   'plan-detail-net-fixed': {
     dir: 'sales-plan/plan-detail-net-fixed',
-    render: (c) => <PlanDetailNetFixed onMenuChange={c.onMenuChange} />,
+    render: () => <PlanDetailNetFixed />,
   },
   'plan-detail-vending': {
     dir: 'sales-plan/plan-detail-vending',
-    render: (c) => <PlanDetailVending onMenuChange={c.onMenuChange} />,
+    render: () => <PlanDetailVending />,
   },
   'promotion-cost-plan-unlinked': {
     dir: 'sales-plan/promotion-cost-plan-unlinked',
@@ -158,27 +150,20 @@ export const ROUTES: Record<string, RouteDef> = {
   'annual-plan-creation': {
     dir: 'sales-plan/annual-plan-creation',
     render: (c) => (
-      <AnnualPlanCreation
-        onMenuChange={c.onMenuChange}
-        tradingSystem={c.annualPlanTradingSystem}
-      />
+      <AnnualPlanCreation tradingSystem={c.annualPlanTradingSystem} />
     ),
   },
   'sales-plan-simulation-margin-rate-fixed': {
     dir: 'sales-plan/sales-plan-simulation-margin-rate-fixed',
-    render: (c) => (
-      <SalesPlanSimulationMarginRateFixed onMenuChange={c.onMenuChange} />
-    ),
+    render: () => <SalesPlanSimulationMarginRateFixed />,
   },
   'sales-plan-simulation-net-fixed': {
     dir: 'sales-plan/sales-plan-simulation-net-fixed',
-    render: (c) => (
-      <SalesPlanSimulationNetFixed onMenuChange={c.onMenuChange} />
-    ),
+    render: () => <SalesPlanSimulationNetFixed />,
   },
   'managed-product-plan-detail': {
     dir: 'sales-plan/managed-product-plan-detail',
-    render: (c) => <ManagedProductPlanDetail onMenuChange={c.onMenuChange} />,
+    render: () => <ManagedProductPlanDetail />,
   },
   // 販売計画・実績登録の2メニューで同じ画面を使うため、key を分けて
   // メニュー切替時に状態（選択中の対象・履歴選択等）を引き継がないようにする
@@ -201,42 +186,35 @@ export const ROUTES: Record<string, RouteDef> = {
   // ── 支払 ──────────────────────────────────────────────────
   'payment-list': {
     dir: 'payment/payment-list',
-    render: (c) => <PaymentList onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentList />,
   },
   'payment-detail-vending': {
     dir: 'payment/payment-detail-vending',
-    render: (c) => <PaymentDetailVending onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentDetailVending />,
   },
   'payment-detail-with-invoice': {
     dir: 'payment/payment-detail-with-invoice',
-    render: (c) => <PaymentDetailWithInvoice onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentDetailWithInvoice />,
   },
   'payment-detail-without-invoice': {
     dir: 'payment/payment-detail-without-invoice',
-    render: (c) => (
-      <PaymentDetailWithoutInvoice onMenuChange={c.onMenuChange} />
-    ),
+    render: () => <PaymentDetailWithoutInvoice />,
   },
   'payment-detail-other': {
     dir: 'payment/payment-detail-other',
-    render: (c) => <PaymentDetailOther onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentDetailOther />,
   },
   'payment-detail-unlinked': {
     dir: 'payment/payment-detail-unlinked',
-    render: (c) => <PaymentDetailUnlinked onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentDetailUnlinked />,
   },
   'payment-detail-quote': {
     dir: 'payment/payment-detail-quote',
-    render: (c) => <PaymentDetailQuote onMenuChange={c.onMenuChange} />,
+    render: () => <PaymentDetailQuote />,
   },
   'payment-detail-quote-entry': {
     dir: 'payment/payment-detail-quote-entry',
-    render: (c) => (
-      <PaymentDetailQuoteEntry
-        basicInfo={c.quoteBasicInfo}
-        onMenuChange={c.onMenuChange}
-      />
-    ),
+    render: (c) => <PaymentDetailQuoteEntry basicInfo={c.quoteBasicInfo} />,
   },
   'transfer-detail': {
     dir: 'payment/transfer-detail',
@@ -244,17 +222,15 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'quote-list': {
     dir: 'payment/quote-list',
-    render: (c) => <QuoteList onMenuChange={c.onMenuChange} />,
+    render: () => <QuoteList />,
   },
   'location-contract-amortization-list': {
     dir: 'payment/location-contract-amortization-list',
-    render: (c) => (
-      <LocationContractAmortizationList onMenuChange={c.onMenuChange} />
-    ),
+    render: () => <LocationContractAmortizationList />,
   },
   'location-contract-fee-list': {
     dir: 'payment/location-contract-fee-list',
-    render: (c) => <LocationContractFeeList onMenuChange={c.onMenuChange} />,
+    render: () => <LocationContractFeeList />,
   },
   'billing-edi-list': {
     dir: 'payment/billing-edi-list',
@@ -313,7 +289,7 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'unamortized-project-billing': {
     dir: 'payment/unamortized-project-billing',
-    render: (c) => <UnamortizedProjectBilling onMenuChange={c.onMenuChange} />,
+    render: () => <UnamortizedProjectBilling />,
   },
 
   // ── 予算 ──────────────────────────────────────────────────

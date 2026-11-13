@@ -10,7 +10,7 @@
 
 import { useMemo } from 'react';
 import { Trash2, Plus } from 'lucide-react';
-import { SingleCombobox } from '../../../ui/single-combobox';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import {
   Table,
   TableBody,
@@ -18,23 +18,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../ui/table';
-import type { MultiComboboxOption } from '../../../ui/multi-combobox';
+} from '@/app/components/ui/table';
+import type { MultiComboboxOption } from '@/app/components/ui/multi-combobox';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
-} from '../../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 
 // 除外ペアの型と判定関数は集計エンジンからも使うため、React 非依存モジュールへ切り出した。
 // 既存の import 元（`from './AggregationFilter'`）を壊さないよう、ここから再エクスポートする。
 // 値として再エクスポートするため、間接エクスポート（export ... from）ではなく
 // いったん import してローカル束縛を作る。間接エクスポートは本モジュールに束縛を作らないため、
 // 下の isPairExcluded 呼び出しが実行時に ReferenceError になる。
-import {
-  isPairExcluded,
-  type ExcludePair,
-} from '../../../../constants/aggregationExcludePair';
+import { isPairExcluded } from '@/app/utils/sales-plan/common/aggregationExcludePair';
+import type { ExcludePair } from '@/app/types/aggregation';
 
 export { isPairExcluded, type ExcludePair };
 

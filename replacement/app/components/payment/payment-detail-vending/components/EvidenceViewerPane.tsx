@@ -29,20 +29,20 @@ import {
   SquarePen,
 } from 'lucide-react';
 
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import { BUTTON_STYLES } from '../../../../../styles/commonStyles';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { BUTTON_STYLES } from '@/styles/commonStyles';
 import { PdfPreview } from './PdfPreview';
-import { DateMonthYearPicker } from '../../../ui/date-month-year-picker';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
 import {
   downloadOriginal,
   isImageFileName,
   isPdfFileName,
   type ConvertStatus,
-} from '../evidencePreview';
+} from '@/app/components/payment/payment-detail-vending/utils';
 import {
   buildMockOriginalUrl,
   canBuildMockOriginal,
-} from '../mockOriginalFile';
+} from '@/mocks/payment/payment-detail-vending/originalFile';
 
 // 全角スペース（テンプレートリテラル内の全角スペースは no-irregular-whitespace の対象になるため定数で埋め込む）
 const FW_SPACE = '\u3000';

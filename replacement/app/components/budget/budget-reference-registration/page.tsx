@@ -1,20 +1,45 @@
+import { useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { useBudgetUpload } from './useBudgetUpload';
-import { DownloadCard } from './components/DownloadCard';
-import { HistoryCard } from '../../shared/upload/HistoryCard';
-import type { UploadHistoryItem } from './budgetReferenceTypes';
-import { ResultCard } from '../../shared/upload/ResultCard';
-import { UploadCard } from '../../shared/upload/UploadCard';
-import { UPLOAD_TARGET_OPTIONS } from './budgetReferenceData';
-import { ScreenTitle } from '../../ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { DownloadCard } from '@/app/components/shared/upload/DownloadCard';
+import { FormField } from '@/app/components/shared/upload/FormField';
+import { HistoryCard } from '@/app/components/shared/upload/HistoryCard';
+import { ResultCard } from '@/app/components/shared/upload/ResultCard';
+import { UploadCard } from '@/app/components/shared/upload/UploadCard';
+import { useUploadFlow } from '@/app/components/shared/upload/useUploadFlow';
+import {
+  BUDGET_DEFAULT_DOWNLOAD_TARGET,
+  BUDGET_DEFAULT_FISCAL_YEAR,
+  BUDGET_DEFAULT_UPLOAD_TARGET,
+  BUDGET_DOWNLOAD_TARGET_OPTIONS,
+  BUDGET_FISCAL_YEAR_OPTIONS,
+  BUDGET_UPLOAD_TARGET_OPTIONS,
+} from './constants';
+import {
+  BUDGET_DOWNLOAD_DATASETS,
+  BUDGET_INITIAL_HISTORY,
+  BUDGET_SAMPLE_UPLOAD_ERRORS,
+} from '@/mocks/budget/budget-reference-registration';
+import type { BudgetUploadHistoryItem } from './budgetReference.types';
 
 // ===== 予算参照登録画面 =====
 // 左ペイン＝予算データのアップロード／ダウンロード、右ペイン＝アップロード履歴／選択した結果（高さ比 4:6）。
-// 状態管理=useBudgetUpload / 定数・モック=budgetReferenceData / 各カード=components/ に分割。
+// アップロード・履歴の動きとカードはアップロード画面共通（shared/upload/）。
+// この画面だけの選択肢・モックは mockData.ts、型は budgetReference.types.ts（画面のフォルダーに置く → 04）。
+
+// 要素 id・進捗トーストの id の先頭
+const ID_PREFIX = 'budget';
+
+// 対象年度の選択肢
+const FISCAL_YEAR_COMBO_OPTIONS = BUDGET_FISCAL_YEAR_OPTIONS.map((year) => ({
+  value: String(year),
+  label: String(year),
+}));
 
 // アップロード履歴の先頭の列（対象年度）
-const HISTORY_TARGET_COLUMN: ColDef<UploadHistoryItem> = {
+const HISTORY_TARGET_COLUMN: ColDef<BudgetUploadHistoryItem> = {
   field: 'uploadFiscalYear',
   headerName: '対象年度',
   width: 96,
@@ -23,8 +48,43 @@ const HISTORY_TARGET_COLUMN: ColDef<UploadHistoryItem> = {
   cellClass: 'ag-cell-left',
 };
 
+// アップロードしたときに履歴に足す項目（対象年度は Make 版と同じく画面上の選択欄は無く、初期値固定）
+const buildHistoryFields = async () => ({
+  uploadFiscalYear: BUDGET_DEFAULT_FISCAL_YEAR,
+});
+
 export default function BudgetReferenceRegistration() {
-  const u = useBudgetUpload();
+  const u = useUploadFlow<BudgetUploadHistoryItem>({
+    idPrefix: ID_PREFIX,
+    targetOptions: BUDGET_UPLOAD_TARGET_OPTIONS,
+    initialUploadTarget: BUDGET_DEFAULT_UPLOAD_TARGET,
+    initialHistory: BUDGET_INITIAL_HISTORY,
+    // 初期表示はモックの先頭の履歴を選ぶ（従来どおり）
+    initialSelectedUploadId: BUDGET_INITIAL_HISTORY[0]?.uploadId ?? null,
+    sampleErrors: BUDGET_SAMPLE_UPLOAD_ERRORS,
+    buildHistoryFields,
+  });
+
+  // ダウンロードの条件（対象年度・ダウンロード対象）
+  const [downloadFiscalYear, setDownloadFiscalYear] = useState<number>(
+    BUDGET_DEFAULT_FISCAL_YEAR
+  );
+  const [downloadTarget, setDownloadTarget] = useState<string>(
+    BUDGET_DEFAULT_DOWNLOAD_TARGET
+  );
+
+  // ダウンロード対象に応じた出力データセットを Excel に出力する
+  const handleDownload = () => {
+    const dataset =
+      BUDGET_DOWNLOAD_DATASETS[downloadTarget] ??
+      BUDGET_DOWNLOAD_DATASETS.sales_raw;
+    u.downloadXlsx({
+      rows: [dataset.headers, ...dataset.rows],
+      colWidths: dataset.colWidths,
+      sheetName: dataset.sheetName,
+      fileName: dataset.fileName,
+    });
+  };
 
   return (
     // 画面いっぱいのレイアウト（→ 05）：ルートは h-full＋下限 min-h を併用し、
@@ -45,8 +105,8 @@ export default function BudgetReferenceRegistration() {
           <div className="flex flex-col gap-3 min-h-0">
             <UploadCard
               title="予算データアップロード"
-              idPrefix="budget"
-              targetOptions={UPLOAD_TARGET_OPTIONS}
+              idPrefix={ID_PREFIX}
+              targetOptions={BUDGET_UPLOAD_TARGET_OPTIONS}
               uploadTarget={u.uploadTarget}
               onUploadTargetChange={u.setUploadTarget}
               selectedFile={u.selectedFile}
@@ -63,12 +123,48 @@ export default function BudgetReferenceRegistration() {
               onUploadClick={() => u.setIsUploadConfirmDialogOpen(true)}
             />
             <DownloadCard
-              downloadFiscalYear={u.downloadFiscalYear}
-              onDownloadFiscalYearChange={u.setDownloadFiscalYear}
-              downloadTarget={u.downloadTarget}
-              onDownloadTargetChange={u.setDownloadTarget}
-              onDownload={u.handleTemplateDownload}
-            />
+              title="予算データダウンロード"
+              onDownload={handleDownload}
+            >
+              <div className="flex items-end gap-4">
+                {/* 対象年度 */}
+                <FormField
+                  label="対象年度"
+                  required
+                  htmlFor="budget-download-fiscal-year"
+                >
+                  <SingleCombobox
+                    id="budget-download-fiscal-year"
+                    ariaRequired
+                    className="w-27.5"
+                    options={FISCAL_YEAR_COMBO_OPTIONS}
+                    value={String(downloadFiscalYear)}
+                    onChange={(value) => setDownloadFiscalYear(Number(value))}
+                    placeholder="選択してください"
+                    searchable={false}
+                  />
+                </FormField>
+
+                {/* ダウンロード対象 */}
+                <FormField
+                  label="ダウンロード対象"
+                  required
+                  htmlFor="budget-download-target"
+                  className="flex-1"
+                >
+                  <SingleCombobox
+                    id="budget-download-target"
+                    ariaRequired
+                    className="w-full"
+                    options={BUDGET_DOWNLOAD_TARGET_OPTIONS}
+                    value={downloadTarget}
+                    onChange={setDownloadTarget}
+                    placeholder="選択してください"
+                    searchable={false}
+                  />
+                </FormField>
+              </div>
+            </DownloadCard>
           </div>
 
           {/* 右ペイン：履歴 + 結果（高さ比 4:6、各エリアは内部で縦スクロール） */}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { formulaTokens } from '../components/grid/gridCommon';
-import { flattenAllTreeNodes } from './aggregationTree';
+import { formulaTokens } from '@/app/components/grid/gridCommon';
+import { flattenAllTreeNodes } from '@/app/utils/sales-plan/common/aggregationTree';
 import {
   AGGREGATION_FORMULAS,
   AGG_RATIO_FORMULAS,

@@ -1,15 +1,12 @@
 import { Eye } from 'lucide-react';
-import {
-  CARD_TITLE_CLASS,
-  CARD_CLASS,
-} from '../../../../../styles/commonStyles';
+import { CARD_TITLE_CLASS, CARD_CLASS } from '@/styles/commonStyles';
 import {
   type NoticeDraft,
   bodyPreviewText,
   renderNoticeBody,
-} from '../noticeStore';
-import { NOTICE_TYPE_BADGE_CLASS, TYPE_CONFIG } from '../NoticeUi';
-import { Badge } from '../../../ui/badge';
+} from '@/app/components/master/notice-admin/useNotices';
+import { NOTICE_TYPE_BADGE_CLASS, TYPE_CONFIG } from './NoticeUi';
+import { Badge } from '@/app/components/ui/badge';
 
 // ===== 編集画面プレビュー =====
 // 一般画面（TOP）での見え方を、折りたたみ（一覧）と展開（詳細）の2形態で表示。
@@ -39,6 +36,7 @@ export function NoticePreview({ draft }: NoticePreviewProps) {
         <div className="bg-gray-100 rounded-md p-3">
           {/* 一覧（折りたたみ） */}
           <p className="text-xs text-gray-500 mb-1">■ 一覧（折りたたみ）</p>
+          {/* 規約例外（カードではない枠）：TOP のお知らせ一覧の1件を再現した見本（プレビュー）のため */}
           <div className="border border-gray-200 rounded-lg p-3 shadow-sm bg-white mb-3">
             <div className="flex items-center gap-2 mb-1">
               {typeBadge}

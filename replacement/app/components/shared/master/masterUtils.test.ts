@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MasterRow, MasterScreenDef } from './masterTypes';
-import { masterMessage } from '../../../constants/masterMessages';
+import { masterMessage } from '@/app/utils/common/masterMessages';
 import {
   END_OF_MONTH,
   END_OF_TIME,

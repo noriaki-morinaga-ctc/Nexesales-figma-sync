@@ -24,6 +24,8 @@ export const MonthYearCellEditor = (
   return (
     <div className="p-2 bg-white">
       <MonthYearPicker
+        // セル編集はカレンダーだけ（打ち込みは AG Grid の確定と競合するため使わない → UX-067）
+        typeable={false}
         value={(props.value as string) ?? ''}
         min={props.min}
         max={props.max}

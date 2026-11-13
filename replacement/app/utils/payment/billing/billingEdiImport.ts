@@ -3,7 +3,7 @@
 import {
   ERROR_CATEGORY_OWNERS,
   QTY_UNIT_DEFINITIONS,
-} from '../../../constants/billingEdiMockData';
+} from '@/app/constants/billingEdi';
 import type {
   BillingEdiCorrection,
   BillingEdiDetailRow,
@@ -11,7 +11,7 @@ import type {
   BillingEdiDetailStatus,
   BillingEdiImportRow,
   BillingEdiSearchCriteria,
-} from '../../../constants/billingEdiMockData';
+} from '@/app/types/billingEdi';
 
 /**
  * その明細の指定項目を画面で修正できるか。
@@ -330,7 +330,7 @@ export function filterBillingEdiRows(
   });
 }
 
-/** サマリ表示用の件数。再取込指示済はどちらにも数えない。 */
+/** サマリ表示用の件数（正常・エラー）。 */
 export function summarizeBillingEdiStatus(rows: BillingEdiImportRow[]): {
   normalCount: number;
   errorCount: number;

@@ -18,9 +18,9 @@ import type {
 } from 'ag-grid-community';
 import { Trash2, AlertTriangle, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { joinNameCode } from '../../../../utils/common/nameCode';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
+import { joinNameCode } from '@/app/utils/common/nameCode';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 import {
   managementClassComboOptions,
   managementCodeComboOptions,
@@ -28,39 +28,43 @@ import {
   campaignCodeComboOptions,
   managementClassCode,
   campaignClassCode,
-} from '../../../../constants/paymentComboFieldOptions';
+} from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
 // 「XX名称」列（管理コード名称・施策コード名称）は、計画詳細(マージン率固定・NET入力) の
 // 拡売費計画と同じ名称マスタ・同じ選択肢ビルダーを使う（名称からコードを設定するため）。
 import {
+  managementCodeNameComboOptions,
+  campaignCodeNameComboOptions,
+} from '@/app/constants/comboFieldOptions';
+import {
   managementCodeNameOf,
   managementCodeOfName,
-  managementCodeNameComboOptions,
   campaignCodeNameOf,
   campaignCodeOfName,
-  campaignCodeNameComboOptions,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 import {
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
   EXPENSE_CAMPAIGN_CODE_OPTIONS,
+} from '@/app/constants/expenseRelations';
+import {
   managementClassFromCode,
   isManagementCodeInClass,
   campaignClassFromCode,
   isCampaignCodeInClass,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 import {
   // 一次店/三次店/販売店は振替詳細の基本情報（TransferInfo）と同じ商流マスタを使う。
   PRIMARY_STORE_OPTIONS,
   tertiaryOptionsFor,
   storeOptionsFor,
-} from '../../../../constants/storeHierarchy';
+} from '@/app/constants/storeHierarchy';
 // 費用負担部署・担当者は「支払として存在する組合せ」だけを選べるよう、
 // 商流3項目と合成した連動（純関数）を使う（→ constants/paymentOrgCascade）。
 import {
   deptOptionsFor,
   staffOptionsFor,
   applyStoreOrgCascade,
-  type StoreOrgSelection,
-} from '../../../../constants/paymentOrgCascade';
+} from '@/app/utils/payment/payment-detail/paymentOrgCascade';
+import type { StoreOrgSelection } from '@/app/types/organization';
 import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
@@ -73,16 +77,16 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   useChangedCells,
   withComparableCellValues,
-} from '../../../grid';
+} from '@/app/components/grid';
 import {
   CARD_TITLE_CLASS,
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
   CARD_CLASS,
-} from '../../../../../styles/commonStyles';
-import { valueOrEmpty } from '../../../ui/empty-value';
-import type { SplitDetailItem } from '../../../../types/paymentDetail';
+} from '@/styles/commonStyles';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
+import type { SplitDetailItem } from '@/app/types/paymentDetail';
 
 // ============================================================================
 // 型定義
@@ -534,17 +538,21 @@ export const AllocationPane = forwardRef<
   }, []);
 
   // コピー：対象行を複製し、直下に一意なIDで挿入する。
-  const handleCopyDestRow = useCallback((row: DestRow) => {
-    setDestRows((prev) => {
-      const idx = prev.findIndex((r) => r.id === row.id);
-      const copy: DestRow = { ...row, id: `dest-${rowSeq.current++}` };
-      // コピーした行を強調対象にする（行が反映された後にフラッシュされる）
-      revealDest.markRows([copy]);
-      const next = [...prev];
-      next.splice(idx < 0 ? prev.length : idx + 1, 0, copy);
-      return next;
-    });
-  }, []);
+  const handleCopyDestRow = useCallback(
+    (row: DestRow) => {
+      setDestRows((prev) => {
+        const idx = prev.findIndex((r) => r.id === row.id);
+        const copy: DestRow = { ...row, id: `dest-${rowSeq.current++}` };
+        // コピーした行を強調対象にする（行が反映された後にフラッシュされる）
+        revealDest.markRows([copy]);
+        const next = [...prev];
+        next.splice(idx < 0 ? prev.length : idx + 1, 0, copy);
+        return next;
+      });
+      // revealDest は useRevealNewRows の useMemo の値で描画のたびに変わらない
+    },
+    [revealDest]
+  );
 
   // 管理区分↔管理コード／施策区分↔施策コードの連動更新は共通フックに委譲する（→ 02 §7.3）。
   // 従属セルは Undo スタックに積まれないため、Ctrl+Z 1回で主セルごと一括復元される。
@@ -754,7 +762,7 @@ export const AllocationPane = forwardRef<
         {
           // 担当者：当該行の販売店・費用負担部署との組合せが支払として存在するものだけに絞り込む。
           // 選択すると費用負担部署が一意に定まり自動設定される。
-          headerName: '担当者',
+          headerName: '営業担当者',
           field: 'staff',
           width: 96,
           editable: !destFieldsLocked,
@@ -975,6 +983,8 @@ export const AllocationPane = forwardRef<
       // 一覧の一番右に操作列（コピー・削除）を右固定で追加。
       const actionCol: ColDef<DestRow> = {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'actions',
         width: 70,
         pinned: 'right',

@@ -16,7 +16,7 @@
 //
 // オペバラが取得不可（空文字）の場合は No.2 の条件を満たさず No.3/4 の生販へ落とす。
 // 補足2-2 の表は Yes チャネルについて「0以外」「0」しか定義していないため、安全側に倒している。
-import { parseFormulaNumber } from '../../components/grid/gridCommon';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
 
 export type ExternalUnitPriceKind = '特殊単価' | '生販' | '納価';
 

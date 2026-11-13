@@ -1,15 +1,15 @@
 import { History } from 'lucide-react';
 import { useState } from 'react';
 
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { MonthStripPicker } from '../../../ui/month-strip-picker';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { MonthStripPicker } from '@/app/components/ui/month-strip-picker';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import {
   SALES_PERSON_OPTIONS,
   OFFICE_OPTIONS,
   DEPARTMENT_OPTIONS,
   TERMINAL_ORG_OPTIONS,
-} from '../../../../constants/salesSelectionMockData';
+} from '@/mocks/common/salesSelection';
 import {
   NO_LINK_PATTERN_OPTIONS,
   DEFAULT_NO_LINK_PATTERN,
@@ -19,14 +19,18 @@ import {
   fieldControlOf,
   type NoLinkPattern,
   type SalesRole,
-} from '../../../../constants/salesPlanNoLinkPattern';
-import { BASIC_INFO_STATUS } from '../../../../constants/planBasicInfoMockData';
-import { SingleCombobox } from '../../../ui/single-combobox';
+} from '@/app/components/sales-plan/promotion-cost-plan-unlinked/constants';
 import {
-  FORM_LABEL_CLASS,
+  BASIC_INFO_STATUS,
+  PLAN_NO_DATA_MONTHS,
+} from '@/mocks/common/planBasicInfo';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import {
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
-} from '../../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 
 interface SearchPaneProps {
   onStatusClick?: () => void;
@@ -117,16 +121,15 @@ export function SearchPane({
               3列では最大1113px（1920px幅）で収まらずステータスに重なるため、
               収まる唯一の span が col-span-4。ステータスは5列目に固定され、
               2行目以降の列位置とも縦に揃う。 */}
-          <div className="grid grid-cols-5 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {/* 対象年月 */}
             <div className="col-span-4 flex items-center gap-2">
-              <label
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
-                対象年月
-              </label>
+              <label className={SEARCH_LABEL_CLASS}>対象年月</label>
               <div className="min-w-0">
                 <MonthStripPicker
+                  disabledMonths={PLAN_NO_DATA_MONTHS}
                   value={targetYearMonth}
                   onChange={(v) => setPendingYearMonth(v)}
                 />
@@ -135,11 +138,7 @@ export function SearchPane({
 
             {/* ステータス（非活性。横にコメント履歴ボタンを配置） */}
             <div className="flex items-center gap-2">
-              <label
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
-                ステータス
-              </label>
+              <label className={SEARCH_LABEL_CLASS}>ステータス</label>
               <div className="h-8 flex items-center text-sm text-gray-900 whitespace-nowrap px-2">
                 {BASIC_INFO_STATUS}
               </div>
@@ -162,14 +161,12 @@ export function SearchPane({
           {/* パターンの3択は「商流販売店に紐づかない」等の長いラベルがあり、既定のcol-span-2幅
               （1600px基準）のままだと1280pxでラベルが折り返す。2xl(1536px)未満はパターンを
               広く・ロールを狭くし、1600px（2xl）では従来のパターン/ロール比を維持する。 */}
-          <div className="grid grid-cols-5 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             <fieldset className="col-span-3 2xl:col-span-2 flex items-center gap-2">
               <legend className="sr-only">パターン（紐づけ種別）</legend>
-              <span
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
-                パターン
-              </span>
+              <span className={SEARCH_LABEL_CLASS}>パターン</span>
               <div className="flex flex-1 min-w-0 items-center gap-4">
                 {NO_LINK_PATTERN_OPTIONS.map((o) => (
                   <label
@@ -193,11 +190,7 @@ export function SearchPane({
             {/* ロール（モック確認用。営業企画／営業で部署の扱いが変わる） */}
             <fieldset className="col-span-2 2xl:col-span-3 flex items-center gap-2">
               <legend className="sr-only">ロール（モック確認用）</legend>
-              <span
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
-                ロール
-              </span>
+              <span className={SEARCH_LABEL_CLASS}>ロール</span>
               <div className="flex items-center gap-4">
                 {SALES_ROLE_OPTIONS.map((o) => (
                   <label
@@ -224,13 +217,12 @@ export function SearchPane({
           </div>
 
           {/* 3行目: 事業場／部署／末端組織／作成者 */}
-          <div className="grid grid-cols-5 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {/* 事業場（本画面では常に非活性。販売店と同様、常時disabledのため onChange は no-op） */}
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="search-office"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
+              <label htmlFor="search-office" className={SEARCH_LABEL_CLASS}>
                 事業場
               </label>
               <div className="flex-1 min-w-0">
@@ -249,7 +241,7 @@ export function SearchPane({
             <div className="flex items-center gap-2">
               <label
                 htmlFor="search-department-value"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
+                className={SEARCH_LABEL_CLASS}
               >
                 部署
               </label>
@@ -269,7 +261,7 @@ export function SearchPane({
             <div className="flex items-center gap-2">
               <label
                 htmlFor="search-terminal-org"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
+                className={SEARCH_LABEL_CLASS}
               >
                 末端組織
               </label>
@@ -287,10 +279,7 @@ export function SearchPane({
 
             {/* 作成者（名称・コード検索可能なシングルコンボボックス。1名のみ選択） */}
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="search-creator"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
-              >
+              <label htmlFor="search-creator" className={SEARCH_LABEL_CLASS}>
                 作成者
               </label>
               <div className="flex-1 min-w-0">
@@ -310,12 +299,12 @@ export function SearchPane({
           </div>
 
           {/* 4行目: 販売店／一次店／三次店（最終行のため下区切り罫線なし。他行と同じ5列グリッド） */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className={SEARCH_GRID_CLASS}>
             {/* 販売店（③販売店のみ のときだけ通常コードから選択できる） */}
             <div className="flex items-center gap-2">
               <label
                 htmlFor="search-dealer-value"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
+                className={SEARCH_LABEL_CLASS}
               >
                 販売店
               </label>
@@ -336,7 +325,7 @@ export function SearchPane({
             <div className="flex items-center gap-2">
               <label
                 htmlFor="search-first-store-value"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
+                className={SEARCH_LABEL_CLASS}
               >
                 一次店
               </label>
@@ -357,7 +346,7 @@ export function SearchPane({
             <div className="flex items-center gap-2">
               <label
                 htmlFor="search-third-store-value"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap w-[5.3125rem] px-2 py-1 text-right`}
+                className={SEARCH_LABEL_CLASS}
               >
                 三次店
               </label>

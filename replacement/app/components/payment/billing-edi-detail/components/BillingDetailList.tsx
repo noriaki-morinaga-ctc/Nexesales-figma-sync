@@ -29,12 +29,13 @@ import {
   GRID_MONTH_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { BUTTON_STYLES, BUTTON_BASE } from '../../../../../styles/commonStyles';
+  asCellStyle,
+} from '@/app/components/grid';
+import { BUTTON_STYLES, BUTTON_BASE } from '@/styles/commonStyles';
 import type {
   BillingEdiDetailRow,
   BillingEdiErrorSummary,
-} from '../../../../constants/billingEdiMockData';
+} from '@/app/types/billingEdi';
 import {
   findCorrection,
   formatCorrectionTooltip,
@@ -47,8 +48,8 @@ import {
   resolveDetailStatus,
   qtyUnitLabel,
   selectableQtyUnits,
-} from '../../../../utils/payment/billing/billingEdiImport';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
+} from '@/app/utils/payment/billing/billingEdiImport';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 
 // 変換できなかった項目に表示する文言（エラー）。
 // 商流販売店が導出できない場合も取込エラーのため、同じ「(未変換)」で表す（決定13）
@@ -92,13 +93,12 @@ const correctableCell = (
       const raw = params.data?.rawValues?.[errorField];
       return raw ?? fallbackFormatter(params);
     },
-    cellStyle: (params) => {
+    cellStyle: asCellStyle((params) => {
       if (!params.data) return RO_STYLE;
       if (findCorrection(params.data, errorField)) {
         // 原本から変更したセル（画面設計標準の変更セル表現）
         return {
           backgroundColor: GRID_COLORS.changedBg,
-          borderColor: GRID_COLORS.changedBorder,
         };
       }
       if (!isCorrectableField(params.data, errorField)) {
@@ -109,7 +109,7 @@ const correctableCell = (
       return params.data.rawValues?.[errorField] !== undefined
         ? { backgroundColor: GRID_COLORS.editable, color: GRID_COLORS.overText }
         : { backgroundColor: GRID_COLORS.editable };
-    },
+    }),
     tooltipValueGetter: (params) => {
       if (!params.data) return '';
       const correction = findCorrection(params.data, errorField);
@@ -143,7 +143,10 @@ const DetailStatusRenderer = (
 };
 
 // 既定は参照専用（灰背景）。列側で cellStyle を持つ列は各列でこの色を引き継ぐ
-const DETAIL_DEFAULT_COL_DEF = { ...GRID_DEFAULT_COL_DEF, cellStyle: RO_STYLE };
+const DETAIL_DEFAULT_COL_DEF: ColDef = {
+  ...GRID_DEFAULT_COL_DEF,
+  cellStyle: RO_STYLE,
+};
 
 // 行ID（AG Grid 公式 getRowId）。モジュール直下に置いて参照を固定する（→ 02 §7.1）
 const getDetailRowId = (params: GetRowIdParams<BillingEdiDetailRow>) =>
@@ -449,7 +452,6 @@ export function BillingDetailList({
               params.value
                 ? {
                     backgroundColor: GRID_COLORS.changedBg,
-                    borderColor: GRID_COLORS.changedBorder,
                   }
                 : RO_STYLE,
             tooltipValueGetter: (params) =>

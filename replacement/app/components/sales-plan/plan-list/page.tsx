@@ -20,35 +20,35 @@ import type {
   GridReadyEvent,
 } from 'ag-grid-community';
 
-import { SearchRangeField } from '../../ui/search-range-field';
-import { Badge } from '../../ui/badge';
-import { CopyableArea } from '../../ui/copyable-area';
-import { valueOrEmpty } from '../../ui/empty-value';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { Badge } from '@/app/components/ui/badge';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
 import {
   MultiCombobox,
   type MultiComboboxOption,
-} from '../../ui/multi-combobox';
+} from '@/app/components/ui/multi-combobox';
 import {
   useOrgCascadeSearch,
   toOrgComboOptions,
-} from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
-import type { OrgLevel } from '../../../constants/orgHierarchy';
+} from '@/app/components/ui/use-org-cascade-search';
+import type { OrgCascadeConfig } from '@/app/utils/common/orgCascade';
+import type { OrgLevel } from '@/app/types/organization';
 import {
   BUTTON_STYLES,
   BUTTON_BASE,
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
   OVERDUE_BADGE_CLASS,
-} from '../../../../styles/commonStyles';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/styles/commonStyles';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
   formatSummaryValues,
-} from '../../ui/search-summary';
+} from '@/app/components/ui/search-summary';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -59,9 +59,10 @@ import {
   withHeaderTooltips,
   gridFilterContextMenuItems,
   GRID_MONTH_TEXT_FILTER,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // 検索条件のステータス・チャネルの選択肢（未選択＝条件なし。「全て」は持たない）
 const STATUS_OPTIONS: MultiComboboxOption[] = [
@@ -89,6 +90,7 @@ const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     terminalOrg: '末端組織',
     salesRep: '作成者',
   },
+  units: { salesRep: '名' },
 };
 
 interface StoreDetail {
@@ -127,7 +129,6 @@ const getStoreDetailRowId = (params: GetRowIdParams<StoreDetail>) =>
   params.data.tertiaryStore;
 
 interface PlanListProps {
-  onMenuChange?: (menuId: string) => void;
   // true の場合、作成パターンフィルターを「自販機」のみに設定して表示する（自販機モード）
   jihanki?: boolean;
 }
@@ -186,10 +187,9 @@ const isActualOverdue = (
   data?.tradeSystem === VENDING_PATTERN &&
   data?.targetMonth === overdueMonth;
 
-export default function PlanList({
-  onMenuChange,
-  jihanki = false,
-}: PlanListProps) {
+export default function PlanList({ jihanki = false }: PlanListProps) {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // AG Grid参照
   const gridRef = useRef<any>(null);
 
@@ -660,16 +660,12 @@ export default function PlanList({
 
   // 計画書番号のリンク押下時：作成パターンに応じた計画詳細画面へ遷移
   const handleSelect = (data: SalesPlanData) => {
-    if (onMenuChange) {
-      onMenuChange(resolveMenuTarget(data));
-    }
+    navigate(resolveMenuTarget(data));
   };
 
   // 実績番号のリンク押下時：販売実績詳細画面へ遷移
   const handleActualResults = () => {
-    if (onMenuChange) {
-      onMenuChange('sales-actual-detail');
-    }
+    navigate('sales-actual-detail');
   };
 
   // 行をどこでもダブルクリックすると該当の計画詳細画面へ遷移
@@ -677,8 +673,8 @@ export default function PlanList({
   const handleRowDoubleClicked = (
     event: RowDoubleClickedEvent<SalesPlanData>
   ) => {
-    if (event.data && onMenuChange) {
-      onMenuChange(resolveMenuTarget(event.data));
+    if (event.data) {
+      navigate(resolveMenuTarget(event.data));
     }
   };
 
@@ -814,7 +810,7 @@ export default function PlanList({
 
   // 複数の三次店・一次店組み合わせがある場合のみ展開可能にする
   const isRowMaster = useCallback((dataItem: SalesPlanData) => {
-    return dataItem.storeDetails && dataItem.storeDetails.length > 1;
+    return !!dataItem.storeDetails && dataItem.storeDetails.length > 1;
   }, []);
 
   // AG Grid列定義
@@ -1006,10 +1002,10 @@ export default function PlanList({
         },
       },
     ],
-    // リンクのレンダラーは onMenuChange を閉じ込めるため依存に含める。
+    // リンクのレンダラーは navigate を閉じ込めるため依存に含める。
     // （計画一覧・実績一覧で列の構成・リンクの遷移先は同じため jihanki には依存しない）
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）
-    [onMenuChange]
+    [navigate]
   );
 
   // ヘッダーが省略表示された場合にマウスオーバーで全文表示するため、
@@ -1048,13 +1044,14 @@ export default function PlanList({
             <div className="px-4 py-1.5">
               {/* 1行目: 対象年月(開始～終了)、ステータス（5列グリッドで整列） */}
               <div className={`${SEARCH_GRID_CLASS} mb-2.5`}>
-                {/* 対象年月（開始～終了）: 2列分。開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05） */}
+                {/* 対象年月（開始～終了）: 開始～終了をセットで1項目分に置く（共通部品 SearchRangeField・部品は compact → 05） */}
                 <SearchRangeField
                   label="対象年月"
                   groupLabel="検索対象年月の範囲"
                   start={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={targetYearMonthStart}
                       onChange={setTargetYearMonthStart}
                       required={false}
@@ -1065,6 +1062,7 @@ export default function PlanList({
                   end={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={targetYearMonthEnd}
                       onChange={setTargetYearMonthEnd}
                       required={false}
@@ -1133,7 +1131,7 @@ export default function PlanList({
             !jihanki && (
               <>
                 <button
-                  onClick={() => onMenuChange?.('promotion-cost-plan-unlinked')}
+                  onClick={() => navigate('promotion-cost-plan-unlinked')}
                   className={`flex items-center gap-1 px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap text-sm ${BUTTON_STYLES.outline} ${BUTTON_BASE}`}
                   aria-label="商流販売店紐づけなし計画追加"
                 >

@@ -19,10 +19,12 @@
 //   データ元別（AIC入力・手入力）の列には入れない。拡売費　計のデータ元別は明細のデータ元で振り分ける。
 //   税抜金額　計の支払＝追加口　計＋拡売費　計。センターフィの行は持たない。
 // 拡売費の枝番行（分割先）・グループ合計行・総合計行は集計しない。値は分割前の明細の値とする。
-import type { AdditionalEntryData } from '../../../components/payment/payment-detail-with-invoice/components/DetailTable';
-import type { EntryRow as WithoutInvoiceEntryRow } from '../../../components/payment/payment-detail-without-invoice/components/DetailTable';
-import type { ExpenseRow } from '../../../components/shared/payment/payment-detail/PaymentNonProductExpensePane';
-import { DEFAULT_DATA_SOURCE } from '../../../constants/dataSource';
+import type {
+  AdditionalEntryData,
+  WithoutInvoiceEntryRow,
+  ExpenseRow,
+} from '@/app/types/paymentDetail';
+import { DEFAULT_DATA_SOURCE } from '@/app/constants/dataSource';
 import { toEntryNumber } from './additionalEntryRules';
 import {
   TAX_RATE_COLUMNS,
@@ -33,7 +35,7 @@ import {
   type AmountBreakdownSide,
   type TaxRateColumn,
 } from './paymentAmountBreakdown';
-import type { DataSource } from '../../../constants/dataSource';
+import type { DataSource } from '@/app/constants/dataSource';
 
 // 合計表に並べる1項目（項目名と合計表）。
 export interface BreakdownItem {

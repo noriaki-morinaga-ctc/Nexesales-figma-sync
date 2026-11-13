@@ -7,29 +7,26 @@ import type {
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
 
-import { SearchRangeField } from '../../ui/search-range-field';
-import { CopyableArea } from '../../ui/copyable-area';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
 import {
   MultiCombobox,
   type MultiComboboxOption,
-} from '../../ui/multi-combobox';
+} from '@/app/components/ui/multi-combobox';
 import {
   useOrgCascadeSearch,
   toOrgComboOptions,
-} from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
-import {
-  SEARCH_GRID_CLASS,
-  SEARCH_LABEL_CLASS,
-} from '../../../../styles/commonStyles';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/app/components/ui/use-org-cascade-search';
+import type { OrgCascadeConfig } from '@/app/utils/common/orgCascade';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
   formatSummaryValues,
-} from '../../ui/search-summary';
+} from '@/app/components/ui/search-summary';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -39,8 +36,9 @@ import {
   withHeaderTooltips,
   gridFilterContextMenuItems,
   GRID_MONTH_TEXT_FILTER,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 interface SalesPlanData {
   id: string;
@@ -69,7 +67,6 @@ interface SalesPlanData {
 const getPlanRowId = (params: GetRowIdParams<SalesPlanData>) => params.data.id;
 
 interface ManagedProductPlanListProps {
-  onMenuChange?: (menuId: string) => void;
   onSelectPlan?: (data: SalesPlanData) => void;
 }
 
@@ -136,6 +133,7 @@ const NO_SELECTION: string[] = [];
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '作成者' },
+  units: { salesRep: '名' },
 };
 
 // 文字列のデータ列のセルの寄せ。先頭列は grid.css で中央寄せが強制されるため、
@@ -152,9 +150,10 @@ const STATUS_CONFIG: Record<
 };
 
 export default function ManagedProductPlanList({
-  onMenuChange,
   onSelectPlan,
 }: ManagedProductPlanListProps) {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // AG Grid参照
   const gridRef = useRef<any>(null);
 
@@ -382,9 +381,7 @@ export default function ManagedProductPlanList({
     if (onSelectPlan) {
       onSelectPlan(data);
     }
-    if (onMenuChange) {
-      onMenuChange('managed-product-plan-detail');
-    }
+    navigate('managed-product-plan-detail');
   };
 
   // 行をどこでもダブルクリックすると商品販売計画Noのリンクと同じ処理を実行（販売計画一覧と同挙動）
@@ -545,9 +542,9 @@ export default function ManagedProductPlanList({
         cellClass: DATA_CELL_CLASS,
       },
     ],
-    // リンクのレンダラーは onMenuChange を閉じ込めるため依存に含める（計画一覧と同じ）
+    // リンクのレンダラーは navigate を閉じ込めるため依存に含める（計画一覧と同じ）
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義の再生成を抑止するため）
-    [onMenuChange]
+    [navigate]
   );
 
   // ヘッダーが省略表示された場合にマウスオーバーで全文表示するため、
@@ -586,13 +583,14 @@ export default function ManagedProductPlanList({
             <div className="px-4 py-1.5">
               {/* 1行目: 対象年月(開始～終了)、ステータス（計画一覧と同じ5列グリッドで整列 → SEARCH_GRID_CLASS） */}
               <div className={`${SEARCH_GRID_CLASS} mb-2.5`}>
-                {/* 対象年月（開始～終了）: 2列分。開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05） */}
+                {/* 対象年月（開始～終了）: 開始～終了をセットで1項目分に置く（共通部品 SearchRangeField・部品は compact → 05） */}
                 <SearchRangeField
                   label="対象年月"
                   groupLabel="検索対象年月の範囲"
                   start={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={targetYearMonthStart}
                       onChange={setTargetYearMonthStart}
                       max={targetYearMonthEnd}
@@ -603,6 +601,7 @@ export default function ManagedProductPlanList({
                   end={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={targetYearMonthEnd}
                       onChange={setTargetYearMonthEnd}
                       min={targetYearMonthStart}

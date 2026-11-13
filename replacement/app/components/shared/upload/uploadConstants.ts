@@ -13,3 +13,6 @@ export const STATUS_NAME_MAP: Record<UploadStatusType, string> = {
   COMPLETED: '完了',
   ERROR: 'エラー',
 };
+
+// 登録者（モック：ログインユーザー）
+export const MOCK_LOGIN_USER_NAME = 'アサヒ 太郎';

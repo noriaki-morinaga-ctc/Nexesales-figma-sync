@@ -13,29 +13,32 @@ import {
   ICellRendererParams,
 } from 'ag-grid-community';
 import { ChevronRight, ChevronDown, Plus, Minus } from 'lucide-react';
-import { Checkbox } from '../../../ui/checkbox';
-import { MonthPicker } from '../../../ui/month-picker';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { MonthPicker } from '@/app/components/ui/month-picker';
 import {
   GRID_BASE_PROPS,
   GRID_COLORS,
+  existingFuncCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
-} from '../../../grid';
+  asCellStyle,
+  useGridColumnState,
+  readSavedColumnState,
+  gridHeaderStyle,
+} from '@/app/components/grid';
 import {
   computeMonth,
   displayOf,
   type AggAmounts,
   type AggFilter,
-} from '../../../../utils/sales-plan/common/aggregationCalc';
-import {
-  RATE_SETTINGS,
-  type AggregationSource,
-} from '../../../../constants/aggregationSourceData';
-import { isActualReflectedMonth } from '../../../../constants/actualMonths';
+} from '@/app/utils/sales-plan/common/aggregationCalc';
+import { RATE_SETTINGS } from '@/app/constants/aggregationSourceData';
+import type { AggregationSource } from '@/app/types/aggregation';
+import { isActualReflectedMonth } from '@/app/utils/sales-plan/common/actualMonths';
 import {
   NO_DELIVERY_PRICE_NOTE,
   SALES_UNIT_PRICE_LABEL,
-} from '../../../../constants/aggregationTree';
+} from '@/app/constants/aggregationTree';
 
 // 項目のマウスオーバーで表示する注記（項目名→注記。課題1815）。
 const ITEM_NOTES: Record<string, string> = {
@@ -44,7 +47,8 @@ const ITEM_NOTES: Record<string, string> = {
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanRate,
-} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
 
 // 拡売費の項目名。算出内訳（売上連動拡売費＋直接固定費）を併記し、項目セルで2行に改行表示する
 // （GroupCellRenderer が white-space: pre-line のため \n で改行される）。
@@ -122,6 +126,8 @@ interface AnnualTotalGridContext {
 }
 
 interface AnnualTotalTabProps {
+  // 列の状態（幅・並び・表示）を保存する localStorage のキー（画面ごとに一意 → 02 §7「列状態の永続化」）
+  columnStateKey: string;
   isWholesaleContext?: boolean;
   /** 親から表示単位を制御する場合に渡す（指定時は内部の表示単位トグルを非表示にする） */
   displayUnit?: 'yen' | 'thousand';
@@ -137,6 +143,7 @@ interface AnnualTotalTabProps {
 }
 
 export function AnnualTotalTab({
+  columnStateKey,
   isWholesaleContext = false,
   displayUnit: displayUnitProp,
   aggFilter = {},
@@ -170,10 +177,10 @@ export function AnnualTotalTab({
     nov: true,
     dec: true,
   });
-  const [isColumnSettingsShown, setIsColumnSettingsShown] = useState(false);
+  const [isColumnSettingsShown] = useState(false);
   const [internalDisplayUnit, setInternalDisplayUnit] = useState<
     'yen' | 'thousand'
-  >('yen');
+  >('thousand');
   // 親から displayUnit が渡された場合は制御モード（内部トグルは非表示）
   const displayUnit = displayUnitProp ?? internalDisplayUnit;
   // クリックされた集計セルの算出元。rowIndexes は「月セルを強調する行」の一覧。
@@ -207,10 +214,17 @@ export function AnnualTotalTab({
 
   // 数値がセルからはみ出さないよう、各列を内容に合わせて自動幅調整する。
   const gridRef = useRef<any>(null);
+  // 列幅を内容に合わせる。利用者が変えた列の状態が保存済みなら、その幅を優先して調整しない
   const handleAutoSizeColumns = useCallback(() => {
+    if (readSavedColumnState(columnStateKey)) return;
     const api = gridRef.current?.api;
     if (api) api.autoSizeAllColumns(false);
-  }, []);
+  }, [columnStateKey]);
+  // 列の状態（幅・並び・表示）を保存／復元する（タブを行き来しても引き継ぐ → 02 §7）
+  const gridColumnStateProps = useGridColumnState(columnStateKey, {
+    autoSize: false,
+    onGridReady: handleAutoSizeColumns,
+  });
 
   const rowData = useMemo<AnnualTotalData[]>(() => {
     const MONTH_FIELDS = [
@@ -897,7 +911,7 @@ export function AnnualTotalTab({
     );
   };
 
-  // 青枠（実績セル）の判定。青枠は「実績が反映されたセル」を示すため、累計月選択ではなく
+  // 実績セル（左上の三角）の判定。三角は「実績が反映されたセル」を示すため、累計月選択ではなく
   // 実績反映月（モックでは1月〜5月固定＝ACTUAL_REFLECTED_MONTHS）を基準にする。
   // 表示のみの判定であり、各セルの値（計算式）には一切関与しない。
   const shouldHighlight = (
@@ -918,66 +932,61 @@ export function AnnualTotalTab({
     ];
     if (!targetItems.includes(subItem)) return false;
 
-    // 月列（累計月選択の単月列を含む）：実績反映月（1月〜5月）のみ青枠
+    // 月列（累計月選択の単月列を含む）：実績反映月（1月〜5月）のみ左上の三角
     if (columnType === 'month') return isActualReflectedMonth(monthField);
 
     // 累計・年間・上期・下期・四半期・年計は複数月の集計値のため実績セルとしない
     return false;
   };
 
-  const getDataCellStyle = (
-    params: any,
-    isImportant: boolean = false,
-    columnType: string = '',
-    monthField?: string
-  ) => {
-    const rowIndex = params.node?.rowIndex || 0;
-    const stripeColor = GRID_COLORS.background;
-    const subItem = params.data?.subItem || '';
-    const groupName = params.data?.groupName || '';
-    const highlight = shouldHighlight(subItem, columnType, monthField);
+  const getDataCellStyle = asCellStyle(
+    (
+      params: any,
+      _isImportant: boolean = false,
+      columnType: string = '',
+      monthField?: string
+    ) => {
+      const rowIndex = params.node?.rowIndex || 0;
+      const stripeColor = GRID_COLORS.background;
+      const subItem = params.data?.subItem || '';
+      const groupName = params.data?.groupName || '';
+      const highlight = shouldHighlight(subItem, columnType, monthField);
 
-    // ハイライト対象のセルかチェック
-    const colId = params.column?.colId || '';
-    // 算出元行（差／差率は計画／実績行＋予算(前年実績)行）の対象期間の月セルを強調する。
-    const isHighlighted =
-      clickedCell &&
-      clickedCell.rowIndexes.includes(rowIndex) &&
-      getSourceMonthFields(clickedCell.colId).includes(monthField || '');
+      // ハイライト対象のセルかチェック
+      const colId = params.column?.colId || '';
+      // 算出元行（差／差率は計画／実績行＋予算(前年実績)行）の対象期間の月セルを強調する。
+      const isHighlighted =
+        clickedCell &&
+        clickedCell.rowIndexes.includes(rowIndex) &&
+        getSourceMonthFields(clickedCell.colId).includes(monthField || '');
 
-    return {
-      backgroundColor: isHighlighted
-        ? GRID_COLORS.clickHighlightBg
-        : stripeColor,
-      // 文字色は常にテーマ既定の黒字。予算比・前年比の100%超過も赤字にしない
-      // （売上高等は超過が良いことのため。第1回手売りセッション 決定事項12）。
-      textAlign: 'right',
-      paddingRight: '0.75rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      fontWeight: 'normal',
-      // サブ行間は薄い罫線、項目境界（各項目の最終行）は濃い罫線で区切る（重複防止のため下罫線に一本化）
-      borderBottom: params.data?.isLastInGroup
-        ? `1px solid ${GRID_COLORS.strongDivider}`
-        : `1px solid ${GRID_COLORS.gridLine}`,
-      border: isHighlighted
-        ? `0.125rem solid ${GRID_COLORS.clickHighlightBorder}`
-        : undefined,
-      // 実績反映済み（函数/計算式）セルは、年間計画の1〜5月セルと同様に
-      // 薄青フィルではなく existingFuncBorder 色の内側枠線で表現する
-      boxShadow:
-        highlight && !isHighlighted
-          ? `inset 0 0 0 0.125rem ${GRID_COLORS.existingFuncBorder}`
+      return {
+        backgroundColor: isHighlighted
+          ? GRID_COLORS.clickHighlightBg
+          : stripeColor,
+        // 文字色は常にテーマ既定の黒字。予算比・前年比の100%超過も赤字にしない
+        // （売上高等は超過が良いことのため。第1回手売りセッション 決定事項12）。
+        paddingRight: '0.75rem',
+        fontWeight: 'normal',
+        // サブ行間は薄い罫線、項目境界（各項目の最終行）は濃い罫線で区切る（重複防止のため下罫線に一本化）
+        borderBottom: params.data?.isLastInGroup
+          ? `1px solid ${GRID_COLORS.strongDivider}`
+          : `1px solid ${GRID_COLORS.gridLine}`,
+        border: isHighlighted
+          ? `0.125rem solid ${GRID_COLORS.clickHighlightBorder}`
           : undefined,
-      cursor:
-        isTargetGroup(groupName) &&
-        isTargetSubItem(subItem) &&
-        isTargetColumn(colId)
-          ? 'pointer'
-          : 'default',
-    };
-  };
+        // 実績反映済み（函数/計算式）セルは、年間計画の1〜5月セルと同様に
+        // 枠ではなくセル左上の三角で示す（existingFuncCellStyle → 02 §7）
+        ...(highlight && !isHighlighted ? existingFuncCellStyle() : {}),
+        cursor:
+          isTargetGroup(groupName) &&
+          isTargetSubItem(subItem) &&
+          isTargetColumn(colId)
+            ? 'pointer'
+            : 'default',
+      };
+    }
+  );
 
   const columnDefs: (ColDef | ColGroupDef)[] = useMemo(() => {
     const monthMap: { [key: string]: string } = {
@@ -1001,6 +1010,8 @@ export function AnnualTotalTab({
         children: [
           {
             headerName: '',
+            // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+            suppressColumnsToolPanel: true,
             field: 'group',
             width: 144,
             lockPinned: true,
@@ -1011,22 +1022,19 @@ export function AnnualTotalTab({
                 ? params.data?.groupRowSpan || 1
                 : 1;
             },
-            cellStyle: (params) => {
-              const rowIndex = params.node?.rowIndex || 0;
+            // 先頭列の左寄せは ag-cell-left（grid.css の1列目中央寄せを戻す。結合したセルの縦中央も
+            // grid.css の先頭列の指定が受け持つ → 02 §6 セルの寄せ）
+            cellClass: 'ag-cell-left',
+            cellStyle: (_params) => {
               const stripeColor = GRID_COLORS.background;
 
               return {
                 backgroundColor: stripeColor,
                 fontWeight: 'normal',
-                textAlign: 'left',
-                // 項目列は左寄せ＋1文字インデント
-                // grid.css の1列目中央寄せルールを上書きするため明示
-                justifyContent: 'flex-start',
+                // 項目列は1文字インデント
                 paddingLeft: '1em',
                 // 項目セルは rowSpan で項目全体を占めるため、下端（項目境界）に濃い横罫線
                 borderBottom: `1px solid ${GRID_COLORS.strongDivider}`,
-                display: 'flex',
-                alignItems: 'center',
               };
             },
           },
@@ -1037,25 +1045,14 @@ export function AnnualTotalTab({
             lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: SubItemCellRenderer,
+            // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
+            cellClass: 'cell-left',
             cellStyle: (params) => {
-              const rowIndex = params.node?.rowIndex || 0;
               const stripeColor = GRID_COLORS.background;
-              const value = params.value || '';
-              const boldItems = [
-                '計画／実績',
-                '予算',
-                '前年実績',
-                '予算比',
-                '前年比',
-              ];
-              const isBold = boldItems.includes(value);
 
               return {
                 backgroundColor: stripeColor,
-                textAlign: 'left',
                 paddingLeft: '0.75rem',
-                display: 'flex',
-                alignItems: 'center',
                 fontWeight: 'normal',
                 // サブ行間は薄い罫線、項目境界（最終行）は濃い罫線で区切る
                 borderBottom: params.data?.isLastInGroup
@@ -1096,8 +1093,9 @@ export function AnnualTotalTab({
         },
         valueFormatter: formatCell,
         onCellClicked: makeCellClickHandler('cumulative'),
-        cellStyle: (params) => {
-          const rowIndex = params.node?.rowIndex || 0;
+        // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
+        cellClass: 'cell-right',
+        cellStyle: asCellStyle((params) => {
           const stripeColor = GRID_COLORS.background;
           const subItem = params.data?.subItem || '';
           const groupName = params.data?.groupName || '';
@@ -1105,23 +1103,17 @@ export function AnnualTotalTab({
 
           return {
             backgroundColor: stripeColor,
-            textAlign: 'right',
             paddingRight: '0.75rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
             fontWeight: 'normal',
             borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
-            // 実績反映済み（函数/計算式）セルは existingFuncBorder 色の内側枠線で表現
-            boxShadow: highlight
-              ? `inset 0 0 0 0.125rem ${GRID_COLORS.existingFuncBorder}`
-              : undefined,
+            // 実績反映済み（函数/計算式）セルはセル左上の三角で示す（existingFuncCellStyle）
+            ...(highlight ? existingFuncCellStyle() : {}),
             cursor:
               isTargetGroup(groupName) && isTargetSubItem(subItem)
                 ? 'pointer'
                 : 'default',
           };
-        },
+        }),
       },
       {
         headerName: '年間',
@@ -1266,6 +1258,8 @@ export function AnnualTotalTab({
           // ヘッダー・値とも表示しない（折りたたみ時は何も見せない）。
           {
             headerName: '',
+            // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+            suppressColumnsToolPanel: true,
             colId: 'monthsTotal',
             width: 88,
             columnGroupShow: 'closed',
@@ -1297,8 +1291,9 @@ export function AnnualTotalTab({
               // グループ展開時のみ表示（折りたたみ時は隠す）
               columnGroupShow: 'open',
               valueFormatter: formatCell,
-              cellStyle: (params) =>
-                getDataCellStyle(params, false, 'month', f),
+              cellStyle: asCellStyle((params) =>
+                getDataCellStyle(params, false, 'month', f)
+              ),
             })
           ),
         ],
@@ -1307,14 +1302,19 @@ export function AnnualTotalTab({
     // 開閉状態（expandedItems / expandedRows）は依存に含めない。項目列・サブ項目列の
     // cellRenderer は params.context から読むため、列定義を作り直さなくても chevron と
     // aria-label が追従する（作り直すと列幅がリセットされ、開閉のたびに表が一瞬横に伸びる）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- セルの書式・値の関数が読む表示単位・対象月・列の表示・クリックしたセルは依存に入っている（関数を入れると描画のたびに列定義を作り直し列幅が戻る）
   }, [selectedMonth, columnVisibility, displayUnit, clickedCell]);
 
   const defaultColDef = useMemo(
     () => ({
+      // 編集できない列の見出しをグレーにする（GRID_DEFAULT_COL_DEF を引き継がないため明示。→ grid/gridCommon）
+      headerStyle: gridHeaderStyle,
       sortable: false,
       resizable: true,
       filter: true,
       suppressMovable: true,
+      // 数値の列は右寄せ（ラベルの列は列ごとに cellClass で上書きする → 02 §6 セルの寄せ）
+      cellClass: 'cell-right',
       // ヘッダーのフィルター／列メニューボタンを非表示（販売計画詳細と統一）
       suppressHeaderMenuButton: true,
       suppressHeaderFilterButton: true,
@@ -1363,28 +1363,15 @@ ${note}`
               <label className="text-sm text-blue-900 whitespace-nowrap font-bold">
                 表示単位
               </label>
-              <div className="inline-flex rounded-md border border-gray-300 overflow-hidden h-8">
-                <button
-                  onClick={() => setInternalDisplayUnit('yen')}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'yen'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  円
-                </button>
-                <button
-                  onClick={() => setInternalDisplayUnit('thousand')}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'thousand'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  千円
-                </button>
-              </div>
+              <SegmentToggle
+                ariaLabel="表示単位"
+                options={[
+                  { value: 'yen', label: '円' },
+                  { value: 'thousand', label: '千円' },
+                ]}
+                value={displayUnit}
+                onChange={setInternalDisplayUnit}
+              />
             </div>
           )}
 
@@ -1409,9 +1396,7 @@ ${note}`
         <div className="flex items-center gap-1 text-sm">
           <span
             className="text-black px-2 py-1 font-medium"
-            style={{
-              boxShadow: `inset 0 0 0 0.125rem ${GRID_COLORS.existingFuncBorder}`,
-            }}
+            style={existingFuncCellStyle()}
           >
             XXX,XXX
           </span>
@@ -1749,7 +1734,8 @@ ${note}`
 
               .annual-total-grid .ag-cell {
                 border-bottom: 1px solid var(--grid-grid-line);
-                padding: 4px 8px;
+                /* 上下の余白は付けない（付けると文字が行の高さに収まらず下へずれる。縦中央は line-height に任せる） */
+                padding: 0 0.625rem;
               }
 
               .annual-total-grid .ag-cell-inline-editing {
@@ -1793,7 +1779,6 @@ ${note}`
             `}</style>
           {/* theme は指定せず、App.tsx の provideGlobalGridOptions で登録した
               共通テーマ(GRID_THEME / themeBalham)を継承する（販売計画(詳細)と統一） */}
-          {/* 規約例外（集計表）：行と列が決まっている集計表のため、列の状態の保存（useGridColumnState）は付けない */}
           <AgGridReact
             {...GRID_BASE_PROPS}
             ref={gridRef}
@@ -1807,7 +1792,7 @@ ${note}`
             suppressHorizontalScroll={false}
             alwaysShowHorizontalScroll={true}
             context={gridContext}
-            onGridReady={handleAutoSizeColumns}
+            {...gridColumnStateProps}
             onBodyScroll={handleGridClick}
             onRowClicked={(params: any) => {
               const d = params.data as AnnualTotalData;

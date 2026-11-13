@@ -7,7 +7,7 @@ import {
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
   useGridColumnState,
-} from '../../grid';
+} from '@/app/components/grid';
 import type { UploadErrorItem } from './uploadTypes';
 
 interface ErrorTableProps {

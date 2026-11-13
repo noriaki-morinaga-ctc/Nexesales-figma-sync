@@ -8,12 +8,24 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from './button';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from './popover';
+import {
+  PickerTextBox,
+  parseDateText,
+  usePickerTextInput,
+} from './picker-text-input';
 import { cn } from './utils';
+import { PICKER_COMPACT_CLEAR_CLASS } from '@/styles/commonStyles';
 
 // 年月日（YYYY/MM/DD）のカレンダー入力フォーム。
 // MonthYearPicker（年月）と同方針のカスタムグリッドで、「年→月→日」の順に選択する。
-// テキスト入力は不可とし、入力フォーム全体をクリックするとカレンダーを開く。
+// 入力欄は「2025/05/15」のように打ち込むこともでき、押すとカレンダーも開く（UI/UX UX-067）。
+// AG Grid のセル編集（DateMonthYearCellEditor）では typeable={false}（従来どおりカレンダーだけ）。
 // AG Grid のセル編集（DateMonthYearCellEditor）から利用する場合は onCommit で確定する。
 interface DateMonthYearPickerProps {
   value: string; // YYYY/MM/DD 形式
@@ -29,6 +41,11 @@ interface DateMonthYearPickerProps {
   ariaLabel?: string; // アクセシブル名の上書き（既定は「年月日を選択」）
   // 値のクリア（×）を表示するか。任意入力の項目（検索条件など）で有効にする（MonthYearPicker と同じ）。
   clearable?: boolean;
+  // 検索条件の範囲指定（SearchRangeField）で1項目分に開始・終了を並べるときの詰めた形。
+  // カレンダーのアイコンを出さず左右の余白を詰め、×は場所を取らずにマウスを乗せたとき・×にフォーカスがあるときだけ重ねる（UI/UX UX-058）。
+  compact?: boolean;
+  // 文字で打ち込めるか（既定 true）。表のセル編集では false にしてカレンダーだけにする
+  typeable?: boolean;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -72,6 +89,8 @@ export function DateMonthYearPicker({
   id,
   ariaLabel,
   clearable = false,
+  compact = false,
+  typeable = true,
 }: DateMonthYearPickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   // 選択ステップ：'month'＝年・月の選択／'day'＝日の選択
@@ -142,8 +161,25 @@ export function DateMonthYearPicker({
     setStep('day');
   };
 
+  // 打ち込み（typeable のとき）。範囲外の日付は元の値に戻す
+  const text = usePickerTextInput({
+    value,
+    parse: parseDateText,
+    isAllowed: (v) => {
+      const [y, m, d] = v.split('/').map(Number);
+      return inRange(y, m, d);
+    },
+    allowEmpty: clearable,
+    onChange,
+    onCommit,
+    onDone: () => setIsOpen(false),
+  });
+  // 打ち込みの欄の外側（入力欄と×）。ここを押してもカレンダーを閉じない
+  const anchorRef = React.useRef<HTMLDivElement>(null);
+
   // 日を選択したら確定（YYYY/MM/DD）
   const handleDaySelect = (d: number) => {
+    text.resetDraft();
     const formatted = `${selectedYear}/${pad(selectedMonth)}/${pad(d)}`;
     onChange(formatted);
     setIsOpen(false);
@@ -169,56 +205,102 @@ export function DateMonthYearPicker({
       open={disabled ? false : isOpen}
       onOpenChange={disabled ? undefined : setIsOpen}
     >
-      {/*
-        入力フォーム全体をピッカーのトリガーにする。
-        テキスト入力は不可とし、フォームのどこをクリックしてもカレンダーを開く。
-      */}
-      {/* クリア（×）はトリガーの入れ子ボタンにできないため、
-          相対配置のラッパー内でトリガーの右側へ重ねて配置する（MonthYearPicker と同じ）。 */}
-      {/* data-copy-text：表示中の値（CopyableArea の Ctrl+C／右クリック「コピー」で使う） */}
-      <div
-        className={cn('relative', className)}
-        data-copy-text={value || undefined}
-      >
-        <PopoverTrigger asChild>
-          <button
-            // 入力欄の目印（画面表示時の初期フォーカスの対象にする → App.tsx）
-            data-input-control
-            type="button"
-            disabled={disabled}
-            id={id}
-            aria-label={ariaLabel ?? '年月日を選択'}
-            aria-required={required || undefined}
-            className={cn(
-              'relative flex h-9.5 items-center justify-between rounded-md border border-gray-400 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm transition-colors',
-              // clearable のときは×の分だけ幅を常に広げる（値の有無で幅が変わると隣の項目がずれ、
-              // 狭いと値が省略表示になるため）。右余白は×を出している間だけ取る。
-              clearable ? 'w-40' : 'w-36',
-              showClear && 'pr-8',
-              'cursor-pointer text-left hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none',
-              'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white',
-              className
+      {typeable ? (
+        // 打ち込める入力欄（文字の欄＋カレンダーのアイコン）。カレンダーは入力欄の位置に出す
+        <PopoverAnchor asChild>
+          <div
+            ref={anchorRef}
+            className={cn('group/picker relative', className)}
+            data-copy-text={value || undefined}
+          >
+            <PickerTextBox
+              inputProps={text.inputProps}
+              placeholder="YYYY/MM/DD"
+              boxClassName={cn(
+                clearable ? 'w-40' : 'w-36',
+                showClear && !compact && 'pr-8',
+                compact && 'px-2',
+                className
+              )}
+              disabled={disabled}
+              compact={compact}
+              id={id}
+              ariaLabel={ariaLabel ?? '年月日'}
+              required={required}
+              onOpen={() => setIsOpen(true)}
+            />
+            {showClear && (
+              <button
+                type="button"
+                aria-label="年月日をクリア"
+                title="年月日をクリア"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleClear}
+                className={cn(
+                  'absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none',
+                  compact && PICKER_COMPACT_CLEAR_CLASS
+                )}
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-          >
-            <span className={cn('truncate', !value && 'text-gray-500')}>
-              {value || 'YYYY/MM/DD'}
-            </span>
-            <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
-          </button>
-        </PopoverTrigger>
-        {showClear && (
-          <button
-            type="button"
-            aria-label="年月日をクリア"
-            title="年月日をクリア"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleClear}
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+          </div>
+        </PopoverAnchor>
+      ) : (
+        // 表のセル編集（typeable={false}）：入力フォーム全体をピッカーのトリガーにする。
+        // テキスト入力は不可とし、フォームのどこをクリックしてもカレンダーを開く。
+        // クリア（×）はトリガーの入れ子ボタンにできないため、相対配置のラッパー内でトリガーの右側へ重ねる。
+        // data-copy-text：表示中の値（CopyableArea の Ctrl+C／右クリック「コピー」で使う）
+        <div
+          className={cn('group/picker relative', className)}
+          data-copy-text={value || undefined}
+        >
+          <PopoverTrigger asChild>
+            <button
+              // 入力欄の目印（画面表示時の初期フォーカスの対象にする → App.tsx）
+              data-input-control
+              type="button"
+              disabled={disabled}
+              id={id}
+              aria-label={ariaLabel ?? '年月日を選択'}
+              aria-required={required || undefined}
+              className={cn(
+                'relative flex h-9.5 items-center justify-between rounded-md border border-gray-400 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm transition-colors',
+                // clearable のときは×の分だけ幅を常に広げる（値の有無で幅が変わると隣の項目がずれ、
+                // 狭いと値が省略表示になるため）。右余白は×を出している間だけ取る。
+                clearable ? 'w-40' : 'w-36',
+                showClear && !compact && 'pr-8',
+                compact && 'px-2',
+                'cursor-pointer text-left hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none',
+                'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white',
+                className
+              )}
+            >
+              <span className={cn('truncate', !value && 'text-gray-500')}>
+                {value || 'YYYY/MM/DD'}
+              </span>
+              {!compact && (
+                <CalendarIcon className="ml-1 h-4 w-4 shrink-0 text-gray-600" />
+              )}
+            </button>
+          </PopoverTrigger>
+          {showClear && (
+            <button
+              type="button"
+              aria-label="年月日をクリア"
+              title="年月日をクリア"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleClear}
+              className={cn(
+                'absolute top-1/2 right-2 -translate-y-1/2 rounded text-gray-500 transition-colors hover:text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none',
+                compact && PICKER_COMPACT_CLEAR_CLASS
+              )}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
       {/*
         ポータル描画のため、AG Grid のセル編集（popup）内で使う場合に
         フォーカス移動／blur で選択前に旧値で確定されるのを防ぐ。
@@ -229,6 +311,10 @@ export function DateMonthYearPicker({
         className="w-auto p-0"
         align="end"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        // 入力欄（打ち込み中）を押してもカレンダーを閉じない
+        onInteractOutside={(e) => {
+          if (anchorRef.current?.contains(e.target as Node)) e.preventDefault();
+        }}
       >
         <div className="p-3">
           {step === 'month' ? (

@@ -8,8 +8,8 @@ import {
 import type {
   BillingEdiImportRow,
   BillingEdiSearchCriteria,
-} from '../../../constants/billingEdiMockData';
-import { INITIAL_SEARCH_CRITERIA } from '../../../constants/billingEdiMockData';
+} from '@/app/types/billingEdi';
+import { INITIAL_SEARCH_CRITERIA } from '@/mocks/payment/billing-edi-list';
 
 // テスト用の行を最小限の指定で組み立てる
 const makeRow = (
@@ -17,7 +17,7 @@ const makeRow = (
 ): BillingEdiImportRow => ({
   id: 'X',
   receivedAt: '2026/07/10 08:30',
-  lastProcessedAt: '2026/07/10 08:30',
+  reimportedAt: '',
   payeeName: '三菱食品株式会社',
   senderNames: ['MF01'],
   status: '正常',
@@ -25,7 +25,7 @@ const makeRow = (
   systemErrorReason: '',
   counts: { invoices: 1, slips: 1, details: 1 },
   errorCount: 0,
-  pendingErrors: [],
+  errorSummaries: [],
   details: [],
   ...over,
 });
@@ -65,7 +65,7 @@ describe('formatPayeeName', () => {
         makeRow({
           isSystemError: true,
           payeeName: null,
-          systemErrorReason: '形式不正',
+          systemErrorReason: 'フォーマット不正',
         })
       )
     ).toBe('-');
@@ -86,7 +86,7 @@ describe('filterBillingEdiRows', () => {
       isSystemError: true,
       payeeName: null,
       senderNames: [],
-      systemErrorReason: '形式不正',
+      systemErrorReason: 'フォーマット不正',
     }),
   ];
 
@@ -147,12 +147,11 @@ describe('filterBillingEdiRows', () => {
 });
 
 describe('summarizeBillingEdiStatus', () => {
-  it('正常とエラーの件数を数える（再取込指示済はどちらにも数えない）', () => {
+  it('正常とエラーの件数を数える', () => {
     const rows = [
       makeRow({ status: '正常' }),
       makeRow({ status: 'エラー' }),
       makeRow({ status: 'エラー' }),
-      makeRow({ status: '再取込指示済' }),
     ];
     expect(summarizeBillingEdiStatus(rows)).toEqual({
       normalCount: 1,

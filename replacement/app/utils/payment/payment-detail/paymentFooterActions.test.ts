@@ -68,6 +68,46 @@ describe('paymentFooterActionStateOf（フッターのボタンの活性）', ()
         save: true,
       },
     ],
+    // 自販機のステータス（UX-072）
+    [
+      'EDI登録済み',
+      {
+        noPayment: true,
+        comment: true,
+        sendBack: false,
+        approve: false,
+        seal: false,
+        retrieve: false,
+        apply: true,
+        save: true,
+      },
+    ],
+    [
+      'AIC登録済み',
+      {
+        noPayment: true,
+        comment: true,
+        sendBack: false,
+        approve: false,
+        seal: false,
+        retrieve: false,
+        apply: true,
+        save: true,
+      },
+    ],
+    [
+      '差戻し',
+      {
+        noPayment: false,
+        comment: true,
+        sendBack: false,
+        approve: false,
+        seal: false,
+        retrieve: false,
+        apply: true,
+        save: true,
+      },
+    ],
     [
       '検印済',
       {

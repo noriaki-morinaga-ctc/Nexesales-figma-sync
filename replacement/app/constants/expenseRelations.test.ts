@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  EXPENSE_MANAGEMENT_CLASS_OPTIONS,
+  EXPENSE_MANAGEMENT_CODE_OPTIONS,
+} from './expenseRelations';
+import {
   accountItemFromManagementClass,
   fillFromManagementCode,
   fillFromManagementClass,
@@ -7,13 +11,11 @@ import {
   fillFromCampaignClass,
   managementClassFromCode,
   isManagementCodeInClass,
-  EXPENSE_MANAGEMENT_CLASS_OPTIONS,
-  EXPENSE_MANAGEMENT_CODE_OPTIONS,
-} from './expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 import {
   managementCodeNameOf,
   managementClassCodeOf,
-} from './comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 
 describe('accountItemFromManagementClass', () => {
   it('管理区分に対応する勘定科目を返す', () => {

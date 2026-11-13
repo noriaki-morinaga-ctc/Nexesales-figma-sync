@@ -35,22 +35,22 @@ import {
   type FormulaDef,
   type FormulaDefs,
   GRID_NO_FILTER_COLUMN_TYPES,
-} from '../../../grid';
-import { formulaTooltip } from '../../../grid/gridCommon';
+  useGridColumnState,
+} from '@/app/components/grid';
+import { formulaTooltip } from '@/app/components/grid/gridCommon';
 import { ExpandCollapseButton } from './ExpandCollapseButton';
-import type { AggregationView } from '../../../../constants/aggregationDisplayItems';
+import type { AggregationView } from '@/app/types/aggregation';
 import {
   flattenAggregationTree,
   flattenAllTreeNodes,
   getOptionalItemIds,
-  type AggTreeRow,
-  type AggTreeNodeRef,
-} from '../../../../constants/aggregationTree';
+} from '@/app/utils/sales-plan/common/aggregationTree';
+import type { AggTreeRow, AggTreeNodeRef } from '@/app/types/aggregation';
 import {
   AGGREGATION_FORMULAS,
   AGG_RATIO_FORMULAS,
   AGG_COLUMN_LABELS,
-} from '../../../../constants/aggregationFormulas';
+} from '@/app/constants/aggregationFormulas';
 
 // 期間サブタブのアイコン（対象月合計＝カレンダー／累計＝トレンド／年間＝期間）。
 const PERIOD_TAB_ICONS = [Calendar, TrendingUp, CalendarRange];
@@ -66,6 +66,8 @@ const AGGREGATION_TREE_GRID_PROPS: Partial<AgGridReactProps> = {
   autoGroupColumnDef: {
     hide: true,
     headerName: '',
+    // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+    suppressColumnsToolPanel: true,
     width: 0,
     minWidth: 0,
   },
@@ -249,6 +251,8 @@ export interface AggregationItemTreeTableProps {
   // ドリルダウン開閉状態を localStorage へ保存するときのキー（画面・表ごとに一意）。
   // 省略時は保存せず、従来どおり常に全て折りたたんだ状態で表示する。
   expandStateKey?: string;
+  // 列の状態（幅・並び・表示）を保存する localStorage のキー（画面ごとに一意 → 02 §7「列状態の永続化」）
+  columnStateKey: string;
 }
 
 // 既存集計表と揃えた既定列：計画/実績・予算・予算比・予算差・前年・前年比・前年差。
@@ -279,6 +283,7 @@ export function AggregationItemTreeTable({
   periodTabs,
   height = 420,
   expandStateKey,
+  columnStateKey,
 }: AggregationItemTreeTableProps) {
   const { optionalIds, shownOptionalIds, hasOptional, allShown, toggleAll } =
     useOptionalItemToggle(view);
@@ -463,6 +468,11 @@ export function AggregationItemTreeTable({
     cellKeyOf: (params) =>
       `${params.colDef?.colId ?? params.colDef?.field ?? ''}::${params.data?.key ?? ''}`,
   });
+  // 列の既定値（useMemo）で使う2つは取り出して依存に入れる
+  const {
+    tooltipValueGetter: formulaTooltipValueGetter,
+    cellClassRules: formulaCellClassRules,
+  } = formulaHL;
 
   const numberCellStyle = (params: any) => {
     const style: any = { textAlign: 'right' };
@@ -535,7 +545,7 @@ export function AggregationItemTreeTable({
       // 計算式セルは計算式テキスト、それ以外は従来どおりセル値を表示する。
       // 注記を持つ項目（納品金額など）は、その行のどのセルでも注記を添える（課題1815）。
       tooltipValueGetter: (params: any) => {
-        const base = formulaHL.tooltipValueGetter(params);
+        const base = formulaTooltipValueGetter(params);
         const note: string | undefined = params.data?.note;
         if (!note) return base;
         return base
@@ -546,11 +556,22 @@ ${note}`
       // 算出元セルの枠線ハイライト（計算式セルのホバー中のみ付与）。値が無いセルのグレーの「-」は共通のルールを残す
       cellClassRules: {
         ...GRID_DEFAULT_COL_DEF.cellClassRules,
-        ...formulaHL.cellClassRules,
+        ...formulaCellClassRules,
       },
     }),
-    [formulaHL.tooltipValueGetter, formulaHL.cellClassRules]
+    [formulaTooltipValueGetter, formulaCellClassRules]
   );
+
+  // 列の状態（幅・並び・表示）を保存／復元する（タブを行き来しても引き継ぐ → 02 §7）。
+  // 保存済みの状態が無い初回は、列の幅を内容に合わせる（→ 02 §7・UX-034）
+  const gridColumnStateProps = useGridColumnState(columnStateKey, {
+    onGridReady: (e) => {
+      formulaHL.captureApi(e.api);
+      expandApiRef.current = e.api;
+      setExpandApi(e.api);
+      handleRestoreExpandState();
+    },
+  });
 
   return (
     <div className="w-full">
@@ -609,7 +630,6 @@ ${note}`
         </div>
       )}
       <div style={{ height }} className="w-full">
-        {/* 規約例外（集計表）：行と列が決まっている集計表のため、列の状態の保存（useGridColumnState）は付けない */}
         <AgGridReact
           {...GRID_BASE_PROPS}
           // ツリー表示に必要な設定は共通設定の後ろに置いて優先する
@@ -624,12 +644,7 @@ ${note}`
           statusBar={GRID_STATUS_BAR}
           suppressMovableColumns={true}
           ensureDomOrder={true}
-          onGridReady={(e) => {
-            formulaHL.captureApi(e.api);
-            expandApiRef.current = e.api;
-            setExpandApi(e.api);
-            handleRestoreExpandState();
-          }}
+          {...gridColumnStateProps}
           // 行が作り直された後（補助項目の切り替え等）に開閉状態を復元する
           onRowDataUpdated={handleRestoreExpandState}
           // 開閉のたびに現在の状態を保存する（AG Grid 公式イベント）

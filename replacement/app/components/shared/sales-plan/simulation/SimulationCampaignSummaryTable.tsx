@@ -9,7 +9,7 @@ import {
   RowDataUpdatedEvent,
 } from 'ag-grid-community';
 import { ChevronRight, ChevronDown } from 'lucide-react';
-import { ExpandCollapseButton } from '../common/ExpandCollapseButton';
+import { ExpandCollapseButton } from '@/app/components/shared/sales-plan/common/ExpandCollapseButton';
 import {
   GRID_BASE_PROPS,
   GRID_COLORS,
@@ -19,16 +19,20 @@ import {
   gridFilterContextMenuItems,
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
-} from '../../../grid';
+  asCellStyle,
+  useGridColumnState,
+} from '@/app/components/grid';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanAmount,
   formatPlanRate,
   planRateFormatter,
-} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
-import type { ProductData } from '../../../../types/simulation';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import type { ProductData } from '@/app/types/simulation';
 
 interface SimulationCampaignSummaryTableProps {
+  // 列の状態（幅・並び・表示）を保存する localStorage のキー（画面ごとに一意 → 02 §7「列状態の永続化」）
+  columnStateKey: string;
   // 詳細表と同型（企画×確度ごとに集計済みの行）
   data: ProductData[];
   // 一般卸メッシュ列の表示有無（NET固定のみ表示。10/27 第4回 決定事項15）
@@ -128,6 +132,7 @@ function CampaignCellRenderer(params: ICellRendererParams) {
 }
 
 export function SimulationCampaignSummaryTable({
+  columnStateKey,
   data,
   showWholesaleMesh = false,
   displayUnit = 'yen',
@@ -167,12 +172,14 @@ export function SimulationCampaignSummaryTable({
   }, []);
 
   // テキストセルのスタイル（合計行は薄青：gridStyles準拠）
-  const textCellStyle = useCallback((params: any) => {
-    if (isTotalRow(params)) {
-      return { backgroundColor: GRID_COLORS.total, fontWeight: 'bold' };
-    }
-    return {};
-  }, []);
+  const textCellStyle = asCellStyle(
+    useCallback((params: any) => {
+      if (isTotalRow(params)) {
+        return { backgroundColor: GRID_COLORS.total, fontWeight: 'bold' };
+      }
+      return {};
+    }, [])
+  );
 
   // 率セルのスタイル（100%超過は赤字。合計行クリームは踏襲）
   const rateCellStyle = useCallback(
@@ -234,7 +241,7 @@ export function SimulationCampaignSummaryTable({
   // 表示列（指定の順序・読み取り専用）：
   // 対象年月／企画／企画名／確度／計画函数／社外売上高／管理利益額／管理利益率／値入率／
   // 拡売費①金額／拡売費②金額／摘要1
-  const columnDefs: ColDef[] = useMemo(
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(
     () => [
       {
         headerName: '対象年月',
@@ -404,6 +411,12 @@ export function SimulationCampaignSummaryTable({
     return [total];
   }, [filteredData, visibleLeafRows]);
 
+  // 列の状態（幅・並び・表示）を保存／復元する（タブを行き来しても引き継ぐ → 02 §7）。
+  // 保存済みの状態が無い初回は、列の幅を内容に合わせる（→ 02 §7・UX-034）
+  const gridColumnStateProps = useGridColumnState(columnStateKey, {
+    onGridReady: (e) => setGridApi(e.api),
+  });
+
   return (
     <div className="campaign-summary-table" style={{ width: '100%' }}>
       <style>{`
@@ -437,7 +450,6 @@ export function SimulationCampaignSummaryTable({
       </div>
 
       <div style={{ height, width: '100%' }}>
-        {/* 規約例外（集計表）：行と列が決まっている集計表のため、列の状態の保存（useGridColumnState）は付けない */}
         <AgGridReact
           {...GRID_BASE_PROPS}
           rowData={treeRows}
@@ -453,13 +465,13 @@ export function SimulationCampaignSummaryTable({
           autoGroupColumnDef={{
             hide: true,
             headerName: '',
+            // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+            suppressColumnsToolPanel: true,
             width: 0,
             minWidth: 0,
           }}
           pinnedTopRowData={pinnedTotal}
-          onGridReady={(e) => {
-            setGridApi(e.api);
-          }}
+          {...gridColumnStateProps}
           onFilterChanged={handleFilterChanged}
           onRowDataUpdated={handleRowDataUpdated}
           suppressMovableColumns={true}

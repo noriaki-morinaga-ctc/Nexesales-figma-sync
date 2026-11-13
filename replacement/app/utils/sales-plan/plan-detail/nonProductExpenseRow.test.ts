@@ -4,7 +4,7 @@ import {
   isMetaBrandEditable,
   clearExpenseSavedMarks,
 } from './nonProductExpenseRow';
-import type { NonProductExpenseData } from '../../../types/nonProductExpense';
+import type { NonProductExpenseData } from '@/app/types/nonProductExpense';
 
 // テスト用の最小行データ（必須項目のみ埋める）
 const row = (

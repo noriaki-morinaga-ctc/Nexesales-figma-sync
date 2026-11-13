@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { simulationSalesOf } from './simulationSalesAmount';
-import { toAggregationProducts } from '../plan-detail/planGridToAggregation';
-import { computeMonthsRange } from '../common/aggregationCalc';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
-import type { PlanPattern } from '../common/conditionUnitPrice';
+import { toAggregationProducts } from '@/app/utils/sales-plan/plan-detail/planGridToAggregation';
+import { computeMonthsRange } from '@/app/utils/sales-plan/common/aggregationCalc';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
+import type { PlanPattern } from '@/app/utils/sales-plan/common/conditionUnitPrice';
+import { UNIT_PRICE_KBN } from '@/mocks/common/planBasicInfo';
 
 // 計画詳細の集計エンジン（補足3-1）と同じ売上高になることを、明細1行だけの集計で確かめる。
 const master = SUMMARY_PRODUCT_OPTIONS[0];
@@ -23,6 +24,7 @@ const engineOf = (planPattern: PlanPattern) =>
       products: toAggregationProducts([row], {
         planPattern,
         targetMonthIdx0: 0,
+        unitPriceKbn: UNIT_PRICE_KBN,
       }),
       expenses: [],
     },

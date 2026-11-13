@@ -9,7 +9,10 @@
 //                いったん手入力になったら戻さない（手で直した明細の決まりと同じ）
 //   ・支払回数 … 連動データは支払回数つきで渡す。支払回数を切り替えた直後に前の回の連動データが
 //                届いても、別の回のデータは当てない
-import { DEFAULT_DATA_SOURCE, type DataSource } from '../../../constants/dataSource';
+import {
+  DEFAULT_DATA_SOURCE,
+  type DataSource,
+} from '@/app/constants/dataSource';
 import { markManualEdit } from './paymentDataSource';
 
 // 連動データに使う追加口明細の項目。

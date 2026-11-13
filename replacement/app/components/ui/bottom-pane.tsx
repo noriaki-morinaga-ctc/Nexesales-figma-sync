@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { XIcon, ChevronUp, MoveVertical } from 'lucide-react';
+import { XIcon, ChevronUp } from 'lucide-react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import {
   Sheet,
@@ -11,7 +11,10 @@ import {
 } from './sheet';
 import { cn } from './utils';
 import { useExclusivePane } from './use-exclusive-pane';
-import { CARD_TITLE_CLASS } from '../../../styles/commonStyles';
+import {
+  BOTTOM_PANE_HEIGHT_VAR,
+  CARD_TITLE_CLASS,
+} from '@/styles/commonStyles';
 
 interface BottomPaneProps {
   open: boolean;
@@ -23,10 +26,14 @@ interface BottomPaneProps {
   // タイトル直下（固定ヘッダー内）に表示する任意の要素。指定時は説明文の代わりに表示する。
   // ヘッダーはスクロールしないため、ここに置いた項目は常に見える。
   headerContent?: React.ReactNode;
+  // 見出しのすぐ右に置く要素（対象年月の選択など）。説明文はさらにその右に並ぶ。
+  titleExtra?: React.ReactNode;
   // タイトル行の右端（閉じる×の左）に置く操作要素（確定ボタン等）。
   // ヘッダーは固定表示のため、本文をスクロールしても常に操作できる。
   headerActions?: React.ReactNode;
-  initialHeight?: number; // rem単位
+  // 初めて開いたときの高さ（rem単位）。中にグリッドがあるペインは、開いたあとに明細5行分の高さへ
+  // 合わせ直すため、これはグリッドが無いペインの高さと、合わせる前の高さになる。
+  initialHeight?: number;
   // 画面の縦幅に対する初期表示高さの割合（0〜1）。initialHeight 未指定時に使う。
   // 例：0.5 を渡すと、親画面のグリッドとペインが画面をおよそ半分ずつ使う。
   initialHeightRatio?: number;
@@ -66,6 +73,32 @@ const COLLAPSED_HEIGHT_REM = 1.5;
 // 右ペイン最下部のボタンを覆わないようにする。
 const SCREEN_FOOTER_Z_INDEX = 40;
 
+// 初めて開いたときに見せるグリッドの明細の行数（UI/UX UX-049 → 02 BottomPane）
+const INITIAL_VISIBLE_ROWS = 5;
+// 明細5行分に合わせるときの高さの下限（rem）。見出し・境目だけにならないようにする
+const FIT_MIN_HEIGHT_REM = 8;
+// グリッドの描画と、開くときの高さの動き（0.3秒）が終わるのを待つフレーム数の上限（約1.5秒）
+const FIT_WAIT_FRAMES = 90;
+// 5行分に合わせ直す回数の上限（横スクロールバーが後から出るなどで表示域が変わるため）
+const FIT_MAX_ADJUSTMENTS = 3;
+// 境目のバーをキーボード（↑↓）で動かすときの1回の量（rem）
+const KEYBOARD_RESIZE_STEP_REM = 2;
+
+// rem・px の長さ（CSS 変数の値など）を px にする（1rem = 12.8px → 01「ルートフォントサイズ設定」）
+const lengthToPx = (value: string): number => {
+  const v = value.trim();
+  if (v.endsWith('rem')) return parseFloat(v) * 12.8;
+  return parseFloat(v) || 0;
+};
+
+// 画面の縦幅を測るまでの仮の値（rem）。サーバーで描画するときにも使う。
+const FALLBACK_VIEWPORT_REM = 50;
+
+// ブラウザでは表示する前に実行する useLayoutEffect、サーバーでは useEffect（何もしない）を使う。
+// サーバーで useLayoutEffect を呼ぶと React が警告を出すため。
+const useBrowserLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 /**
  * プッシュ式の下ペイン。
  *
@@ -85,6 +118,7 @@ export function BottomPane({
   title,
   children,
   description,
+  titleExtra,
   headerContent,
   headerActions,
   footer,
@@ -103,17 +137,34 @@ export function BottomPane({
   focusPaneOnOpen = false,
 }: BottomPaneProps) {
   // 画面の縦幅（rem換算）。デフォルトの表示高さ・最大高さの算出に用いる。
-  const viewportRem =
-    typeof window !== 'undefined' ? window.innerHeight / 12.8 : 50;
+  // 描画中は window を読まない（サーバーで描画するときに無いため）。仮の値で描画し、
+  // 表示する前（useLayoutEffect）に実際の縦幅を測って置き換える。
+  const [viewportRem, setViewportRem] = useState(FALLBACK_VIEWPORT_REM);
   // デフォルトは画面の縦幅の約60%まで開く（明示指定があればそれを優先）。
   // 画面最下部のアクションバーの分だけ実際の表示領域が狭くなるため、
   // 親画面（グリッド）が十分に見える高さに抑える。
-  const resolvedInitial =
-    initialHeight ?? Math.round(viewportRem * (initialHeightRatio ?? 0.6));
+  const initialHeightOf = (vr: number) =>
+    initialHeight ?? Math.round(vr * (initialHeightRatio ?? 0.6));
   // 最大高さは画面の縦幅の約92%（デフォルトより上までドラッグ可。明示指定優先）。
   const resolvedMax = maxHeight ?? Math.round(viewportRem * 0.92);
 
-  const [height, setHeight] = useState(resolvedInitial);
+  const [height, setHeight] = useState(() =>
+    initialHeightOf(FALLBACK_VIEWPORT_REM)
+  );
+
+  // 表示する前に画面の縦幅を測り、既定の高さを決める（初回だけ）。
+  // 画面の大きさを変えたら最大高さも追従する。
+  useBrowserLayoutEffect(() => {
+    const measure = () => window.innerHeight / 12.8;
+    const measured = measure();
+    setViewportRem(measured);
+    setHeight(initialHeightOf(measured));
+    const handleResize = () => setViewportRem(measure());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+    // 初回の表示だけで測る（既定の高さは利用者のドラッグで変わるため上書きしない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [isResizing, setIsResizing] = useState(false);
   // 画面下部のアクションバー（フッター）の高さ（rem）。ペインの下端オフセットに使う。
   const [footerHeight, setFooterHeight] = useState(0);
@@ -202,8 +253,11 @@ export function BottomPane({
     const prevPaddingBottom = target.style.paddingBottom;
     const prevTransition = target.style.transition;
 
+    const root = document.documentElement;
     if (open) {
       const effectiveHeight = isCollapsed ? COLLAPSED_HEIGHT_REM : height;
+      // 親画面のグリッドがペインの上に収まるよう、ペインの高さを CSS 変数で知らせる
+      root.style.setProperty(BOTTOM_PANE_HEIGHT_VAR, `${effectiveHeight}rem`);
       // ドラッグ中はカクつき防止のためトランジションを無効化
       target.style.transition = isResizing
         ? 'none'
@@ -218,6 +272,7 @@ export function BottomPane({
       // クリーンアップ：付与したスタイルを元に戻す
       target.style.paddingBottom = prevPaddingBottom;
       target.style.transition = prevTransition;
+      if (open) root.style.removeProperty(BOTTOM_PANE_HEIGHT_VAR);
     };
   }, [
     open,
@@ -227,6 +282,78 @@ export function BottomPane({
     pushTargetSelector,
     footerHeight,
   ]);
+
+  // 初めて展開したとき、中のグリッドの明細が5行見える高さに合わせる（UI/UX UX-049）。
+  // グリッドの行の高さと、明細の表示域（.ag-body-viewport）の今の高さの差だけペインを伸び縮みさせる
+  // （ペインの中のグリッドはペインの高さに合わせて伸び縮みする作りにする → 02 BottomPane）。
+  // 1回だけ行い、その後に利用者がドラッグで変えた高さは保つ。グリッドが無いペインは合わせない。
+  const contentRef = useRef<HTMLDivElement>(null);
+  const fittedRef = useRef(false);
+  // 今の高さ（state）を effect の中から読む
+  const heightRef = useRef(height);
+  heightRef.current = height;
+  useEffect(() => {
+    if (!open || isCollapsed || fittedRef.current) return;
+    let frame = 0;
+    let waited = 0;
+    let adjusted = 0;
+    const fit = () => {
+      const box = contentRef.current;
+      const viewport = box?.querySelector<HTMLElement>('.ag-body-viewport');
+      const wrapper = box?.querySelector<HTMLElement>('.ag-root-wrapper');
+      // ペインが今の高さまで伸びきったか（折り畳みから広げる・合わせ直すと高さが 0.3 秒かけて動くため、途中で測らない）
+      const paneEl = box?.closest<HTMLElement>('[data-slot=sheet-content]');
+      const settled =
+        !!paneEl &&
+        Math.abs(
+          paneEl.getBoundingClientRect().height - heightRef.current * 12.8
+        ) < 1;
+      if (!viewport || !wrapper || viewport.clientHeight === 0 || !settled) {
+        // グリッドがまだ描画されていない（または無い）か、高さが動いている途中。少し待って、無ければやめる
+        if (waited++ < FIT_WAIT_FRAMES) frame = requestAnimationFrame(fit);
+        else fittedRef.current = adjusted > 0;
+        return;
+      }
+      // 行の高さ：描画済みの行があればその高さ、無ければテーマの行の高さ（--ag-row-height）
+      const row = viewport.querySelector<HTMLElement>('.ag-row');
+      const rowPx =
+        row?.getBoundingClientRect().height ||
+        lengthToPx(
+          getComputedStyle(wrapper).getPropertyValue('--ag-row-height')
+        );
+      const deltaPx = rowPx * INITIAL_VISIBLE_ROWS - viewport.clientHeight;
+      if (!rowPx || Math.abs(deltaPx) < 1 || adjusted >= FIT_MAX_ADJUSTMENTS) {
+        fittedRef.current = true;
+        return;
+      }
+      // 合わせたあと、横スクロールバーが後から出るなどで表示域が変わることがあるため、
+      // 高さが落ち着いたらもう一度測り、ずれていれば合わせ直す（最大 FIT_MAX_ADJUSTMENTS 回）
+      adjusted += 1;
+      waited = 0;
+      const next = Math.min(
+        resolvedMax,
+        Math.max(FIT_MIN_HEIGHT_REM, heightRef.current + deltaPx / 12.8)
+      );
+      heightRef.current = next;
+      setHeight(next);
+      frame = requestAnimationFrame(fit);
+    };
+    frame = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(frame);
+  }, [open, isCollapsed, resolvedMax]);
+
+  // 境目のバーをキーボードで動かす（↑で高く・↓で低く。Enter・スペースで折り畳み）
+  const handleSeparatorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const step =
+        e.key === 'ArrowUp' ? KEYBOARD_RESIZE_STEP_REM : -KEYBOARD_RESIZE_STEP_REM;
+      setHeight((h) => Math.min(resolvedMax, Math.max(minHeight, h + step)));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setIsCollapsed(true);
+    }
+  };
 
   // リサイズ処理（上端ハンドルのドラッグで高さを変更）
   useEffect(() => {
@@ -283,11 +410,9 @@ export function BottomPane({
         <SheetPrimitive.Content
           data-slot="sheet-content"
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 flex w-full flex-col gap-0 overflow-visible border-t border-gray-200 bg-white p-0 ease-in-out',
+            'fixed inset-x-0 bottom-0 z-50 flex w-full flex-col gap-0 overflow-visible bg-slate-50 p-0 ease-in-out',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:duration-300 data-[state=open]:duration-500',
-            isCollapsed
-              ? 'pointer-events-none border-t-0 bg-transparent shadow-none'
-              : 'shadow-2xl',
+            isCollapsed && 'pointer-events-none bg-transparent shadow-none',
           )}
           style={{
             height: isCollapsed ? `${COLLAPSED_HEIGHT_REM}rem` : `${height}rem`,
@@ -351,53 +476,65 @@ export function BottomPane({
             </>
           ) : (
             <>
-              {/* 上端リサイズハンドル（ドラッグで高さ変更／クリックで折り畳み） */}
+              {/* 親画面との境目のバー（UI/UX UX-049）。グレーの帯＋上下の線＋上向きの影で親画面と
+                  はっきり分け、中央のつまみでつかめることを示す。ドラッグで高さ変更／クリックで折り畳み、
+                  キーボードは ↑↓ で高さ・Enter で折り畳み。つかんでいる間とホバーは青 */}
               <div
-                className="group absolute left-0 top-0 z-10 flex h-3 w-full cursor-row-resize items-center justify-center bg-transparent transition-colors hover:bg-blue-400/15"
+                className={cn(
+                  'flex h-2.5 w-full shrink-0 cursor-row-resize items-center justify-center border-y border-slate-400 bg-slate-300 shadow-[0_-0.25rem_0.625rem_rgb(15_23_42/0.12)] transition-colors hover:bg-blue-300 focus-visible:bg-blue-300 focus-visible:outline-none',
+                  isResizing && 'bg-blue-300'
+                )}
                 onMouseDown={handleResizeStart}
+                onKeyDown={handleSeparatorKeyDown}
+                tabIndex={0}
                 role="separator"
                 aria-orientation="horizontal"
                 aria-label="ドラッグで高さ変更／クリックで折り畳み・展開"
                 title="ドラッグで高さ変更 / クリックで折り畳み・展開"
               >
-                {/* 1つの図形：円の中に上下矢印。ドラッグ＝高さ調整／クリック＝折り畳み */}
-                <span className="absolute left-1/2 top-0 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 shadow-sm transition-colors group-hover:border-blue-400 group-hover:bg-blue-50 group-hover:text-blue-600">
-                  <MoveVertical className="h-4 w-4" />
-                </span>
+                <span className="h-1 w-11 rounded-full bg-slate-500" />
               </div>
 
               {/* ヘッダー（画面の縦幅を稼ぐため、タイトルはカード見出しサイズ・
-                  上下余白は最小限に留める） */}
-              <SheetHeader className="relative mt-1 gap-1 border-b border-gray-200 px-6 pt-2 pb-1.5">
-                <div className="flex items-center gap-2 pr-8">
-                  <SheetTitle className={CARD_TITLE_CLASS}>{title}</SheetTitle>
+                  上下余白は最小限に留める）。見出し・見出しの右の要素（titleExtra）・説明文を
+                  1行に並べる（→ 02 §10.3 BottomPane）。説明文が入りきらないときは省略して title で全文を出す。 */}
+              {/* 見出しの帯は濃い紺（slate-700）・白い文字にし、本体（薄いグレー）・親画面と見分けやすくする
+                  （UI/UX UX-049）。見出しの右の要素の項目名も白にする */}
+              <SheetHeader className="relative gap-1 bg-slate-700 px-6 py-2">
+                <div className="flex min-w-0 items-center gap-3 pr-8">
+                  <SheetTitle
+                    className={`${CARD_TITLE_CLASS} shrink-0 whitespace-nowrap text-white`}
+                  >
+                    {title}
+                  </SheetTitle>
+                  {titleExtra && (
+                    <div className="flex shrink-0 items-center gap-2 [&_label]:text-white">
+                      {titleExtra}
+                    </div>
+                  )}
+                  <SheetDescription
+                    className={
+                      headerContent || !description
+                        ? 'sr-only'
+                        : 'min-w-0 truncate text-sm text-slate-300'
+                    }
+                    title={headerContent ? undefined : description}
+                  >
+                    {description || title}
+                  </SheetDescription>
                   {/* タイトル行右端の操作要素。pr-8 で確保した余白の内側に置くため
                       絶対配置の×ボタンとは重ならない。 */}
                   {headerActions && (
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
                       {headerActions}
                     </div>
                   )}
                 </div>
-                <SheetDescription
-                  className={
-                    headerContent
-                      ? 'sr-only'
-                      : description
-                        ? 'mt-1 text-sm text-gray-600'
-                        : 'sr-only'
-                  }
-                >
-                  {description || title}
-                </SheetDescription>
-
-                {/* タイトル直下のヘッダー要素（指定時のみ）。ヘッダーは固定表示のため常に見える。 */}
-                {headerContent && <div className="mt-1.5">{headerContent}</div>}
 
                 {/* ×ボタン */}
                 <button
                   type="button"
-                  className="absolute top-1.5 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="absolute top-1.5 right-4 rounded-sm p-0.5 text-slate-200 transition-colors hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-blue-300 focus:outline-hidden"
                   onClick={onClose}
                   aria-label="閉じる"
                 >
@@ -405,8 +542,19 @@ export function BottomPane({
                 </button>
               </SheetHeader>
 
-              {/* コンテンツエリア（スクロール可能・コンテナクエリ対応） */}
-              <div className="@container flex flex-1 flex-col overflow-y-auto px-6 py-2">
+              {/* タイトル直下のヘッダー要素（指定時のみ）。濃い見出しの帯の下に、本体と同じ薄いグレーで置く。
+                  スクロールしないため常に見える。 */}
+              {headerContent && (
+                <div className="border-b border-slate-200 px-6 pt-2 pb-1.5">
+                  {headerContent}
+                </div>
+              )}
+
+              {/* コンテンツエリア（スクロール可能・コンテナクエリ対応）。背景は薄いグレー（slate-50） */}
+              <div
+                ref={contentRef}
+                className="@container flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-2"
+              >
                 {children}
               </div>
 

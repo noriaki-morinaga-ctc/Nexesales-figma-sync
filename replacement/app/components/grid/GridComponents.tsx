@@ -1,21 +1,23 @@
 // グリッド共通の小さな表示コンポーネント群。
 // - CopySourceLegend：コピー由来カラーバーの凡例
 // - CellColorLegend：セル背景色の凡例
-// - GridDisplayedRowsStatusPanel：件数表示用の共通カスタムステータスパネル
+// - GridDisplayedRowsStatusPanel：件数表示用の共通カスタムステータスパネル（非表示の列・列選択も出す）
+// - HiddenColumnsNotice：非表示の列の数と「列選択」（件数表示の無い表はカードの見出しの行に置く）
 // - RowActionMenu：明細グリッド右端の操作列（三点リーダー）
 // - YearMonthFilterInput：年月の列の日付フィルタで使う年月入力（年月だけを選ぶ・×でクリア）
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { CustomDateProps, CustomStatusPanelProps } from 'ag-grid-react';
+import type { GridApi } from 'ag-grid-community';
 import { useGridDate } from 'ag-grid-react';
-import { EllipsisVertical } from 'lucide-react';
+import { Columns3, EllipsisVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-} from '../ui/dropdown-menu';
-import { MonthYearPicker } from '../ui/month-year-picker';
-import { COPY_SOURCE_COLORS } from '../../../styles/gridStyles';
+} from '@/app/components/ui/dropdown-menu';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { COPY_SOURCE_COLORS } from '@/styles/gridStyles';
 
 // コピー由来カラーバーの凡例。明細グリッドのタイトル付近に配置し、
 // 左端の色帯（青＝コピー元ペイン／緑＝行コピー／橙＝新規追加）の意味を示す。
@@ -346,9 +348,77 @@ export const GridDisplayedRowsStatusPanel = (
           : `表示中：${range.first + 1}-${range.last + 1}件 / 全${range.total}件`}
       </span>
       {selectedCount !== null && <span>選択中：{selectedCount}件</span>}
+      <HiddenColumnsNotice api={api} />
     </div>
   );
 };
+
+// 列選択で表示・非表示を切り替えられる列のうち、いま非表示の列の数
+// （列選択に出さない列＝suppressColumnsToolPanel・表示を固定した列＝lockVisible は数えない）
+function countHiddenColumns(api: GridApi): number {
+  return (api.getColumns() ?? []).filter((c) => {
+    const def = c.getColDef();
+    return !c.isVisible() && !def.suppressColumnsToolPanel && !def.lockVisible;
+  }).length;
+}
+
+// 非表示の列があることを知らせ、列選択を開く（UI/UX UX-054 → 02 §8 共通土台「非表示の列」）。
+// 非表示の列があるときだけ「非表示の列：N列」と「列選択」（AG Grid 公式 showColumnChooser）を出す。
+// 非表示の列が無い表には何も出さない（全グリッドに「列選択」を出すと煩わしいため。UX-054 見直し 2026/11/13）。
+// 件数パネル（GridDisplayedRowsStatusPanel）に組み込み済み。件数表示（statusBar）を付けない表は、
+// カードの見出しの行（headerActions）にこの部品を置き、グリッドの API を渡す。
+interface HiddenColumnsNoticeProps {
+  api: GridApi | null | undefined;
+}
+
+const HIDDEN_COLUMN_EVENTS = [
+  'columnVisible',
+  'gridColumnsChanged',
+  'displayedColumnsChanged',
+] as const;
+
+export function HiddenColumnsNotice({ api }: HiddenColumnsNoticeProps) {
+  const [hiddenCount, setHiddenCount] = useState(0);
+
+  useEffect(() => {
+    if (!api || api.isDestroyed()) return;
+    const update = () => {
+      if (!api.isDestroyed()) setHiddenCount(countHiddenColumns(api));
+    };
+    update();
+    for (const ev of HIDDEN_COLUMN_EVENTS) api.addEventListener(ev, update);
+    return () => {
+      if (api.isDestroyed()) return;
+      for (const ev of HIDDEN_COLUMN_EVENTS)
+        api.removeEventListener(ev, update);
+    };
+  }, [api]);
+
+  if (!api || hiddenCount === 0) return null;
+  return (
+    <span className="flex items-center gap-2 whitespace-nowrap">
+      <span>非表示の列：{hiddenCount}列</span>
+      <button
+        type="button"
+        className="flex items-center gap-1 text-blue-700 hover:underline"
+        onClick={() => api.showColumnChooser()}
+        aria-label={`列選択（非表示の列 ${hiddenCount}列）`}
+      >
+        <Columns3 className="h-4 w-4" aria-hidden="true" />
+        列選択
+      </button>
+    </span>
+  );
+}
+
+// 件数表示（statusBar）を付けないグリッドに、共通設定（gridSetup.ts の provideGlobalGridOptions の statusBar）
+// で付ける「非表示の列」だけのステータスパネル（UX-054 見直し 2026/11/13）。
+// 非表示の列が無いときは中身が空になり、grid.css の指定でステータスバーの行ごと隠れる。
+export const GridHiddenColumnsStatusPanel = (props: CustomStatusPanelProps) => (
+  <div className="grid-hidden-columns-panel flex items-center px-2 text-sm text-gray-700">
+    <HiddenColumnsNotice api={props.api} />
+  </div>
+);
 
 // 明細グリッドの右端に置く行操作メニュー（三点リーダー＝ケバブメニュー）。
 // メニュー項目（DropdownMenuItem／DropdownMenuCheckboxItem）は利用側が children で渡す。
@@ -424,6 +494,9 @@ export function RowActionMenu({
           align="end"
           onMouseEnter={clearCloseTimer}
           onMouseLeave={closeAfterDelay}
+          // Radix の DropdownMenuContent の型には無いが、実行時は中の MenuContent にそのまま渡って効く
+          // （ホバーで開いたときに先頭の項目へフォーカスを移さない）
+          // @ts-expect-error onOpenAutoFocus は公開の型に無い
           onOpenAutoFocus={(event) => {
             if (openedByHoverRef.current) event.preventDefault();
           }}
@@ -455,6 +528,8 @@ export function YearMonthFilterInput({ date, onDateChange }: CustomDateProps) {
   );
   return (
     <MonthYearPicker
+      // 列フィルタの中はカレンダーだけ（打ち込みは使わない → UX-067）
+      typeable={false}
       value={toYearMonthText(date)}
       onChange={handleChange}
       clearable

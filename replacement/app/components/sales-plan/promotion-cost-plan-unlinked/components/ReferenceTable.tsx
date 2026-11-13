@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetRowIdParams } from 'ag-grid-community';
 
@@ -11,23 +11,23 @@ import {
   useGridColumnState,
   GRID_MONTH_TEXT_FILTER,
   CopyRowCellRenderer,
-} from '../../../grid';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
-import { FORM_LABEL_CLASS } from '../../../../../styles/commonStyles';
-import { addMonths } from '../../../../utils/common/yearMonth';
+} from '@/app/components/grid';
+import { addMonths } from '@/app/utils/common/yearMonth';
 import type { NonProductExpenseData } from './NonProductExpensePane';
+import {
+  EXPENSE_MANAGEMENT_CODE_OPTIONS,
+  EXPENSE_CAMPAIGN_CODE_OPTIONS,
+} from '@/app/constants/expenseRelations';
 import {
   managementClassFromCode,
   campaignClassFromCode,
-  EXPENSE_MANAGEMENT_CODE_OPTIONS,
-  EXPENSE_CAMPAIGN_CODE_OPTIONS,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 import {
   managementClassCodeOf,
   managementCodeNameOf,
   campaignClassCodeOf,
   campaignCodeNameOf,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 
 // 参照ダミー行へ採番する管理コード／施策コード（expenseRelations と整合）
 const MGMT_CODES = EXPENSE_MANAGEMENT_CODE_OPTIONS.map((o) => o.value);
@@ -40,8 +40,8 @@ const CAMP_CODES = EXPENSE_CAMPAIGN_CODE_OPTIONS.map((o) => o.value);
 interface ReferenceTableProps {
   /** コピーボタン押下時に対象行を親へ渡す（拡売費計画へ追加） */
   onCopyRow: (row: NonProductExpenseData) => void;
-  /** 基本情報の対象年月（YYYY/MM）。対象年月ピッカーの初期値 */
-  targetMonth?: string;
+  /** 対象年月（YYYY/MM）。この12か月前〜この月を表示する（usePlanReferencePeriod で持つ） */
+  period: string;
 }
 
 // 自計画ダミーの素データ（拡売費）。
@@ -343,16 +343,8 @@ const REFERENCE_ROWS: NonProductExpenseData[] = BASE_REFERENCE.map((b, i) => ({
 
 export function ReferenceTable({
   onCopyRow,
-  targetMonth = '',
+  period: targetPeriod,
 }: ReferenceTableProps) {
-  // 対象年月（既定＝基本情報の対象年月）。カレンダーで変更でき、
-  // 選択年月の12か月前〜選択年月までを表示対象とする。
-  const [targetPeriod, setTargetPeriod] = useState(targetMonth);
-  // 基本情報の対象年月が変わったら対象年月を追従させる
-  useEffect(() => {
-    setTargetPeriod(targetMonth);
-  }, [targetMonth]);
-
   // 拡売費の列（読取専用・計画金額～作成者）。2段ヘッダーは使わずフラットに表示する。
   // 区分値・名称は行の保持値（管理区分=名称／管理コード=コード）から導出して表示する。
   // 前年実績は列に持たない（コピー先では常に「-」で追加される）。
@@ -425,9 +417,9 @@ export function ReferenceTable({
       valueGetter: (params) =>
         campaignCodeNameOf(params.data?.[`${prefix}CampaignCode`] ?? ''),
     },
-    // 摘要1(社内用)は残り幅いっぱいに伸ばし、表の右端まできれいに収める
+    // 摘要1（社内用）は残り幅いっぱいに伸ばし、表の右端まできれいに収める
     {
-      headerName: '摘要1(社内用)',
+      headerName: '摘要1（社内用）',
       field: `${prefix}Description`,
       flex: 1,
       suppressAutoSize: true, // 残りの幅に広げる列のため自動調整から外す（flex を保つ）
@@ -441,6 +433,8 @@ export function ReferenceTable({
     () => [
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'actions',
         width: 72,
         sortable: false,
@@ -497,16 +491,9 @@ export function ReferenceTable({
   }, [targetPeriod]);
 
   return (
-    <div className="reference-grid flex-1 w-full flex flex-col">
-      {/* 対象年月（単一カレンダー。選択年月の12か月前〜選択年月を表示対象とする） */}
-      <div className="flex items-center gap-2 mb-2">
-        <label className={`${FORM_LABEL_CLASS} whitespace-nowrap px-2 py-1`}>
-          対象年月
-        </label>
-        <MonthYearPicker value={targetPeriod} onChange={setTargetPeriod} />
-      </div>
-
-      <div className="flex-1 w-full" style={{ minHeight: 300 }}>
+    // 下ペインの高さに合わせて伸び縮みする（下限を付けない。下ペインは初めて開いたときに明細5行分の高さになる → 02 BottomPane）
+    <div className="reference-grid flex min-h-0 w-full flex-1 flex-col">
+      <div className="min-h-0 w-full flex-1">
         <AgGridReact
           rowData={rowData}
           columnDefs={withHeaderTooltips(columnDefs)}

@@ -1,6 +1,6 @@
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
-import { GRID_COLORS, withHeaderTooltips } from '../../../grid';
-import type { SplitInEntryRow } from '../../../../constants/additionalEntrySplitMockData';
+import { GRID_COLORS, withHeaderTooltips } from '@/app/components/grid';
+import type { SplitInEntryRow } from '@/app/types/paymentDetail';
 
 // 参照専用セルの共通スタイル（灰背景）と右寄せ版。
 const SPLIT_RO_STYLE = { backgroundColor: GRID_COLORS.readonly } as const;

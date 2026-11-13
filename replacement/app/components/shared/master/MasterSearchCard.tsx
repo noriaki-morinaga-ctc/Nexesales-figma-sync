@@ -15,23 +15,20 @@
 
 import { Fragment } from 'react';
 import { Search } from 'lucide-react';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { CopyableArea } from '../../ui/copyable-area';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { Input } from '../../ui/input';
-import { MultiCombobox } from '../../ui/multi-combobox';
-import { NumericInput } from '../../ui/numeric-input';
-import { SearchClearButton } from '../../ui/search-clear-button';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { Input } from '@/app/components/ui/input';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
   formatSummaryValues,
-} from '../../ui/search-summary';
-import {
-  FORM_LABEL_CLASS,
-  TEXT_INPUT_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/app/components/ui/search-summary';
+import { FORM_LABEL_CLASS, TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import type {
   MasterCriteria,
   MasterCriteriaValue,

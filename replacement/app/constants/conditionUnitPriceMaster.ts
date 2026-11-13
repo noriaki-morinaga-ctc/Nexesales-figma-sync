@@ -1,3 +1,5 @@
+import type { ChannelMasterRecord } from '@/app/types/master';
+
 // 条件口単価の導出（新_補足4-2）で参照するマスタのダミー。
 //
 // 補足4-2 付録2 の抽出ステップ No.1〜7 に対応するマスタを、
@@ -39,15 +41,6 @@ export const DIRECT_CHANNEL_CODE_BY_CLASS: Record<string, string> = {
   CC08_PB: 'DC1008',
   CC99_その他: 'DC1099',
 };
-
-// No.4 商流マスタ：直送商流内部コード → 一次店・二次店・三次店、売上区分
-export interface ChannelMasterRecord {
-  tier1: string; // 一次店
-  tier2: string; // 二次店
-  tier3: string; // 三次店
-  salesKbn: 'ドライ' | 'チルド';
-}
-
 export const CHANNEL_MASTER: Record<string, ChannelMasterRecord> = {
   DC1001: {
     tier1: '国分グループ本社',

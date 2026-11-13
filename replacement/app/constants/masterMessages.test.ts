@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
+import { MASTER_MESSAGES } from './masterMessages';
 import {
-  MASTER_MESSAGES,
   masterConfirmMessage,
   masterMessage,
-} from './masterMessages';
+} from '@/app/utils/common/masterMessages';
 
 // 共通メッセージ一覧（基本設計の正）とモックの定数が食い違っていないことを確かめる。
 // 食い違ったら tools/master-gen/sync-messages.cjs を実行する

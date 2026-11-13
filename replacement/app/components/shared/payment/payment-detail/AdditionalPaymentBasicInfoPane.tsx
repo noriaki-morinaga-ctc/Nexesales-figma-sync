@@ -1,11 +1,14 @@
 // 支払詳細(追加口請求書有)・(追加口請求書無)共通の基本情報エリア（両画面で同じ中身のため1つにまとめた → 02 §12.2）
 // Todo：朴：C追加口・拡売費支払モック修正中
 import { useState, type ReactNode } from 'react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { Button } from '../../../ui/button';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { Button } from '@/app/components/ui/button';
 import { SplitTransferMarks } from './PaymentStatusIcons';
-import { joinCodeName } from '../../../../utils/common/nameCode';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
+import { joinCodeName } from '@/app/utils/common/nameCode';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { valueOrEmpty } from '@/app/components/ui/empty-value';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
 
 // 基本情報の項目値（モック）。費用分割の分割元情報など、他画面から参照するため export する。
 // コード付き項目は joinCodeName で「コード:名称」に揃える（支払詳細(自販機)と同じ表記）。
@@ -36,14 +39,9 @@ export const BASIC_INFO = {
 // その計画詳細へ遷移する。
 const PLAN_DETAIL_MENU_ID = 'plan-detail-margin-rate-fixed';
 
-interface SearchPaneProps {
-  // 画面切替（販売計画書No リンクから計画詳細へ遷移する）。
-  onMenuChange?: (menuId: string) => void;
-}
-
-export function AdditionalPaymentBasicInfoPane({
-  onMenuChange,
-}: SearchPaneProps) {
+export function AdditionalPaymentBasicInfoPane() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 基本情報の折り畳み状態（既定は展開）
   const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(true);
   // 販売計画書No リンク押下後の画面遷移の確認ダイアログの表示状態。
@@ -52,7 +50,7 @@ export function AdditionalPaymentBasicInfoPane({
   // 確認ダイアログの「はい」→ 計画詳細へ遷移する（支払詳細(自販機)と同じ）。
   const handlePlanNavigationConfirm = () => {
     setIsPlanNavigationOpen(false);
-    onMenuChange?.(PLAN_DETAIL_MENU_ID);
+    navigate(PLAN_DETAIL_MENU_ID);
   };
 
   // 販売計画書No（先頭を表示値とする）
@@ -68,11 +66,10 @@ export function AdditionalPaymentBasicInfoPane({
   // 値はアイコン等も置けるよう ReactNode で受ける。
   const renderLabelField = (label: string, value: ReactNode) => (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right">
-        {label}
-      </label>
+      <label className={SEARCH_LABEL_CLASS}>{label}</label>
       <span className="h-8 flex items-center text-sm text-gray-900">
-        {value}
+        {/* 値が無いときはグレーの「-」（→ 05 値が空の項目・UX-068） */}
+        {valueOrEmpty(value)}
       </span>
     </div>
   );
@@ -87,10 +84,12 @@ export function AdditionalPaymentBasicInfoPane({
       >
         <div className="p-4">
           {/* 1行目: 対象年月 / 販売計画書No / 支払No / 分割・振替有無 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+          <div
+            className={`${SEARCH_GRID_CLASS} mb-2 items-center pb-3 border-b border-gray-300`}
+          >
             {renderLabelField('対象年月', BASIC_INFO.targetMonth)}
             {/* 販売計画書No は計画詳細へのリンク（支払詳細(自販機)と同じ）。URL 遷移ではなく
-                onMenuChange による画面切替のため、Button の link バリアントで表現する。
+                画面の切り替え（useAppNavigation）のため、Button の link バリアントで表現する。
                 余白は他のヘッダー項目の値と左端をそろえるため 0 にする。 */}
             {renderLabelField(
               '販売計画書No',
@@ -116,7 +115,9 @@ export function AdditionalPaymentBasicInfoPane({
           </div>
 
           {/* 2行目: 販売店 / 三次店 / 一次店 */}
-          <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+          <div
+            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          >
             {renderLabelField('販売店', BASIC_INFO.store)}
             {renderLabelField('三次店', BASIC_INFO.tertiaryStore)}
             {renderLabelField('一次店', BASIC_INFO.primaryStore)}
@@ -126,7 +127,7 @@ export function AdditionalPaymentBasicInfoPane({
           {/* 3行目: 事業場 / 部署 / 末端組織 / 営業担当者
               （基本情報の最終行・下ボーダーなし）。申請側の組織は支払情報エリアに持ち、
               「申請」を冠して区別する（→ 20260804_第26回 決定事項18／課題 No.0956）。 */}
-          <div className="grid grid-cols-4 gap-3 mb-2">
+          <div className={`${SEARCH_GRID_CLASS} mb-2`}>
             {renderLabelField('事業場', BASIC_INFO.office)}
             {renderLabelField('部署', BASIC_INFO.dept)}
             {renderLabelField('末端組織', BASIC_INFO.terminalOrg)}

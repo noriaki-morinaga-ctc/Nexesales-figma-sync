@@ -11,11 +11,17 @@
 // 1つの入力単位に複数の請求書No. が含まれるため、請求書No. は明細側で入力する。
 // 体裁は支払詳細(追加口請求書有)の基本情報カード（SearchPane）に準拠する。
 import { useState, type ReactNode } from 'react';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { EmptyValue, valueOrEmpty } from '../../../ui/empty-value';
-import { Input } from '../../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../../styles/commonStyles';
-import { type BillingRow } from '../../../../constants/billingMockData';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { EmptyValue, valueOrEmpty } from '@/app/components/ui/empty-value';
+import { Input } from '@/app/components/ui/input';
+import { cn } from '@/app/components/ui/utils';
+import {
+  FIT_CELL_CLASS,
+  FIT_GRID_CLASS,
+  FIT_LABEL_CLASS,
+  TEXT_INPUT_CLASS,
+} from '@/styles/commonStyles';
+import type { BillingRow } from '@/app/types/billing';
 
 interface BasicInfoPaneProps {
   entry: BillingRow;
@@ -34,16 +40,20 @@ export function BillingBasicInfoPane({
   const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(true);
 
   // ヘッダー項目の共通描画。値は参照表示のテキストも入力欄も置けるよう ReactNode で受ける。
-  const renderLabelField = (label: string, value: ReactNode, id?: string) => (
-    <div className="flex items-center gap-2">
-      <label
-        htmlFor={id}
-        className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right"
-      >
+  // rowStart：コードと名称の組を行の左端から始める（組が行をまたがないように → 05）
+  const renderLabelField = (
+    label: string,
+    value: ReactNode,
+    id?: string,
+    rowStart = false
+  ) => (
+    <div className={cn(FIT_CELL_CLASS, rowStart && 'col-start-1')}>
+      <label htmlFor={id} className={FIT_LABEL_CLASS}>
         {label}
       </label>
-      <span className="h-8 min-w-0 flex-1 flex items-center text-sm text-gray-900">
-        {value}
+      <span className="h-8 min-w-0 flex items-center text-sm text-gray-900">
+        {/* 値が無いときはグレーの「-」（→ 05 値が空の項目・UX-068） */}
+        {valueOrEmpty(value)}
       </span>
     </div>
   );
@@ -69,8 +79,13 @@ export function BillingBasicInfoPane({
       onOpenChange={setIsBasicInfoOpen}
     >
       <div className="p-4">
-        {/* データ種別 / 受付日時 / 提供企業（コード・名称）/ 請求元企業（コード・名称）/ 請求元企業事業所（コード・名称）/ 入力状況 */}
-        <div className="grid grid-cols-4 gap-3 mb-2 items-center">
+        {/* 1行目：データ種別 / 受付日時 / 入力状況（単独の項目）
+            2行目：提供企業（コード・名称）/ 請求元企業（コード・名称）
+            3行目：請求元企業事業所（コード・名称）
+            コードと名称の組は同じ行に置き、行をまたがせない（→ 05）。
+            「請求元企業事業所コード」などが 5.625rem に収まらないため、項目名の列をその列で一番長い
+            項目名の幅に合わせる並び（FIT_GRID_CLASS → 05「ラベルが幅に収まらない画面」）にする */}
+        <div className={`${FIT_GRID_CLASS} mb-2 gap-y-2.5`}>
           {/* データ種別は入力単位の属性（決定23）。請求EDI分とAIC入力分は別の入力単位になる */}
           {renderLabelField(
             'データ種別',
@@ -79,10 +94,17 @@ export function BillingBasicInfoPane({
           {/* 受付日時は請求EDI＝受信日時、AIC入力＝登録日時を1項目で表す。
               名称は課題 No.1287 で決着した。取込・登録の結果として入るため参照表示 */}
           {renderLabelField('受付日時', dashIfEmpty(entry.receivedAt))}
+          {/* 入力状況は明細の入力・支払反映に応じて決まるため、新規作成時も参照表示 */}
+          {renderLabelField('入力状況', dashIfEmpty(entry.status))}
           {/* 提供企業（請求EDIレコード区分1）は参考情報。請求EDI取込一覧（提供企業単位）との
               つながりを示すために出す。コードは提供企業コード（提供企業事業所コードではない）。
               AIC入力分は提供企業を持たないため「-」（新規作成時も入力欄は設けない） */}
-          {renderLabelField('提供企業コード', dashIfEmpty(entry.providerCode))}
+          {renderLabelField(
+            '提供企業コード',
+            dashIfEmpty(entry.providerCode),
+            undefined,
+            true
+          )}
           {renderLabelField(
             '提供企業名',
             dashIfEmptyTruncated(entry.providerName)
@@ -100,7 +122,9 @@ export function BillingBasicInfoPane({
           )}
           {renderLabelField(
             '請求元企業事業所コード',
-            dashIfEmpty(entry.billOfficeCode)
+            dashIfEmpty(entry.billOfficeCode),
+            undefined,
+            true
           )}
           {/* 請求元企業事業所名は AIC入力分では名称のみで識別する（決定24） */}
           {renderLabelField(
@@ -118,8 +142,6 @@ export function BillingBasicInfoPane({
             ),
             'billingOfficeName'
           )}
-          {/* 入力状況は明細の入力・支払反映に応じて決まるため、新規作成時も参照表示 */}
-          {renderLabelField('入力状況', dashIfEmpty(entry.status))}
         </div>
       </div>
     </CollapsibleCard>

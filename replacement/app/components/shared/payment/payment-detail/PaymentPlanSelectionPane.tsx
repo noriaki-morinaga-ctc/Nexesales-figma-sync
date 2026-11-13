@@ -13,24 +13,24 @@ import {
   editableBg,
   gridFilterContextMenuItems,
   useGridColumnState,
-} from '../../../grid';
+} from '@/app/components/grid';
 // 管理区分／施策区分の区分値・名称は拡売費一覧と同じ導出ロジックを使う。
 import {
   campaignClassCode,
   managementClassCode,
   managementCodeName,
-} from '../../../../constants/paymentComboFieldOptions';
-import { campaignCodeNameOf } from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import { campaignCodeNameOf } from '@/app/utils/common/comboFieldOptions';
 import {
   BUTTON_BASE,
   BUTTON_STYLES,
   FORM_LABEL_CLASS,
-} from '../../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   MultiCombobox,
   type MultiComboboxOption,
-} from '../../../ui/multi-combobox';
-import type { PlanFieldValues } from '../../../../types/paymentDetail';
+} from '@/app/components/ui/multi-combobox';
+import type { PlanFieldValues } from '@/app/types/paymentDetail';
 
 // 担当エリアと、そのエリアを担当する営業担当者（モック）。
 // 基本情報の部署（首都圏営業第二部）配下のエリアを想定する。
@@ -740,6 +740,8 @@ export function PaymentPlanSelectionPane({
         // 選択：当該計画明細の「管理区分」〜「摘要2（社外用）」を、拡売費一覧で
         // チェックした拡売費明細（親画面）へ設定する（行単位の確定操作）。
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'selectPlan',
         width: 72,
         minWidth: 72,
@@ -854,7 +856,7 @@ export function PaymentPlanSelectionPane({
         cellStyle: READONLY_CELL_STYLE,
       },
       {
-        headerName: '担当者',
+        headerName: '営業担当者',
         field: 'staff',
         flex: 1,
         minWidth: 144,

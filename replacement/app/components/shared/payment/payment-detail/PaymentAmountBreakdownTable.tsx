@@ -25,23 +25,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../ui/table';
-import { cn } from '../../../ui/utils';
-import { EmptyValue } from '../../../ui/empty-value';
+} from '@/app/components/ui/table';
+import { cn } from '@/app/components/ui/utils';
+import { EmptyValue } from '@/app/components/ui/empty-value';
 import {
   WITH_INVOICE_DATA_SOURCE_COLUMNS,
   type DataSource,
-} from '../../../../constants/dataSource';
+} from '@/app/constants/dataSource';
 import {
   TAX_RATE_COLUMNS,
   formatBreakdownAmount,
   type BreakdownNegativeFormat,
-} from '../../../../utils/payment/payment-detail/paymentAmountBreakdown';
+} from '@/app/utils/payment/payment-detail/paymentAmountBreakdown';
 import {
   breakdownCellValues,
   type BreakdownItem,
   type BreakdownKind,
-} from '../../../../utils/payment/payment-detail/paymentBreakdownItems';
+} from '@/app/utils/payment/payment-detail/paymentBreakdownItems';
 
 // 表に並べる1項目（項目名と合計表）。項目の定義は utils/payment/payment-detail/paymentBreakdownItems の BreakdownItem。
 //   isGrandTotal      … 支払情報カードの税抜金額計。直前の項目との区切りを二重線にする

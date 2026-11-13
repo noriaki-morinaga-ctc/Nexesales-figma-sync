@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import {
+  viewportGridHeight,
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
@@ -31,28 +32,29 @@ import {
   GRID_DATE_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   useGridColumnState,
-} from '../../../grid';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
-import { MATCH_PAYMENT_TYPE_OPTIONS } from '../../../../constants/matchPaymentType';
-import { DateMonthYearCellEditor } from '../../../ui/date-month-year-cell-editor';
+  asCellStyle,
+} from '@/app/components/grid';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
+import { MATCH_PAYMENT_TYPE_OPTIONS } from '@/app/constants/matchPaymentType';
+import { DateMonthYearCellEditor } from '@/app/components/ui/date-month-year-cell-editor';
 import {
   campaignClassComboOptions,
   campaignCodeComboOptions,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/constants/comboFieldOptions';
 import {
   CARD_TITLE_CLASS,
   TEXT_INPUT_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
   CARD_CLASS,
-} from '../../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '../../../ui/dropdown-menu';
-import { RightPane } from '../../../ui/right-pane';
+} from '@/app/components/ui/dropdown-menu';
+import { RightPane } from '@/app/components/ui/right-pane';
 import {
   Dialog,
   DialogContent,
@@ -60,13 +62,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../ui/dialog';
-import { Button } from '../../../ui/button';
-import { Input } from '../../../ui/input';
-import { NumericInput } from '../../../ui/numeric-input';
-import { Label } from '../../../ui/label';
-import { RequiredBadge } from '../../../ui/required-badge';
-import { SingleCombobox } from '../../../ui/single-combobox';
+} from '@/app/components/ui/dialog';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { NumericInput } from '@/app/components/ui/numeric-input';
+import { Label } from '@/app/components/ui/label';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 
 // 旧データ型（支払詳細(見積)・(見積入力)の既存右ペインとの互換のため維持）
 interface NonProductExpenseData {
@@ -625,40 +627,42 @@ export function QuoteNonProductExpensePane({
 
   // グループ合計行（未承認NET拡売費合計・その他拡売費合計）・総合計行＋非活性セルのスタイル。
   // 合計行は薄い青（gridStyles の total）、通常データ行（非活性列）は灰（readonly）。
-  const groupStyle = (params: any) =>
+  const groupStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
       ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
-      : { backgroundColor: GRID_COLORS.readonly };
+      : { backgroundColor: GRID_COLORS.readonly }
+  );
 
-  const rightStyle = (params: any) => ({
+  const rightStyle = asCellStyle((params: any) => ({
     ...groupStyle(params),
     textAlign: 'right' as const,
-  });
+  }));
 
   // 操作ウィジェット列（追加口へ戻す・販売計画選択・費用分割）用：データ行は白背景。
   // 合計行（グループ合計・総合計）は薄い青。
-  const widgetStyle = (params: any) =>
+  const widgetStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
       ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
-      : { backgroundColor: GRID_COLORS.editable };
+      : { backgroundColor: GRID_COLORS.editable }
+  );
 
   // 手入力可能セル（数値・右寄せ）。データ行は白（editable）、
   // 入力変更セルは薄い黄背景＋オレンジ枠（gridStyles の changedCellStyle）。
-  const inputCellStyle = (params: any) => {
+  const inputCellStyle = asCellStyle((params: any) => {
     if (params.data?.isGroup || params.data?.isTotal) return groupStyle(params);
     return isCellChanged(params)
       ? changedCellStyle({ textAlign: 'right' as const })
       : { backgroundColor: GRID_COLORS.editable, textAlign: 'right' as const };
-  };
+  });
 
   // 手入力可能セル（テキスト・左寄せ）。データ行は白（editable）、
   // 入力変更セルは薄い黄背景＋オレンジ枠（gridStyles の changedCellStyle）。
-  const inputTextStyle = (params: any) => {
+  const inputTextStyle = asCellStyle((params: any) => {
     if (params.data?.isGroup || params.data?.isTotal) return groupStyle(params);
     return isCellChanged(params)
       ? changedCellStyle()
       : { backgroundColor: GRID_COLORS.editable };
-  };
+  });
 
   // 編集可否（グループ合計行・総合計行は編集不可）。
   const editableExceptSummary = (params: any) =>
@@ -681,7 +685,9 @@ export function QuoteNonProductExpensePane({
         headerName: '行番',
         field: 'lineNo',
         width: 56,
-        cellStyle: (p: any) => ({ ...groupStyle(p), textAlign: 'center' }),
+        // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
+        cellClass: 'cell-center',
+        cellStyle: (p: any) => ({ ...groupStyle(p) }),
       },
       {
         headerName: '卸からの請求名称',
@@ -875,7 +881,9 @@ export function QuoteNonProductExpensePane({
         headerName: '請求書ページ',
         field: 'billPage',
         width: 88,
-        cellStyle: (p: any) => ({ ...groupStyle(p), textAlign: 'center' }),
+        // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
+        cellClass: 'cell-center',
+        cellStyle: (p: any) => ({ ...groupStyle(p) }),
       },
       {
         headerName: '販売促進金摘要コード設定有無',
@@ -884,11 +892,15 @@ export function QuoteNonProductExpensePane({
         // 明細行は「設定なし」を表示（グループ合計行・総合計行は対象外）
         valueGetter: (p: any) =>
           p.data?.isGroup || p.data?.isTotal ? '' : '設定なし',
-        cellStyle: (p: any) => ({ ...groupStyle(p), textAlign: 'center' }),
+        // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
+        cellClass: 'cell-center',
+        cellStyle: (p: any) => ({ ...groupStyle(p) }),
       },
       // 行アクション（編集・コピー・削除）を最右列に固定表示
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'actions',
         width: 56,
         pinned: 'right',
@@ -902,6 +914,7 @@ export function QuoteNonProductExpensePane({
         // （02 §7：セルに display:flex 禁止）
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列定義は最初の描画で1回だけ作る（作り直すと列幅・並びが戻る）。中のセルの書式の関数が読むのは描画で変わらない値（変更ハイライトの判定・ref・モジュールの関数）だけ
     []
   );
 
@@ -914,7 +927,8 @@ export function QuoteNonProductExpensePane({
       cellDataType: false,
       // 計算式セルは計算式テキストを、それ以外は従来どおりセル値をツールチップ表示する。
       tooltipValueGetter: (params) => {
-        const field = params.colDef.field;
+        // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+        const field = (params.colDef as ColDef).field;
         const row = params.data as ExpenseRow | undefined;
         if (field && row && isFormulaCell(field, row)) {
           return FORMULA_DEFS[field].tooltip(row);
@@ -923,8 +937,11 @@ export function QuoteNonProductExpensePane({
       },
       // マウスオーバー中の計算式セルの参照元セル（`field::rowId`）に枠線を付ける。
       cellClassRules: {
+        // 共通の決まり（値が無いセルを灰色の「-」にする cell-empty など）を引き継ぐ（→ UI/UX UX-080）
+        ...GRID_DEFAULT_COL_DEF.cellClassRules,
         'formula-ref-highlight': (params) => {
-          const field = params.colDef.field;
+          // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+          const field = (params.colDef as ColDef).field;
           const rowId = params.node?.id ?? '';
           return !!field && hoverRefsRef.current.has(`${field}::${rowId}`);
         },
@@ -1102,7 +1119,7 @@ export function QuoteNonProductExpensePane({
       <div
         className="expense-grid"
         style={{
-          height: 'calc(100vh - 10rem)',
+          height: viewportGridHeight(10),
           minHeight: '25rem',
           width: '100%',
         }}

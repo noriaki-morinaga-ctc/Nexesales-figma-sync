@@ -6,7 +6,7 @@ import {
   productCodeFromValue,
   promotionCodeOf,
   wholesaleMeshCodeOf,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 
 // 計画詳細(NET固定)・計画詳細(マージン率固定・NET入力)の販売計画(詳細)グリッドで使うコード列。
 // PJルール（6/4 共通セッション 決定事項15・16）により、コード値・区分値を持つ項目は

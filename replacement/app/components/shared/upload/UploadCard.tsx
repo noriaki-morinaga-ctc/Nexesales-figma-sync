@@ -1,7 +1,7 @@
 import type { ChangeEvent, DragEvent, RefObject } from 'react';
 import { AlertCircle, Upload } from 'lucide-react';
-import { Alert, AlertDescription } from '../../ui/alert';
-import { SingleCombobox } from '../../ui/single-combobox';
+import { Alert, AlertDescription } from '@/app/components/ui/alert';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import { CARD_ICON_CLASS, WHITE_CARD_CLASS } from './uploadStyles';
 import { CardHeader } from './CardHeader';
 import { FilePicker } from './FilePicker';
@@ -19,7 +19,7 @@ interface UploadCardProps<T extends string> {
   selectedFile: File | null;
   isDragging: boolean;
   validationError: string | null;
-  fileInputRef: RefObject<HTMLInputElement | null>;
+  fileInputRef: RefObject<HTMLInputElement>;
   canUpload: boolean;
   onDrop: (e: DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;

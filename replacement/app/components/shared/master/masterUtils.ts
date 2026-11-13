@@ -3,8 +3,8 @@
 // メッセージの文言は共通メッセージ一覧（constants/masterMessages.ts）から引く（文言をここに書かない）。
 
 import * as XLSX from 'xlsx';
-import type { SingleComboboxOption } from '../../ui/single-combobox';
-import { masterMessage } from '../../../constants/masterMessages';
+import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
+import { masterMessage } from '@/app/utils/common/masterMessages';
 import type {
   MasterCriteria,
   MasterCriteriaValue,

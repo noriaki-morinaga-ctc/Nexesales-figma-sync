@@ -8,17 +8,16 @@
 import { useEffect, useState } from 'react';
 import { Undo2, Save, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { BillingBasicInfoPane } from '../../shared/payment/billing/BillingBasicInfoPane';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { BillingBasicInfoPane } from '@/app/components/shared/payment/billing/BillingBasicInfoPane';
 import { DetailTable } from './components/DetailTable';
 import {
   BILLING_DETAIL_BY_DATA_SOURCE,
   BILLING_LIST,
-  isBillingDetailStatusLocked,
-  type BillingDetailRow,
-  type BillingRow,
-} from '../../../constants/billingMockData';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/mocks/common/billing';
+import { isBillingDetailStatusLocked } from '@/app/utils/payment/billing/billing';
+import type { BillingDetailRow, BillingRow } from '@/app/types/billing';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 interface BillingDetailEdiProps {
   // 請求一覧で選択された入力単位（請求EDI取込分）。

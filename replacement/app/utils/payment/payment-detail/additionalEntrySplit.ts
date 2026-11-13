@@ -11,7 +11,7 @@
 //
 // 端数はすべて四捨五入とする（小数の貼り付け・金額とも。→ 実装計画 暫定仕様）。
 // 数量・金額はマイナス（返品）もあり得るため、四捨五入は符号に対して対称に行う。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
 
 // 分割先1件・明細1行分の入力（追加口分割ペインで入力するケース・バラ）。
 export interface SplitAllocation {

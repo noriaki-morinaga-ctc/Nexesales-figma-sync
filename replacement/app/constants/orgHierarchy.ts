@@ -1,9 +1,4 @@
-// 組織階層マスタ（モック）：事業場 → 部署 → 末端組織 → 担当者（作成者・営業担当者・申請者）。
-// 検索条件の連動フィルタリング（utils/common/orgCascade.ts）が、上位・下位の対応を引くために使う。
-// 担当者は現在の所属（末端組織）で紐づける。
-// value は各画面の検索条件で使ってきた値（'hokkaido' 等）に合わせる。
-
-export type OrgLevel = 'office' | 'department' | 'terminalOrg' | 'salesRep';
+import type { OrgItem, OrgLevel } from '@/app/types/organization';
 
 // 上位から下位の順（左ほど上位）
 export const ORG_LEVELS: readonly OrgLevel[] = [
@@ -12,15 +7,6 @@ export const ORG_LEVELS: readonly OrgLevel[] = [
   'terminalOrg',
   'salesRep',
 ];
-
-export interface OrgItem {
-  value: string;
-  code: string;
-  name: string;
-  /** すぐ上の階層の value（事業場は持たない） */
-  parent?: string;
-}
-
 // 事業場
 const OFFICES: OrgItem[] = [
   { value: 'hokkaido', code: '10000621', name: '北海道支社' },
@@ -190,30 +176,9 @@ export const ORG_ITEMS: Record<OrgLevel, readonly OrgItem[]> = {
 };
 
 // value → 項目（階層ごと）
-const ITEM_BY_VALUE: Record<OrgLevel, Map<string, OrgItem>> = {
+export const ITEM_BY_VALUE: Record<OrgLevel, Map<string, OrgItem>> = {
   office: new Map(OFFICES.map((o) => [o.value, o])),
   department: new Map(DEPARTMENTS.map((o) => [o.value, o])),
   terminalOrg: new Map(TERMINAL_ORGS.map((o) => [o.value, o])),
   salesRep: new Map(SALES_REPS.map((o) => [o.value, o])),
 };
-
-export const findOrgItem = (
-  level: OrgLevel,
-  value: string
-): OrgItem | undefined => ITEM_BY_VALUE[level].get(value);
-
-// 下位の値から、指定した上位階層の値を引く（同じ階層なら自分自身。見つからなければ undefined）。
-export function orgAncestor(
-  level: OrgLevel,
-  value: string,
-  upper: OrgLevel
-): string | undefined {
-  let lv = ORG_LEVELS.indexOf(level);
-  const target = ORG_LEVELS.indexOf(upper);
-  let v: string | undefined = value;
-  while (v !== undefined && lv > target) {
-    v = findOrgItem(ORG_LEVELS[lv], v)?.parent;
-    lv -= 1;
-  }
-  return lv === target ? v : undefined;
-}

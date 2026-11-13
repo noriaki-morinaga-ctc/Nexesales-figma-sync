@@ -16,17 +16,13 @@ import {
   GRID_BASE_PROPS,
   gridFilterContextMenuItems,
   useGridColumnState,
-} from '../../../grid';
-import { RightPane } from '../../../ui/right-pane';
-import { Button } from '../../../ui/button';
-import { Checkbox } from '../../../ui/checkbox';
-import { Input } from '../../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../../styles/commonStyles';
-import { ConfirmDialog } from '../../../ui/confirm-dialog';
-import {
-  CHAIN_STORES,
-  type ChainStore,
-} from '../../../../constants/chainStoreMockData';
+} from '@/app/components/grid';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { Button } from '@/app/components/ui/button';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import type { ChainStore } from '@/app/types/organization';
 
 // 販売計画（詳細）のコピー用・右ペインウィザード。
 // 「本部計画コピー」「計画コピー」で共通利用する。
@@ -67,6 +63,8 @@ interface PlanCopyPaneProps {
   title: string;
   /** 販売店（チェーン）選択ステップを表示するか（本部計画コピー＝true） */
   showStoreSelection?: boolean;
+  /** 販売店（チェーン）選択ステップの候補（画面がマスタから取得して渡す） */
+  chainStores: ChainStore[];
   /** コピー対象の商品区分（拡売費を除く。画面ごとに指定） */
   categories: string[];
   /** 拡売費をコピー対象に含めるか（既定：含める） */
@@ -83,6 +81,7 @@ export function PlanCopyPane({
   onClose,
   title,
   showStoreSelection = false,
+  chainStores,
   categories,
   includeExpense = true,
   onExecute,
@@ -111,8 +110,6 @@ export function PlanCopyPane({
   const [isExpenseSelected, setIsExpenseSelected] = useState(false);
   // コピー元に掛ける率（%）。既定は100%
   const [percentage, setPercentage] = useState('100');
-  // コピー実行の確認ダイアログ
-  const [isExecuteConfirmShown, setIsExecuteConfirmShown] = useState(false);
   // コピー元の説明（前月計画コピー／本部計画コピーで出し分け）
   const copySourceDescription = showStoreSelection
     ? COPY_SOURCE_DESCRIPTION.headquarters
@@ -129,7 +126,6 @@ export function PlanCopyPane({
     setSelectedCategories(['定番商品']);
     setIsExpenseSelected(false);
     setPercentage('100');
-    setIsExecuteConfirmShown(false);
   }, [open, title, showStoreSelection]);
 
   // ── 販売店（チェーン）Grid の列定義（販売店グループのみ）──
@@ -203,7 +199,7 @@ export function PlanCopyPane({
     target <= stepIndex ||
     steps.slice(stepIndex, target).every((step) => isStepSatisfied(step));
 
-  // コピー実行（確認ダイアログでOK後に呼ばれる）
+  // コピー実行。ペイン内の確定は確認ダイアログを出さず、トーストで知らせる（→ 02 §5）
   const handleExecute = () => {
     const resultCategories = [
       ...selectedCategories,
@@ -254,7 +250,7 @@ export function PlanCopyPane({
                 type="button"
                 className="bg-blue-600 hover:bg-blue-700"
                 disabled={!canProceed}
-                onClick={() => setIsExecuteConfirmShown(true)}
+                onClick={handleExecute}
               >
                 <Copy className="h-4 w-4" />
                 コピー実行
@@ -350,7 +346,7 @@ export function PlanCopyPane({
                 `}</style>
                 <AgGridReact<ChainStore>
                   {...copySourceGridColumnStateProps}
-                  rowData={CHAIN_STORES}
+                  rowData={chainStores}
                   columnDefs={columnDefs}
                   defaultColDef={GRID_DEFAULT_COL_DEF}
                   getRowId={getChainRowId}
@@ -539,19 +535,6 @@ export function PlanCopyPane({
           )}
         </div>
       </RightPane>
-
-      {/* コピー実行の確認：表内に入力中のデータがある場合にリセットされる旨を確認 */}
-      <ConfirmDialog
-        open={isExecuteConfirmShown}
-        title="コピー実行の確認"
-        confirmLabel="コピー"
-        description="入力中のデータがリセットされます。本当によろしいですか？"
-        onConfirm={() => {
-          setIsExecuteConfirmShown(false);
-          handleExecute();
-        }}
-        onCancel={() => setIsExecuteConfirmShown(false)}
-      />
     </>
   );
 }

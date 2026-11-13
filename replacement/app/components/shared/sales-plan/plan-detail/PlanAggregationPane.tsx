@@ -7,22 +7,31 @@ import {
 } from 'lucide-react';
 import { RotateCcw } from 'lucide-react';
 
-import { Label } from '../../../ui/label';
-import { Checkbox } from '../../../ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '../../../ui/radio-group';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { RightPane } from '../../../ui/right-pane';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/tabs';
-import { MultiCombobox } from '../../../ui/multi-combobox';
+import { Label } from '@/app/components/ui/label';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { RightPane } from '@/app/components/ui/right-pane';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/app/components/ui/tooltip';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
 import {
   AggregationFilter,
   type ExcludePair,
-} from '../common/AggregationFilter';
+} from '@/app/components/shared/sales-plan/common/AggregationFilter';
 import {
   META_BRAND_OPTIONS,
   CONTAINER_CAPACITY_OPTIONS,
-} from '../../../../constants/aggregationAxisMaster';
+} from '@/app/constants/aggregationAxisMaster';
 import {
   computePeriods,
   computeMonthsRange,
@@ -30,42 +39,40 @@ import {
   displayOf,
   type AggAmounts,
   type ExpenseMonthBasis,
-} from '../../../../utils/sales-plan/common/aggregationCalc';
-import {
-  EMPTY_AGGREGATION_SOURCE,
-  type AggregationSource,
-} from '../../../../constants/aggregationSourceData';
+} from '@/app/utils/sales-plan/common/aggregationCalc';
+import { EMPTY_AGGREGATION_SOURCE } from '@/app/constants/aggregationSourceData';
+import type { AggregationSource } from '@/app/types/aggregation';
 import {
   canViewActualCost,
   resolveCostAxis,
   COST_AXIS_LABELS,
   type CostAxis,
-} from '../../../../utils/sales-plan/common/costUnitPrice';
-import { DEFAULT_COMMON_RATE_SETTINGS } from '../../../../constants/commonRateSettings';
-import { DEFAULT_TARGET_MONTH_IDX0 } from '../../../../constants/defaultAggregationSource';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
-import { makeTreeValueFor } from '../../../../utils/sales-plan/common/aggregationTreeValue';
+} from '@/app/utils/sales-plan/common/costUnitPrice';
+import { DEFAULT_COMMON_RATE_SETTINGS } from '@/app/constants/commonRateSettings';
+import { DEFAULT_TARGET_MONTH_IDX0 } from '@/app/constants/defaultAggregationSource';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
+import { makeTreeValueFor } from '@/app/utils/sales-plan/common/aggregationTreeValue';
 import {
   AggregationItemTreeTable,
   type AggTreePeriodTab,
-} from '../common/AggregationItemTreeTable';
+} from '@/app/components/shared/sales-plan/common/AggregationItemTreeTable';
 import { AnnualTotalTab } from './AnnualTotalTab';
 import { PromotionCostTotalTab } from './PromotionCostTotalTab';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
   BUTTON_BASE,
-} from '../../../../../styles/commonStyles';
-import { monthIndex0Of } from '../../../../utils/common/yearMonth';
+} from '@/styles/commonStyles';
+import { monthIndex0Of } from '@/app/utils/common/yearMonth';
 import {
   PLAN_DETAIL_DIGITS,
   formatPlanRate,
-} from '../../../../utils/sales-plan/common/planDetailNumberFormat';
-import {
-  budgetRateColor,
-  diffTextColor,
-  previousYearRateColor,
-} from '../../../../utils/sales-plan/common/aggregationCardColors';
+} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
+import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
+import { KpiCard } from '@/app/components/shared/sales-plan/common/KpiCard';
 
 interface PlanAggregationPaneProps {
   // 対象年月（販売計画エリアの対象年月。集計値・「○月合計」表記を駆動する）
@@ -300,23 +307,15 @@ export function PlanAggregationPane({
     ];
   }, [source, selectedMonth, monthIdx0, aggFilter, displayUnit]);
 
-  const renderMiniBarChart = (data: any, index: number) => {
+  const renderKpiCard = (data: any, index: number) => {
     const budgetRate = (data.計画 / data.予算) * 100;
     const previousYearRate = (data.計画 / data.前年同月) * 100;
 
     // 表示単位ラベル（円／千円）。比率は単位非依存のため率計算には影響しない
     const unitLabel = displayUnit === 'thousand' ? '千円' : '円';
 
-    // 配色（棒グラフ・率テキスト・差の文字色）はシミュレーションと閾値を揃えるため共通判定に委ねる。
-    // 拡売費（コスト項目）は予算・前年を下回るほど良いため isCost=true で配色が反転し、
-    // 予算達成率・前年比とも 100%以下＝緑／100%超＝赤になる。
-    // 他の指標（函数・売上高・社外売上高・管理利益額・管理利益率）は従来どおり。
+    // 拡売費（コスト項目）は少ないほど良いため、KPI カードの色の向きを逆にする（→ KpiCard）
     const isCostCard = Boolean(data.isCost);
-    const budgetColor = budgetRateColor(budgetRate, isCostCard);
-    const previousYearColor = previousYearRateColor(
-      previousYearRate,
-      isCostCard
-    );
 
     // 値の表示整形：率項目（管理利益率・売買差益率）は％、金額項目は接頭辞＋円／千円
     // 率項目は小数点以下2桁を四捨五入し、小数点以下1桁・3桁区切りで表示する
@@ -329,9 +328,8 @@ export function PlanAggregationPane({
           ? `${Math.round(v).toLocaleString()} 函`
           : `${prefix}${Math.round(v).toLocaleString()} ${unitLabel}`;
 
-    // 差（計画−予算／計画−前年同月）の表記と文字色。
-    // プラスは「+」＋青字、マイナスは「△」＋赤字とし、色以外の手がかり（符号）を必ず併用する。
-    // 丸めた結果が 0 になる場合は符号を付けず既定色にする。率項目はポイント差を小数第1位まで表示する。
+    // 差（計画−予算／計画−前年）の表記。プラスは「+」、マイナスは「△」を付け、色以外の手がかり（符号）を必ず併用する。
+    // 丸めた結果が 0 になる場合は符号を付けない。率項目はポイント差を小数第1位まで表示する。
     const buildDiff = (v: number) => {
       const abs = Math.abs(v);
       const rounded = data.isRate
@@ -346,82 +344,37 @@ export function PlanAggregationPane({
         : data.isQuantity
           ? `${rounded.toLocaleString()} 函`
           : `${rounded.toLocaleString()} ${unitLabel}`;
-      if (rounded === 0) return { text: body, className: 'text-gray-500' };
-      // 拡売費（コスト項目）は予算・前年を上回る＝×のため、色だけを反転させる
-      // （プラス＝赤／マイナス＝青）。符号（+／△）は算術どおりで変えない。
-      return v > 0
-        ? { text: `+${body}`, className: diffTextColor(v, isCostCard) }
-        : { text: `△${body}`, className: diffTextColor(v, isCostCard) };
+      if (rounded === 0) return body;
+      return v > 0 ? `+${body}` : `△${body}`;
     };
 
     const budgetDiff = buildDiff(data.計画 - data.予算);
     const previousYearDiff = buildDiff(data.計画 - data.前年同月);
 
     return (
-      <div
+      <KpiCard
         key={index}
-        className="bg-gradient-to-br from-white to-blue-50 rounded-xl border-2 border-gray-300 p-4 shadow-md hover:shadow-lg transition-shadow"
-      >
-        <div className="text-sm font-bold text-gray-800 mb-3 pb-2 border-b-2 border-blue-200">
-          {data.name}
-        </div>
-        <div className="mb-4">
-          <div className="text-sm text-gray-500 mb-1">計画値</div>
-          <div className="text-xl font-bold text-blue-600">
-            {formatValue(data.計画, '¥')}
-          </div>
-        </div>
-        <div className="mb-3">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-sm text-gray-600">予算達成率</span>
-            <span className={`text-sm font-bold ${budgetColor.text}`}>
-              {formatPlanRate(budgetRate, PLAN_DETAIL_DIGITS.rate)}
-            </span>
-          </div>
-          {/* 棒グラフ内の％は見出しの予算達成率と重複するため表示しない（塗りのみで割合を表す） */}
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div
-              className={`${budgetColor.bar} h-3 rounded-full transition-all duration-700 ease-out`}
-              style={{ width: `${Math.min(budgetRate, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center mt-0.5">
-            <span className="text-sm text-gray-500">予算差</span>
-            <span className={`text-sm font-medium ${budgetDiff.className}`}>
-              {budgetDiff.text}
-            </span>
-          </div>
-        </div>
-        <div>
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-sm text-gray-600">前年比</span>
-            <span className={`text-sm font-bold ${previousYearColor.text}`}>
-              {formatPlanRate(previousYearRate, PLAN_DETAIL_DIGITS.rate)}
-            </span>
-          </div>
-          {/* 棒グラフ内の％は見出しの前年比と重複するため表示しない（塗りのみで割合を表す） */}
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div
-              className={`${previousYearColor.bar} h-3 rounded-full transition-all duration-700 ease-out`}
-              style={{
-                width: `${Math.min(previousYearRate, 100)}%`,
-              }}
-            />
-          </div>
-          <div className="flex justify-between items-center mt-0.5">
-            <span className="text-sm text-gray-500">前年差</span>
-            <span
-              className={`text-sm font-medium ${previousYearDiff.className}`}
-            >
-              {previousYearDiff.text}
-            </span>
-          </div>
-        </div>
-      </div>
+        name={data.name}
+        valueLabel="計画値"
+        valueText={formatValue(data.計画, '¥')}
+        budgetRate={budgetRate}
+        budgetRateText={formatPlanRate(budgetRate, PLAN_DETAIL_DIGITS.rate)}
+        budgetDiffText={budgetDiff}
+        previousYearRate={previousYearRate}
+        previousYearRateText={formatPlanRate(
+          previousYearRate,
+          PLAN_DETAIL_DIGITS.rate
+        )}
+        previousYearDiffText={previousYearDiff}
+        isCost={isCostCard}
+      />
     );
   };
 
   // 各項目のTooltip
+
+  // 集計表の列の状態を保存するキーの頭（画面ごとに一意。開閉の保存キーと同じ頭を使う）
+  const columnStateBase = expandStateKey ?? 'PlanAgg';
 
   return (
     <CollapsibleCard
@@ -560,32 +513,15 @@ export function PlanAggregationPane({
                 <label className={`${FORM_LABEL_CLASS} whitespace-nowrap`}>
                   原価軸
                 </label>
-                <div className="inline-flex rounded-md border border-gray-300 overflow-hidden h-8">
-                  <button
-                    type="button"
-                    onClick={() => setCostAxis('transfer')}
-                    aria-pressed={costAxis === 'transfer'}
-                    className={`px-4 text-sm font-medium transition-colors ${
-                      costAxis === 'transfer'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {COST_AXIS_LABELS.transfer}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCostAxis('actual')}
-                    aria-pressed={costAxis === 'actual'}
-                    className={`px-4 text-sm font-medium transition-colors ${
-                      costAxis === 'actual'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {COST_AXIS_LABELS.actual}
-                  </button>
-                </div>
+                <SegmentToggle
+                  ariaLabel="原価軸"
+                  options={[
+                    { value: 'transfer', label: COST_AXIS_LABELS.transfer },
+                    { value: 'actual', label: COST_AXIS_LABELS.actual },
+                  ]}
+                  value={costAxis}
+                  onChange={setCostAxis}
+                />
                 {/* モック表現の注記：実原価は支社受渡原価からの仮算出値、閲覧権限もモックログイン
                     ユーザー固定であることをホバー時に明示する（実装は行わずモック上の表現のみ）。 */}
                 <Tooltip>
@@ -609,28 +545,15 @@ export function PlanAggregationPane({
               <label className={`${FORM_LABEL_CLASS} whitespace-nowrap`}>
                 表示単位
               </label>
-              <div className="inline-flex rounded-md border border-gray-300 overflow-hidden h-8">
-                <button
-                  onClick={() => setDisplayUnit('yen')}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'yen'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  円
-                </button>
-                <button
-                  onClick={() => setDisplayUnit('thousand')}
-                  className={`px-4 text-sm font-medium transition-colors ${
-                    displayUnit === 'thousand'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  千円
-                </button>
-              </div>
+              <SegmentToggle
+                ariaLabel="表示単位"
+                options={[
+                  { value: 'yen', label: '円' },
+                  { value: 'thousand', label: '千円' },
+                ]}
+                value={displayUnit}
+                onChange={setDisplayUnit}
+              />
             </div>
           </div>
         </div>
@@ -669,7 +592,7 @@ export function PlanAggregationPane({
               <TabsContent value="monthly">
                 <div className="grid grid-cols-6 gap-2">
                   {prepareMonthlyChartData().map((data, idx) =>
-                    renderMiniBarChart(data, idx)
+                    renderKpiCard(data, idx)
                   )}
                 </div>
               </TabsContent>
@@ -677,7 +600,7 @@ export function PlanAggregationPane({
               <TabsContent value="cumulative">
                 <div className="grid grid-cols-6 gap-2">
                   {prepareCumulativeChartData().map((data, idx) =>
-                    renderMiniBarChart(data, idx)
+                    renderKpiCard(data, idx)
                   )}
                 </div>
               </TabsContent>
@@ -685,7 +608,7 @@ export function PlanAggregationPane({
               <TabsContent value="yearly">
                 <div className="grid grid-cols-6 gap-2">
                   {prepareYearlyChartData().map((data, idx) =>
-                    renderMiniBarChart(data, idx)
+                    renderKpiCard(data, idx)
                   )}
                 </div>
               </TabsContent>
@@ -705,6 +628,7 @@ export function PlanAggregationPane({
               // ドリルダウンの開閉状態を画面ごとに保存する
               // （補助項目の表示／非表示それぞれで別に保持される）
               expandStateKey={expandStateKey}
+              columnStateKey={`${columnStateBase}.detail.columnState`}
             />
             {/* リサイズハンドルはAG Gridの外（表の下端）に配置し、年間集計・拡売費集計と統一する */}
             <div className="relative h-2">
@@ -718,6 +642,7 @@ export function PlanAggregationPane({
           <div className="mb-4">
             <div style={{ height: annualResize.height }}>
               <AnnualTotalTab
+                columnStateKey={`${columnStateBase}.annual.columnState`}
                 source={source}
                 isWholesaleContext
                 displayUnit={displayUnit}
@@ -740,6 +665,7 @@ export function PlanAggregationPane({
           <div className="mb-4">
             <div style={{ height: expenseResize.height }}>
               <PromotionCostTotalTab
+                columnStateKey={`${columnStateBase}.expense.columnState`}
                 source={source}
                 displayUnit={displayUnit}
                 // 拡売費集計でも集計単位②（容器容量G）を集計に反映する

@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from './collapsible';
 import { cn } from './utils';
-import { CARD_CLASS, CARD_TITLE_CLASS } from '../../../styles/commonStyles';
+import { CARD_CLASS, CARD_TITLE_CLASS } from '@/styles/commonStyles';
 
 interface CollapsibleCardProps {
   // ヘッダーに表示するタイトル（文字列・任意要素どちらも可）
@@ -42,14 +42,14 @@ interface CollapsibleCardProps {
 // シェブロン（開閉状態で回転）。Radix の data-state を使うため制御／非制御どちらでも動作する。
 // 色は紺系（brand-navy-700、ホバーで brand-navy-900。UI/UX UX-031 → 01「画面の配色」）
 const Chevron = () => (
-  <ChevronDown className="h-5 w-5 text-brand-navy-700 transition-transform group-hover:text-brand-navy-900 group-data-[state=open]:rotate-180" />
+  <ChevronDown className="h-5 w-5 text-brand-navy-700 transition-transform duration-300 ease-out group-hover:text-brand-navy-900 group-data-[state=open]:rotate-180" />
 );
 
 // 折り畳んでいる間だけ出す要約。開閉トリガー（group）の data-state で出し分ける。
 const CollapsedSummary = ({ summary }: { summary?: string }) =>
   summary ? (
     <span
-      className="hidden min-w-0 flex-1 truncate text-left text-sm text-gray-700 group-data-[state=closed]:block"
+      className="hidden min-w-0 flex-1 truncate text-left text-sm text-gray-700 group-data-[state=closed]:block group-data-[state=closed]:animate-in group-data-[state=closed]:fade-in group-data-[state=closed]:duration-300"
       title={summary}
     >
       {summary}
@@ -161,8 +161,12 @@ export function CollapsibleCard({
           <Chevron />
         </CollapsibleTrigger>
       )}
+      {/* 開閉のアニメーションは globals.css の .collapsible-card-content（UX-046） */}
       <CollapsibleContent
-        className={fillParent ? 'flex flex-col flex-1 min-h-0' : undefined}
+        className={cn(
+          'collapsible-card-content',
+          fillParent && 'flex flex-col flex-1 min-h-0'
+        )}
       >
         {contentClassName ? (
           <div className={contentClassName}>{children}</div>

@@ -10,10 +10,9 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   useGridColumnState,
-} from '../../../grid';
-import { MonthYearPicker } from '../../../ui/month-year-picker';
+} from '@/app/components/grid';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 // 引用基本情報の既定値（対象年月は 'YYYY/MM' 形式）。親から値が渡らない場合のフォールバック。
-import { DEFAULT_QUOTE_BASIC_INFO } from '../../../../utils/payment/quote/quoteBasicInfo';
 
 // 支払明細に紐づける計画明細データ（Excel 選択エリア）
 interface PlanDetailRow {
@@ -237,7 +236,7 @@ interface PlanSelectionPaneProps {
   // 紐づけ対象として選択された行を親へ通知
   onSelect?: (data: PlanDetailRow) => void;
   // 対象年月の初期値（'YYYY/MM'）。基本情報の対象年月を親から受け取る。
-  initialTargetMonth?: string;
+  initialTargetMonth: string;
 }
 
 export function QuotePlanSelectionPane({
@@ -247,9 +246,7 @@ export function QuotePlanSelectionPane({
 }: PlanSelectionPaneProps) {
   const gridRef = useRef<AgGridReact>(null);
   // 初期値は基本情報の対象年月。検索条件としては残し、変更も可能とする。
-  const [targetMonth, setTargetMonth] = useState(
-    initialTargetMonth ?? DEFAULT_QUOTE_BASIC_INFO.targetMonth
-  );
+  const [targetMonth, setTargetMonth] = useState(initialTargetMonth);
   // 「計画紐づけ実施済」の行を表示するか（トグル）。既定は表示。
   const [isLinkedShown, setIsLinkedShown] = useState(true);
 
@@ -368,7 +365,7 @@ export function QuotePlanSelectionPane({
 
       {/* 計画明細テーブル */}
       <div
-        className="plan-selection-grid flex-1 min-h-100"
+        className="plan-selection-grid min-h-0 flex-1"
         style={{ width: '100%' }}
       >
         {/* 支払申請一覧参照と同様：ヘッダーの全選択チェックボックスに左パディング（左寄せ） */}

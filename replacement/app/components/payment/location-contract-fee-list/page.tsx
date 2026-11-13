@@ -31,24 +31,23 @@ import {
   useRevealNewRows,
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../grid';
-import { RequiredBadge } from '../../ui/required-badge';
+} from '@/app/components/grid';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../ui/single-combobox';
-import { DateMonthYearCellEditor } from '../../ui/date-month-year-cell-editor';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { RightPane } from '../../ui/right-pane';
+} from '@/app/components/ui/single-combobox';
+import { DateMonthYearCellEditor } from '@/app/components/ui/date-month-year-cell-editor';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS, CARD_CLASS } from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { RightPane } from '@/app/components/ui/right-pane';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '../../ui/collapsible';
+} from '@/app/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -56,7 +55,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
+} from '@/app/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,13 +65,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogCancel,
-} from '../../ui/alert-dialog';
+} from '@/app/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ScreenTitle } from '../../ui/screen-title';
-
-interface LocationContractFeeListProps {
-  onMenuChange?: (menuId: string) => void;
-}
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 確認ダイアログで扱うアクション種別（支払申請承認に準拠）
 type ConfirmAction =
@@ -463,9 +460,9 @@ type PaneMode = 'add' | 'update' | 'copy' | 'split' | null;
 const EDITABLE_CELL_BG = '#ffffff'; // 編集可能：白
 const NON_EDITABLE_CELL_BG = '#e8e8e8'; // 編集不可：グレー（少し濃いめ）
 
-export default function LocationContractFeeList({
-  onMenuChange,
-}: LocationContractFeeListProps) {
+export default function LocationContractFeeList() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // ヘッダーエリア（基本情報）の折り畳み状態（既定は展開）
   const [isHeaderOpen, setIsHeaderOpen] = useState(true);
   // コメント履歴ペインの表示状態（販売計画表(マージン率固定・NET入力)を踏襲）
@@ -550,7 +547,7 @@ export default function LocationContractFeeList({
 
   // 根拠資料格納ボタン
   const handleStoreEvidence = useCallback(() => {
-    console.log('根拠資料格納画面を表示する');
+    // TODO: 根拠資料格納画面を表示する（★廃止の画面のため未実装）
   }, []);
 
   // 明細更新（行アクション）
@@ -582,8 +579,8 @@ export default function LocationContractFeeList({
 
   // 解約（グリッド内セル）→ 未償却案件請求一覧（請求画面）へ遷移する
   const handleCancellation = useCallback(() => {
-    onMenuChange?.('unamortized-project-billing-list');
-  }, [onMenuChange]);
+    navigate('unamortized-project-billing-list');
+  }, [navigate]);
 
   // フォーム項目の変更
   const handleFieldChange = useCallback(
@@ -667,8 +664,8 @@ export default function LocationContractFeeList({
   // 戻る確定 → 支払申請一覧参照画面へ遷移
   const handleBackConfirm = useCallback(() => {
     setIsBackDialogOpen(false);
-    onMenuChange?.('payment-list');
-  }, [onMenuChange]);
+    navigate('payment-list');
+  }, [navigate]);
 
   // 申請／引戻し／承認の確認ダイアログのメッセージ
   const confirmMessageMap: Record<
@@ -724,7 +721,6 @@ export default function LocationContractFeeList({
   const handleConfirmAction = () => {
     if (!confirmAction) return;
     const { toast: toastMessage } = confirmMessageMap[confirmAction];
-    console.log(`ロケ契約料（償却）データを${confirmAction}する`);
     toast.success(toastMessage);
     setConfirmAction(null);
   };
@@ -745,240 +741,243 @@ export default function LocationContractFeeList({
   // 管理区分／管理コード／施策区分／施策コードは "コード:名称" を「コード列／名称列」の
   // 2列に分けて表示する。コード列の編集で検索付きリッチセレクトが開き、ペアが切り替わる。
   const columnDefs: ColDef[] = useMemo(
-    () => [
-      {
-        headerName: '管理区分',
-        colId: 'managementCategoryCode',
-        field: 'managementCategory',
-        valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: MANAGEMENT_CATEGORY_COMBO_OPTIONS },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '管理区分名称',
-        colId: 'managementCategoryName',
-        field: 'managementCategory',
-        valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
-        editable: false,
-        cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '管理コード',
-        colId: 'managementCodeCode',
-        field: 'managementCode',
-        valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: MANAGEMENT_CODE_COMBO_OPTIONS },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '管理コード名称',
-        colId: 'managementCodeName',
-        field: 'managementCode',
-        valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
-        editable: false,
-        cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '支払金額(円)',
-        field: 'amount',
-        ...GRID_NUMBER_TEXT_FILTER,
-        // 金額はカンマ区切りで表示する（標準準拠）。
-        valueFormatter: formatAmountCell,
-        // 分割済（分割元）・分割先の金額は編集不可にする
-        editable: (params) =>
-          !isReadOnlyRow(params.data) && !isSplitDoneRow(params.data),
-        cellEditor: 'agTextCellEditor',
-        cellStyle: (params) => ({
-          backgroundColor:
-            isReadOnlyRow(params.data) || isSplitDoneRow(params.data)
-              ? NON_EDITABLE_CELL_BG
-              : EDITABLE_CELL_BG,
-          textAlign: 'right',
-        }),
-      },
-      {
-        headerName: '税区分',
-        field: 'taxCategory',
-        editable: true,
-        cellEditor: 'agSelectCellEditor',
-        cellEditorParams: { values: TAX_CATEGORY_OPTIONS },
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '支払先',
-        field: 'payee',
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: { comboOptions: PAYMENT_DESTINATION_COMBO_OPTIONS },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: 'ステータス',
-        field: 'status',
-        editable: false,
-        cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '発生日（契約開始日）',
-        field: 'occurrenceDate',
-        editable: true,
-        cellEditor: DateMonthYearCellEditor,
-        cellEditorPopup: true,
-        // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
-        valueFormatter: formatDateCell,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
-      },
-      {
-        headerName: '償却期間開始',
-        field: 'amortizationStart',
-        editable: true,
-        cellEditor: DateMonthYearCellEditor,
-        cellEditorPopup: true,
-        // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
-        valueFormatter: formatDateCell,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
-      },
-      {
-        headerName: '償却期間終了',
-        field: 'amortizationEnd',
-        editable: true,
-        cellEditor: DateMonthYearCellEditor,
-        cellEditorPopup: true,
-        // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
-        valueFormatter: formatDateCell,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
-      },
-      {
-        headerName: '施策区分',
-        colId: 'measureCategoryCode',
-        field: 'measureCategory',
-        valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: {
-          comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
-          clearable: true,
+    () =>
+      [
+        {
+          headerName: '管理区分',
+          colId: 'managementCategoryCode',
+          field: 'managementCategory',
+          valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: { comboOptions: MANAGEMENT_CATEGORY_COMBO_OPTIONS },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
         },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '施策区分名称',
-        colId: 'measureCategoryName',
-        field: 'measureCategory',
-        valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
-        editable: false,
-        cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '施策コード',
-        colId: 'measureCodeCode',
-        field: 'measureCode',
-        valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: {
-          comboOptions: MEASURE_CODE_COMBO_OPTIONS,
-          clearable: true,
+        {
+          headerName: '管理区分名称',
+          colId: 'managementCategoryName',
+          field: 'managementCategory',
+          valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
+          editable: false,
+          cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
         },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '施策コード名称',
-        colId: 'measureCodeName',
-        field: 'measureCode',
-        valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
-        editable: false,
-        cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
-      },
-      {
-        headerName: 'CRMコード',
-        colId: 'crmCodeCode',
-        field: 'crmCode',
-        valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-        editable: true,
-        cellEditor: ComboCellEditor,
-        cellEditorParams: {
-          comboOptions: CRM_CODE_COMBO_OPTIONS,
-          clearable: true,
+        {
+          headerName: '管理コード',
+          colId: 'managementCodeCode',
+          field: 'managementCode',
+          valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: { comboOptions: MANAGEMENT_CODE_COMBO_OPTIONS },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
         },
-        cellEditorPopup: true,
-        suppressKeyboardEvent: suppressEditNavKeys,
-        cellStyle: { backgroundColor: EDITABLE_CELL_BG },
-      },
-      {
-        headerName: '摘要1（社内用）',
-        field: 'note1',
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-        // 長文は「…」で省略表示し、マウスオーバーでツールチップに全文を表示する
-        tooltipField: 'note1',
-        cellStyle: {
-          backgroundColor: EDITABLE_CELL_BG,
-          textOverflow: 'ellipsis',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
+        {
+          headerName: '管理コード名称',
+          colId: 'managementCodeName',
+          field: 'managementCode',
+          valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
+          editable: false,
+          cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
         },
-      },
-      {
-        headerName: '摘要2（社外用）',
-        field: 'note2',
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-        // 長文は「…」で省略表示し、マウスオーバーでツールチップに全文を表示する
-        tooltipField: 'note2',
-        cellStyle: {
-          backgroundColor: EDITABLE_CELL_BG,
-          textOverflow: 'ellipsis',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
+        {
+          headerName: '支払金額(円)',
+          field: 'amount',
+          ...GRID_NUMBER_TEXT_FILTER,
+          // 金額はカンマ区切りで表示する（標準準拠）。
+          valueFormatter: formatAmountCell,
+          // 分割済（分割元）・分割先の金額は編集不可にする
+          editable: (params) =>
+            !isReadOnlyRow(params.data) && !isSplitDoneRow(params.data),
+          cellEditor: 'agTextCellEditor',
+          cellStyle: (params) => ({
+            backgroundColor:
+              isReadOnlyRow(params.data) || isSplitDoneRow(params.data)
+                ? NON_EDITABLE_CELL_BG
+                : EDITABLE_CELL_BG,
+            textAlign: 'right',
+          }),
         },
-      },
-      {
-        headerName: '',
-        field: 'actions',
-        pinned: 'right',
-        lockPinned: true,
-        sortable: false,
-        filter: false,
-        resizable: false,
-        editable: false,
-        cellRenderer: ActionsCellRenderer,
-        cellStyle: {
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+        {
+          headerName: '税区分',
+          field: 'taxCategory',
+          editable: true,
+          cellEditor: 'agSelectCellEditor',
+          cellEditorParams: { values: TAX_CATEGORY_OPTIONS },
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
         },
-      },
-      {
-        headerName: '解約',
-        field: 'cancellation',
-        pinned: 'right',
-        lockPinned: true,
-        sortable: false,
-        filter: false,
-        editable: false,
-        cellRenderer: CancellationButtonCellRenderer,
-        cellStyle: {
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+        {
+          headerName: '支払先',
+          field: 'payee',
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: { comboOptions: PAYMENT_DESTINATION_COMBO_OPTIONS },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
         },
-      },
-    ],
+        {
+          headerName: 'ステータス',
+          field: 'status',
+          editable: false,
+          cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
+        },
+        {
+          headerName: '発生日（契約開始日）',
+          field: 'occurrenceDate',
+          editable: true,
+          cellEditor: DateMonthYearCellEditor,
+          cellEditorPopup: true,
+          // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
+          valueFormatter: formatDateCell,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
+        },
+        {
+          headerName: '償却期間開始',
+          field: 'amortizationStart',
+          editable: true,
+          cellEditor: DateMonthYearCellEditor,
+          cellEditorPopup: true,
+          // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
+          valueFormatter: formatDateCell,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
+        },
+        {
+          headerName: '償却期間終了',
+          field: 'amortizationEnd',
+          editable: true,
+          cellEditor: DateMonthYearCellEditor,
+          cellEditorPopup: true,
+          // 日付は yyyy/MM/dd 形式で表示する（標準準拠）。
+          valueFormatter: formatDateCell,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG, textAlign: 'right' },
+        },
+        {
+          headerName: '施策区分',
+          colId: 'measureCategoryCode',
+          field: 'measureCategory',
+          valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: {
+            comboOptions: MEASURE_CATEGORY_COMBO_OPTIONS,
+            clearable: true,
+          },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
+        },
+        {
+          headerName: '施策区分名称',
+          colId: 'measureCategoryName',
+          field: 'measureCategory',
+          valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
+          editable: false,
+          cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
+        },
+        {
+          headerName: '施策コード',
+          colId: 'measureCodeCode',
+          field: 'measureCode',
+          valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: {
+            comboOptions: MEASURE_CODE_COMBO_OPTIONS,
+            clearable: true,
+          },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
+        },
+        {
+          headerName: '施策コード名称',
+          colId: 'measureCodeName',
+          field: 'measureCode',
+          valueFormatter: (p) => splitCategoryName(p.value) || GRID_EMPTY_TEXT,
+          editable: false,
+          cellStyle: { backgroundColor: NON_EDITABLE_CELL_BG },
+        },
+        {
+          headerName: 'CRMコード',
+          colId: 'crmCodeCode',
+          field: 'crmCode',
+          valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
+          editable: true,
+          cellEditor: ComboCellEditor,
+          cellEditorParams: {
+            comboOptions: CRM_CODE_COMBO_OPTIONS,
+            clearable: true,
+          },
+          cellEditorPopup: true,
+          suppressKeyboardEvent: suppressEditNavKeys,
+          cellStyle: { backgroundColor: EDITABLE_CELL_BG },
+        },
+        {
+          headerName: '摘要1（社内用）',
+          field: 'note1',
+          editable: true,
+          cellEditor: 'agTextCellEditor',
+          // 長文は「…」で省略表示し、マウスオーバーでツールチップに全文を表示する
+          tooltipField: 'note1',
+          cellStyle: {
+            backgroundColor: EDITABLE_CELL_BG,
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+          },
+        },
+        {
+          headerName: '摘要2（社外用）',
+          field: 'note2',
+          editable: true,
+          cellEditor: 'agTextCellEditor',
+          // 長文は「…」で省略表示し、マウスオーバーでツールチップに全文を表示する
+          tooltipField: 'note2',
+          cellStyle: {
+            backgroundColor: EDITABLE_CELL_BG,
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+          },
+        },
+        {
+          headerName: '',
+          // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+          suppressColumnsToolPanel: true,
+          field: 'actions',
+          pinned: 'right',
+          lockPinned: true,
+          sortable: false,
+          filter: false,
+          resizable: false,
+          editable: false,
+          cellRenderer: ActionsCellRenderer,
+          cellStyle: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        },
+        {
+          headerName: '解約',
+          field: 'cancellation',
+          pinned: 'right',
+          lockPinned: true,
+          sortable: false,
+          filter: false,
+          editable: false,
+          cellRenderer: CancellationButtonCellRenderer,
+          cellStyle: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        },
+      ] as ColDef[],
     []
   );
 
@@ -1629,23 +1628,12 @@ export default function LocationContractFeeList({
               一覧へ戻る
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="location-contract-comment"
-                className="text-sm text-gray-600 whitespace-nowrap"
-              >
-                コメント
-              </label>
-              <textarea
-                id="location-contract-comment"
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                placeholder="コメントを入力（差戻し理由など）"
-                rows={2}
-                className="h-12 w-128 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-              />
-            </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+            <FooterCommentField
+              id="location-contract-comment"
+              value={commentInput}
+              onChange={setCommentInput}
+            />
             {/* 差戻し（データ削除系・塗り赤） */}
             <button
               className="btn-action-base btn-action-red"

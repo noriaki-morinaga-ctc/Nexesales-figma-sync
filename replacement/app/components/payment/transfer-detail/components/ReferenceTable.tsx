@@ -21,42 +21,39 @@ import {
   useGridColumnState,
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { campaignClassCode } from '../../../../constants/paymentComboFieldOptions';
-import { campaignClassFromCode } from '../../../../constants/expenseRelations';
-import { OFFICE_OPTIONS } from '../../../../constants/paymentListSearchOptions';
+} from '@/app/components/grid';
+import { campaignClassCode } from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import { campaignClassFromCode } from '@/app/utils/common/expenseRelations';
+import { OFFICE_OPTIONS } from '@/app/constants/paymentListSearchOptions';
 import {
   STORE_NONE,
   PRIMARY_STORE_OPTIONS,
   tertiaryOptionsFor,
   storeOptionsFor,
-} from '../../../../constants/storeHierarchy';
+} from '@/app/constants/storeHierarchy';
 // 部署・営業担当者は「支払として存在する組合せ」から候補を求め、商流3項目と連動させる。
+import { STORE_OWNER_ORG } from '@/app/constants/paymentOrgCascade';
 import {
   deptOptionsFor,
   staffOptionsFor,
   applyStoreOrgCascade,
-  STORE_OWNER_ORG,
-  type StoreOrgSelection,
-} from '../../../../constants/paymentOrgCascade';
+} from '@/app/utils/payment/payment-detail/paymentOrgCascade';
+import type { StoreOrgSelection } from '@/app/types/organization';
 // 年月の表記変換（'YYYY年M月' ⇔ 'YYYY/MM'）は共通ヘルパーを使う。
-import { toYearMonth, toMonthLabel } from '../../../../utils/common/yearMonth';
-import {
-  FORM_LABEL_CLASS,
-  CARD_CLASS,
-} from '../../../../../styles/commonStyles';
+import { toYearMonth, toMonthLabel } from '@/app/utils/common/yearMonth';
+import { FORM_LABEL_CLASS, CARD_CLASS } from '@/styles/commonStyles';
 import { BASIC_INFO, type TransferDetailBasicInfoValues } from './TransferInfo';
-import { CopyableArea } from '../../../ui/copyable-area';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
-import { SearchClearButton } from '../../../ui/search-clear-button';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryValue,
-} from '../../../ui/search-summary';
+} from '@/app/components/ui/search-summary';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../../ui/single-combobox';
+} from '@/app/components/ui/single-combobox';
 
 // 参照行（振替元で検印済みの明細）。
 // 列構成は振替明細一覧の「支払No」〜「一次店」に準拠する。
@@ -1006,6 +1003,8 @@ export function ReferenceTable({
         {
           // 先頭列は No. の値に代えて「振替処理」ボタンを表示する操作列。
           headerName: '',
+          // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+          suppressColumnsToolPanel: true,
           colId: 'transferProcess',
           width: 96,
           minWidth: 96,

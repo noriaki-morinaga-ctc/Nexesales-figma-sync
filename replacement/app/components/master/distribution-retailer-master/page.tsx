@@ -1,32 +1,33 @@
 import { Search, Upload } from 'lucide-react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, GetRowIdParams } from 'ag-grid-community';
 
-import { CopyableArea } from '../../ui/copyable-area';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
 import {
   buildSearchSummary,
   formatSummaryValue,
-} from '../../ui/search-summary';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
+} from '@/app/components/ui/search-summary';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
 import {
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
   TEXT_INPUT_CLASS,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/styles/commonStyles';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
   gridFilterContextMenuItems,
   useGridColumnState,
-} from '../../grid';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/components/grid';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 interface DistributionRetailerData {
   id: string;
@@ -39,10 +40,6 @@ interface DistributionRetailerData {
   primaryStore: string; // 一次店
   beverageDivision: string; // 飲料事業区分
   channel: string; // チャネル
-}
-
-interface DistributionRetailerMasterProps {
-  onMenuChange?: (menuId: string) => void;
 }
 
 // サンプルデータ生成用の基本データ
@@ -177,9 +174,9 @@ function generateSampleData(): DistributionRetailerData[] {
   return data;
 }
 
-export default function DistributionRetailerMaster({
-  onMenuChange,
-}: DistributionRetailerMasterProps) {
+export default function DistributionRetailerMaster() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   const [isOpen, setIsOpen] = useState(true);
 
   // 検索条件の状態管理。リアルタイム検索とし、この状態を直接 filteredData の絞り込み条件に用いる
@@ -219,9 +216,17 @@ export default function DistributionRetailerMaster({
     });
   }, [rowData, department1, salesRep, channel]);
 
-  // 詳細ボタンレンダラー
-  const DetailButtonRenderer = (props: any) => {
-    return (
+  const handleDetail = useCallback(
+    (_data: DistributionRetailerData) => {
+      // 商流販売店マスタ詳細画面に遷移
+      navigate('distribution-retailer-detail');
+    },
+    [navigate]
+  );
+
+  // 詳細ボタンレンダラー（列定義の useMemo で使うため、描画のたびに作り直さない）
+  const DetailButtonRenderer = useCallback(
+    (props: any) => (
       <div className="flex items-center h-full">
         <button
           className="px-4 py-1 rounded-full bg-white text-blue-600 border-2 border-blue-600 font-medium hover:bg-blue-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm whitespace-nowrap"
@@ -231,15 +236,9 @@ export default function DistributionRetailerMaster({
           編集
         </button>
       </div>
-    );
-  };
-
-  const handleDetail = (data: DistributionRetailerData) => {
-    // 商流販売店マスタ詳細画面に遷移
-    if (onMenuChange) {
-      onMenuChange('distribution-retailer-detail');
-    }
-  };
+    ),
+    [handleDetail]
+  );
 
   // 検索条件を初期値へ戻す（一覧は条件に合わせて即時に絞り込み直される）
   // 検索条件を折り畳んだときに見出しの行へ出す要約（値が入っている項目だけ。UI/UX UX-024）
@@ -282,7 +281,10 @@ export default function DistributionRetailerMaster({
     () => [
       {
         headerName: '',
-        field: 'detail',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
+        // 操作列（行のデータを持たない）のため field ではなく colId
+        colId: 'detail',
         width: 64,
         cellRenderer: DetailButtonRenderer,
         sortable: false,
@@ -382,13 +384,14 @@ export default function DistributionRetailerMaster({
         },
       },
     ],
-    []
+    [DetailButtonRenderer]
   );
 
   // defaultColDef設定（共通の既定列設定。見出しのフィルタボタンは出さず、フィルタは右クリックで開く）
   const defaultColDef = useMemo<ColDef<DistributionRetailerData>>(
     () => ({
-      ...GRID_DEFAULT_COL_DEF,
+      // 共通の既定（行の型を持たない ColDef）を、この表の行の型の列設定として混ぜる
+      ...(GRID_DEFAULT_COL_DEF as ColDef<DistributionRetailerData>),
       cellClass: 'cell-center',
     }),
     []

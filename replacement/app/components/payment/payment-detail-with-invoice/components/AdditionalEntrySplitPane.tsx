@@ -47,12 +47,13 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   useGridColumnState,
-} from '../../../grid';
-import { Alert, AlertDescription } from '../../../ui/alert';
-import type { CellColorLegendItem } from '../../../grid';
-import { parseFormulaNumber } from '../../../grid/gridCommon';
-import type { AdditionalEntryData } from './DetailTable';
-import type { SplitDestination } from '../../../../constants/additionalEntrySplitMockData';
+  withGridHeaderStyle,
+} from '@/app/components/grid';
+import { Alert, AlertDescription } from '@/app/components/ui/alert';
+import type { CellColorLegendItem } from '@/app/components/grid';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
+import type { AdditionalEntryData } from '@/app/types/paymentDetail';
+import type { SplitDestination } from '@/app/types/paymentDetail';
 import {
   alertLineNos,
   calcSelfShare,
@@ -61,7 +62,7 @@ import {
   isSelfShareAlert,
   toIntegerCount,
   type SplitAllocation,
-} from '../../../../utils/payment/payment-detail/additionalEntrySplit';
+} from '@/app/utils/payment/payment-detail/additionalEntrySplit';
 
 // ペイン1行分（追加口明細1行）。分割先の入力は destId ごとのケース・バラで持つ。
 interface SplitRow {
@@ -244,7 +245,6 @@ const SOFT_TOP_DIVIDER_STYLE = {
 const SPLIT_COLOR_LEGEND: CellColorLegendItem[] = [
   {
     color: GRID_COLORS.changedBg,
-    borderColor: GRID_COLORS.changedBorder,
     label: '編集したセル',
   },
   { color: GRID_COLORS.readonly, label: '自動算出・入力できないセル' },
@@ -481,7 +481,7 @@ export const AdditionalEntrySplitPane = forwardRef<
         const baseCellStyle = firstLeaf.cellStyle;
         const dividedFirstLeaf: ColDef<SplitRow> = {
           ...firstLeaf,
-          headerStyle: GROUP_DIVIDER_STYLE,
+          headerStyle: withGridHeaderStyle(GROUP_DIVIDER_STYLE),
           cellStyle: (p) => ({
             ...(typeof baseCellStyle === 'function'
               ? baseCellStyle(p)
@@ -492,20 +492,20 @@ export const AdditionalEntrySplitPane = forwardRef<
         return {
           headerName: topHeader,
           headerTooltip: tooltip,
-          headerStyle: GROUP_DIVIDER_STYLE,
+          headerStyle: withGridHeaderStyle(GROUP_DIVIDER_STYLE),
           children: [
             {
               headerName: `三次店：${tertiaryName}`,
               headerTooltip: tooltip,
-              headerStyle: GROUP_DIVIDER_STYLE,
+              headerStyle: withGridHeaderStyle(GROUP_DIVIDER_STYLE),
               children: [
                 {
                   headerName: `一次店：${primaryName}`,
                   headerTooltip: tooltip,
-                  headerStyle: {
+                  headerStyle: withGridHeaderStyle({
                     ...GROUP_DIVIDER_STYLE,
                     ...SOFT_TOP_DIVIDER_STYLE,
-                  },
+                  }),
                   children: [dividedFirstLeaf, ...restLeaves],
                 },
               ],
@@ -619,7 +619,8 @@ export const AdditionalEntrySplitPane = forwardRef<
 
   const defaultColDef = useMemo<ColDef<SplitRow>>(
     () => ({
-      ...GRID_DEFAULT_COL_DEF,
+      // 共通の既定（行の型を持たない ColDef）を、この表の行の型の列設定として混ぜる
+      ...(GRID_DEFAULT_COL_DEF as ColDef<SplitRow>),
       cellDataType: false,
       editable: false,
       sortable: false,

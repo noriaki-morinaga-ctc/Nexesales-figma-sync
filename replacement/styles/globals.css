@@ -399,6 +399,47 @@ input[type='number'].no-spinner {
     1;
 }
 
+/* 折り畳みカード（ui/collapsible-card.tsx）の開閉のアニメーション（UI/UX UX-046 → 02 §10.3 CollapsibleCard）。
+   本文の高さを Radix の --radix-collapsible-content-height まで伸び縮みさせ、開くときは少し上からフェードで出す。
+   閉じるときは Radix がアニメーションの終わりを待ってから本文を外す。最初の表示では Radix が動かさない。
+   OS の「視差効果を減らす」設定のときは動かさない。 */
+@keyframes collapsible-card-open {
+  from {
+    height: 0;
+    opacity: 0;
+    transform: translateY(-0.625rem);
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes collapsible-card-close {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+.collapsible-card-content {
+  overflow: hidden;
+}
+.collapsible-card-content[data-state='open'] {
+  animation: collapsible-card-open 0.42s cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+.collapsible-card-content[data-state='closed'] {
+  animation: collapsible-card-close 0.3s cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-card-content[data-state] {
+    animation: none;
+  }
+}
+
 /* 画面ロック（検印済み／明細種類：振替）時：操作要素をグレーアウトして非活性を明示する。
    機能的な操作不可は pointer-events で別途制御。ここは見た目（色）のみ担う。
    data-keep-active を付けた要素（状態切替ボタン・モード別の例外要素）とその配下は活性色のまま。 */
@@ -421,7 +462,7 @@ input[type='number'].no-spinner {
 
 /* お知らせメンテ（master/notice-admin）のリッチ本文エディタ（contenteditable）。
    execCommand が生成するタグ（strong/em/u/s/a/ul/ol/blockquote/img）の見た目を定義する。
-   プレビュー側（noticeBody.tsx の renderNoticeBody）と表示を揃えること。 */
+   プレビュー側（notice-admin/components/NoticeBody.tsx の renderNoticeBody）と表示を揃えること。 */
 .notice-editor strong,
 .notice-editor b {
   font-weight: 700;

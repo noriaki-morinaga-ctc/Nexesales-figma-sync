@@ -1,5 +1,5 @@
 import { RotateCcw } from 'lucide-react';
-import { BUTTON_BASE, BUTTON_STYLES } from '../../../styles/commonStyles';
+import { BUTTON_BASE, BUTTON_STYLES } from '@/styles/commonStyles';
 
 interface SearchClearButtonProps {
   // 検索条件を初期値へ戻す処理

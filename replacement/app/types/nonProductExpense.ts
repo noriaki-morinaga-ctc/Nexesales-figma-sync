@@ -21,7 +21,7 @@ export interface NonProductExpenseData {
   exp1AccountItem: string;
   exp1CampaignClass: string; // 施策区分（任意。名称を保持）
   exp1CampaignCode: string; // 施策コード（任意。コードを保持）
-  exp1Description: string; // 摘要1(社内用)
+  exp1Description: string; // 摘要1（社内用）
   exp1Creator: string; // 作成者（行追加時にログインユーザー名を自動設定。編集不可）
   // 行の追加経路（カラーバー表示用）: reference=コピー元ペイン / detail=グリッドの行コピー / new=明細追加
   _copySource?: 'reference' | 'detail' | 'new';
@@ -49,3 +49,21 @@ export interface NonProductExpenseGridHandle {
   /** 計画保存時：コピー・追加の帯と編集セルの強調を消す（計画詳細2画面の拡売費計画で実装） */
   clearSavedMarks?: () => void;
 }
+
+// 拡売費（非商品費用）追加・編集・コピーフォームの共通型・初期値・変換ヘルパー。
+// 販売計画表（小売／卸／連携なし）で共用する単一のソース。
+
+export type ExpenseFormValues = {
+  // 共通
+  summaryProduct: string;
+  metaBrand: string;
+  // 拡売費
+  exp1ManagementCode: string;
+  exp1ManagementClass: string;
+  exp1AccountItem: string;
+  exp1CampaignClass: string; // 施策区分（任意入力）
+  exp1CampaignCode: string; // 施策コード（任意入力）
+  exp1Description: string;
+  exp1PlannedAmount: string;
+  exp1PostingMonth: string;
+};

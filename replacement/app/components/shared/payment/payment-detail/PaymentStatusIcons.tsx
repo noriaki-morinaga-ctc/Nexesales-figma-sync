@@ -14,8 +14,8 @@ import {
   CircleX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { EmptyValue } from '../../../ui/empty-value';
-import { Badge } from '../../../ui/badge';
+import { EmptyValue } from '@/app/components/ui/empty-value';
+import { Badge } from '@/app/components/ui/badge';
 
 interface StatusMarkProps {
   /** 表示するアイコン（lucide-react） */

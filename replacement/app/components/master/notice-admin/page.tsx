@@ -22,22 +22,22 @@ import {
   useGridColumnState,
   useRevealNewRows,
   GRID_DATE_TEXT_FILTER,
-} from '../../grid';
-import { CopyableArea } from '../../ui/copyable-area';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { Checkbox } from '../../ui/checkbox';
-import { Input } from '../../ui/input';
-import { MultiCombobox } from '../../ui/multi-combobox';
-import { RequiredBadge } from '../../ui/required-badge';
-import { Badge } from '../../ui/badge';
-import { DateTimePicker } from '../../ui/date-time-picker';
+} from '@/app/components/grid';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Input } from '@/app/components/ui/input';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
+import { Badge } from '@/app/components/ui/badge';
+import { DateTimePicker } from '@/app/components/ui/date-time-picker';
 import {
   BUTTON_STYLES,
   CARD_TITLE_CLASS,
   FORM_LABEL_CLASS,
   FORM_VALUE_CLASS,
   TEXT_INPUT_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   type DisplayStatus,
   type NoticeDraft,
@@ -53,7 +53,7 @@ import {
   removeNotice,
   updateNotice,
   useNotices,
-} from './noticeStore';
+} from './useNotices';
 import {
   ActionCellRenderer,
   StatusCellRenderer,
@@ -63,19 +63,15 @@ import {
   NOTICE_TYPE_BADGE_CLASS,
   TypeBadgeRenderer,
   type NoticeGridContext,
-} from './NoticeUi';
-import {
-  validate,
-  type FieldErrors,
-  type PublishAction,
-} from './noticeValidation';
+} from './components/NoticeUi';
+import { validate, type FieldErrors, type PublishAction } from './utils';
 import { NoticePreview } from './components/NoticePreview';
 import { RichBodyEditor } from './components/RichBodyEditor';
-import { ScreenTitle } from '../../ui/screen-title';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
 
 // ===== お知らせメンテ画面（管理者ビュー・モック / in-memory） =====
 // 一覧ビュー（検索条件＋一覧グリッド）と編集ビュー（フォーム＋プレビュー）を mode で切り替える。
-// 本文ロジック=noticeBody / UI定数・セルレンダラ=NoticeUi / 入力チェック=noticeValidation /
+// 本文ロジック=components/NoticeBody / UI定数・セルレンダラ=components/NoticeUi / 入力チェック=utils /
 // エディタ・プレビュー・日時ピッカー=components/ に分割。
 
 // 列状態（列幅・並び順・ソート）の保存キー。列構成を変えたらバージョンを上げる（→ 02 §9）

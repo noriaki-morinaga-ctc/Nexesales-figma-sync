@@ -7,7 +7,10 @@
 //     請求情報（請求金額など）を直せない。そのため元のデータ元を行に持っておく
 //   ・値を元に戻しても（Undo を含む）手入力のままとする（要件に戻す決まりが無いため）
 // 請求書無の追加口明細はデータ元の区分を持たず、値も直せないため対象外。
-import { DEFAULT_DATA_SOURCE, type DataSource } from '../../../constants/dataSource';
+import {
+  DEFAULT_DATA_SOURCE,
+  type DataSource,
+} from '@/app/constants/dataSource';
 
 // データ元を持つ明細行（追加口明細・拡売費明細）。
 export interface DataSourceRow {

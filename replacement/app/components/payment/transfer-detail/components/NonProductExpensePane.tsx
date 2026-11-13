@@ -41,8 +41,9 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../../grid';
-import { SingleComboboxCellEditor } from '../../../ui/single-combobox-cell-editor';
+  asCellStyle,
+} from '@/app/components/grid';
+import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 // 枝番行（振替先行）の管理区分〜施策コードは、費用振替の振替先明細と同じ
 // 選択肢ビルダー・同じ名称/コード変換を使う（列の関係と候補データを揃えるため）。
 import {
@@ -52,43 +53,49 @@ import {
   managementCodeComboOptions,
   campaignClassComboOptions,
   campaignCodeComboOptions,
-} from '../../../../constants/paymentComboFieldOptions';
+} from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
+import {
+  managementCodeNameComboOptions,
+  campaignCodeNameComboOptions,
+} from '@/app/constants/comboFieldOptions';
 import {
   managementCodeNameOf,
   managementCodeOfName,
-  managementCodeNameComboOptions,
   campaignCodeNameOf,
   campaignCodeOfName,
-  campaignCodeNameComboOptions,
-} from '../../../../constants/comboFieldOptions';
+} from '@/app/utils/common/comboFieldOptions';
 import {
   EXPENSE_MANAGEMENT_CODE_OPTIONS,
   EXPENSE_CAMPAIGN_CODE_OPTIONS,
+} from '@/app/constants/expenseRelations';
+import {
   managementClassFromCode,
   isManagementCodeInClass,
   campaignClassFromCode,
   isCampaignCodeInClass,
-} from '../../../../constants/expenseRelations';
+} from '@/app/utils/common/expenseRelations';
 import {
   // 一次店/三次店/販売店は振替先明細（費用振替）と同じ商流マスタを使う。
   STORE_NONE,
   PRIMARY_STORE_OPTIONS,
   tertiaryOptionsFor,
   storeOptionsFor,
-} from '../../../../constants/storeHierarchy';
+} from '@/app/constants/storeHierarchy';
 import {
-  // 費用負担部署・担当者は「支払として存在する組合せ」だけを選べるよう、
-  // 商流3項目と合成した連動（純関数）を使う（→ constants/paymentOrgCascade）。
   deptOptionsFor,
   staffOptionsFor,
   applyStoreOrgCascade,
-  type StoreOrgSelection,
-} from '../../../../constants/paymentOrgCascade';
-import { CollapsibleCard } from '../../../ui/collapsible-card';
+} from '@/app/utils/payment/payment-detail/paymentOrgCascade';
+import type { StoreOrgSelection } from '@/app/types/organization';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import type { TransferDetailBasicInfoValues } from './TransferInfo';
-import { useResizableHeight, ResizeHandle } from '../../../ui/resizable-panel';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/app/components/ui/resizable-panel';
 
-import { BUTTON_STYLES, BUTTON_BASE } from '../../../../../styles/commonStyles';
+import { BUTTON_STYLES, BUTTON_BASE } from '@/styles/commonStyles';
+
 // 拡売費明細データ（Excel「拡売費」表）
 export interface ExpenseRow {
   isGroup?: boolean; // グループ合計行
@@ -1232,10 +1239,11 @@ export const NonProductExpensePane = forwardRef<
 
   // 総合計行＋非活性セルのスタイル。
   // 合計行は薄い青（gridStyles の total）、通常データ行（非活性列）は灰（readonly）。
-  const groupStyle = (params: any) =>
+  const groupStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
       ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
-      : { backgroundColor: GRID_COLORS.readonly };
+      : { backgroundColor: GRID_COLORS.readonly }
+  );
 
   // 右寄せ列は共通クラス cell-right（grid.css）を cellClass で指定し、
   // cellStyle には背景色のみを持たせる（→ 02 §7）。
@@ -1246,13 +1254,13 @@ export const NonProductExpensePane = forwardRef<
 
   // 操作ウィジェット列（販売計画選択・費用分割）用：データ行は白背景。
   // 合計行（グループ合計・総合計）は薄い青。分割先行は非活性（灰）。
-  const widgetStyle = (params: any) => {
+  const widgetStyle = asCellStyle((params: any) => {
     if (params.data?.isGroup || params.data?.isTotal)
       return { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
     if (isSplitDestRow(params))
       return { backgroundColor: GRID_COLORS.readonly };
     return { backgroundColor: GRID_COLORS.editable };
-  };
+  });
 
   // 枝番行（「X-N」の振替先行）の親行＝振替元行を返す。
   const parentRowOf = (row: ExpenseRow | undefined): ExpenseRow | undefined => {
@@ -1319,14 +1327,14 @@ export const NonProductExpensePane = forwardRef<
   const branchEditable = (params: any) => isSplitDestRow(params);
 
   // 枝番行だけを活性にする列のセル背景（活性＝白／非活性＝灰。合計行は薄い青）。
-  const branchCellStyle =
-    (isEditable: (params: any) => boolean) => (params: any) => {
+  const branchCellStyle = (isEditable: (params: any) => boolean) =>
+    asCellStyle((params: any) => {
       if (params.data?.isGroup || params.data?.isTotal)
         return { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
       return isEditable(params)
         ? { backgroundColor: GRID_COLORS.editable }
         : { backgroundColor: GRID_COLORS.readonly };
-    };
+    });
 
   // 商流・組織列の値取得。枝番行は振替先の値、親行は明細自身の値を表示する。
   const storeOrgValueGetter =
@@ -1576,7 +1584,7 @@ export const NonProductExpensePane = forwardRef<
       },
       {
         // 担当者：当該行の販売店・費用負担部署との組合せが支払として存在するものだけに絞り込む。
-        headerName: '担当者',
+        headerName: '営業担当者',
         colId: 'staff',
         width: 120,
         valueGetter: storeOrgValueGetter('staff'),
@@ -1805,6 +1813,8 @@ export const NonProductExpensePane = forwardRef<
         // 枝番行（振替先行）の折りたたみボタン。No. 列の左に置き、
         // 枝番行を持つ親行にのみ表示する。ヘッダーのアイコンで一括開閉する。
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         headerComponent: TransferBranchCollapseHeader,
         colId: 'branchCollapse',
         lockPinned: true,
@@ -1895,6 +1905,8 @@ export const NonProductExpensePane = forwardRef<
         // 行操作（振替処理・コピー・削除／振替元へ戻す）のアイコンボタン列。一番右に右固定。
         // アイコン3個ぶんの幅（ボタン24px×3＋間隔4px×2＋左右余白）を確保する。
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         colId: 'rowMenu',
         pinned: 'right',
         lockPinned: true,
@@ -1922,7 +1934,8 @@ export const NonProductExpensePane = forwardRef<
       cellDataType: false,
       // 計算式セルは計算式テキストを、それ以外は従来どおりセル値をツールチップ表示する。
       tooltipValueGetter: (params) => {
-        const field = params.colDef.field;
+        // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+        const field = (params.colDef as ColDef).field;
         const row = params.data as ExpenseRow | undefined;
         if (field && row && isFormulaCell(field, row)) {
           return FORMULA_DEFS[field].tooltip(row);
@@ -1934,7 +1947,8 @@ export const NonProductExpensePane = forwardRef<
       cellClassRules: {
         ...GRID_DEFAULT_COL_DEF.cellClassRules,
         'formula-ref-highlight': (params) => {
-          const field = params.colDef.field;
+          // セルのツールチップでは colDef は列（ColDef）。列グループ（ColGroupDef）は来ない
+          const field = (params.colDef as ColDef).field;
           const rowId = params.node?.id ?? '';
           return !!field && hoverRefsRef.current.has(`${field}::${rowId}`);
         },

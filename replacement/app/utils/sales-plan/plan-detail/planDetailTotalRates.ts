@@ -13,12 +13,12 @@
 // 量経追加口・売上高・売買差益は、販売計画シミュレーションと同じく
 // 計画詳細の集計（補足3-1）と同じ式で明細1行ごとに求める（simulationManagementProfitOf）。
 // 明細表の合計行のため、拡売費計画タブの行（ロケ補填等）は含めない。
-import { parseFormulaNumber } from '../../../components/grid/gridCommon';
-import type { PlanPattern } from '../common/conditionUnitPrice';
+import { parseFormulaNumber } from '@/app/components/grid/gridCommon';
+import type { PlanPattern } from '@/app/utils/sales-plan/common/conditionUnitPrice';
 import {
   simulationManagementProfitOf,
   type SimulationProfitRow,
-} from '../simulation/simulationManagementProfit';
+} from '@/app/utils/sales-plan/simulation/simulationManagementProfit';
 
 // 算出に必要な項目のみ参照する緩い行型（計画詳細2画面の ProductData と構造互換）。
 export interface PlanDetailTotalRow extends SimulationProfitRow {

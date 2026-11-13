@@ -1,4 +1,4 @@
-import { Progress } from '../../ui/progress';
+import { Progress } from '@/app/components/ui/progress';
 
 interface ProgressToastProps {
   title: string;

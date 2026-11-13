@@ -7,7 +7,7 @@ import {
   listMetaBrands,
   listCapacities,
 } from './aggregationCalc';
-import type { AggregationSource } from '../../../constants/aggregationSourceData';
+import type { AggregationSource } from '@/app/types/aggregation';
 
 const months = (value: number, at: number): number[] =>
   Array.from({ length: 12 }, (_, i) => (i === at ? value : 0));

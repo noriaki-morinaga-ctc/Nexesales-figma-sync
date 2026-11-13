@@ -9,7 +9,6 @@ import {
   Check,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { Button } from '../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +16,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../ui/dropdown-menu';
-import { useScreenTitle } from '../../ui/screen-title';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-
-interface HeaderProps {
-  onMenuChange?: (menuId: string) => void;
-}
+} from '@/app/components/ui/dropdown-menu';
+import { useScreenTitle } from '@/app/components/ui/screen-title';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // 切り替えられる部署（モック。本番はログインユーザーの所属から取得する）
 const DEPARTMENTS = [
@@ -250,7 +246,9 @@ export const MENU_ITEMS = [
   },
 ];
 
-export function Header({ onMenuChange }: HeaderProps) {
+export function Header() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 表示中の画面名（各画面の ScreenTitle が登録する。TOP 等の未登録画面は空）
   const screenTitle = useScreenTitle();
   const [activeMenu, setActiveMenu] = useState<string>('');
@@ -271,18 +269,14 @@ export function Header({ onMenuChange }: HeaderProps) {
     } else {
       setActiveMenu(itemId);
       setOpenDropdown(null);
-      if (onMenuChange) {
-        onMenuChange(itemId);
-      }
+      navigate(itemId);
     }
   };
 
   const handleSubMenuClick = (parentId: string, childId: string) => {
     setActiveMenu(childId);
     setOpenDropdown(null);
-    if (onMenuChange) {
-      onMenuChange(childId);
-    }
+    navigate(childId);
   };
 
   const handleDepartmentChange = (value: string) => {
@@ -297,9 +291,7 @@ export function Header({ onMenuChange }: HeaderProps) {
     setIsDepartmentChangeDialogOpen(false);
     // TOP画面に移動
     setActiveMenu('');
-    if (onMenuChange) {
-      onMenuChange('top');
-    }
+    navigate('top');
   };
 
   const handleLogoClick = () => {
@@ -314,9 +306,7 @@ export function Header({ onMenuChange }: HeaderProps) {
     setIsTopTransitionDialogOpen(false);
     setActiveMenu('');
     setOpenDropdown(null);
-    if (onMenuChange) {
-      onMenuChange('top');
-    }
+    navigate('top');
   };
 
   // メニュー外クリックでドロップダウンを閉じる

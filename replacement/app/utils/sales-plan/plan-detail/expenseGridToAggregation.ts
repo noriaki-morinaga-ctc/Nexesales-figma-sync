@@ -8,22 +8,22 @@
 //   ・対象月基準：販売計画の対象年月に属するものとして集計する
 //   ・計上月基準：グリッドの計上年月に属するものとして集計する
 //     （対象月基準の系列を (計上月 − 対象月) か月ずらす。12か月で循環）
-import { managementClassFromCode } from '../../../constants/expenseRelations';
-import { SUMMARY_PRODUCT_OPTIONS } from '../../../constants/productMasters';
+import { managementClassFromCode } from '@/app/utils/common/expenseRelations';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
+import { AXIS_OTHER } from '@/app/constants/aggregationAxisMapping';
 import {
   toAxisMetaBrand,
   toAxisCapacity,
-  AXIS_OTHER,
-} from '../../../constants/aggregationAxisMapping';
+} from '@/app/utils/sales-plan/common/aggregationAxisMapping';
 import {
   expandToMonths,
   shiftMonths,
-} from '../../../constants/aggregationMasterDummy';
-import { monthIndex0Of } from '../../common/yearMonth';
+} from '@/app/utils/sales-plan/common/aggregationMasterDummy';
+import { monthIndex0Of } from '@/app/utils/common/yearMonth';
 import type {
   AggregationExpense,
   ExpenseCategory,
-} from '../../../constants/aggregationSourceData';
+} from '@/app/types/aggregation';
 
 // 集計対象となる管理区分の一覧（AggregationExpense.category と一致させる）
 export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [

@@ -4,12 +4,12 @@ import {
   CONTAINER_CAPACITY_OPTIONS,
 } from './aggregationAxisMaster';
 import { META_BRAND_MASTER, CONTAINER_CAPACITY_MASTER } from './productMasters';
+import { AXIS_OTHER } from './aggregationAxisMapping';
 import {
   toAxisMetaBrand,
   toAxisCapacity,
   isPBProduct,
-  AXIS_OTHER,
-} from './aggregationAxisMapping';
+} from '@/app/utils/sales-plan/common/aggregationAxisMapping';
 
 const brandValues = new Set(META_BRAND_OPTIONS.map((o) => o.value));
 const capacityValues = new Set(CONTAINER_CAPACITY_OPTIONS.map((o) => o.value));

@@ -14,16 +14,16 @@ import { AgGridReact } from 'ag-grid-react';
 import type { CustomCellRendererProps } from 'ag-grid-react';
 import type { ColDef, GetRowIdParams } from 'ag-grid-community';
 
-import { SingleCombobox } from '../../ui/single-combobox';
-import { SearchClearButton } from '../../ui/search-clear-button';
-import { MultiCombobox } from '../../ui/multi-combobox';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
 import {
   useOrgCascadeSearch,
   toOrgComboOptions,
-} from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
-import type { OrgLevel } from '../../../constants/orgHierarchy';
-import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+} from '@/app/components/ui/use-org-cascade-search';
+import type { OrgCascadeConfig } from '@/app/utils/common/orgCascade';
+import type { OrgLevel } from '@/app/types/organization';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -34,14 +34,15 @@ import {
   GRID_MONTH_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   formatEmptyAsDash,
-} from '../../grid';
-import { MonthYearPicker } from '../../ui/month-year-picker';
+} from '@/app/components/grid';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
   CARD_CLASS,
-} from '../../../../styles/commonStyles';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/styles/commonStyles';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // 検索条件の初期値（クリアボタンで戻す値）
 const INITIAL_DATE_BASIS = 'accounting'; // 計上年月
@@ -61,6 +62,7 @@ const INITIAL_ORG: Partial<Record<OrgLevel, string[]>> = {
 const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
   levels: ['office', 'department', 'salesRep'],
   labels: { office: '事業場', department: '部署', salesRep: '営業担当者' },
+  units: { salesRep: '名' },
 };
 
 // ステータスごとのアイコン・色設定
@@ -179,11 +181,9 @@ const StatusRenderer = (props: CustomCellRendererProps<QuoteData>) => {
   );
 };
 
-interface QuoteListProps {
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function QuoteList({ onMenuChange }: QuoteListProps) {
+export default function QuoteList() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // AG Grid参照
   const gridRef = useRef<AgGridReact<QuoteData>>(null);
 
@@ -303,7 +303,7 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
   // 引用ボタン押下処理（支払詳細(引用)画面へ遷移する）
   const handleQuote = (data: QuoteData) => {
     void data;
-    onMenuChange?.('payment-detail-quote');
+    navigate('payment-detail-quote');
   };
 
   // 請求書受領形態一覧ボタン押下処理
@@ -321,7 +321,10 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
     () => [
       {
         headerName: '',
-        field: 'paymentSheet',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
+        // 操作列（行のデータを持たない）のため field ではなく colId
+        colId: 'paymentSheet',
         cellRenderer: PaymentSheetButtonRenderer,
         sortable: false,
         filter: false,
@@ -331,7 +334,10 @@ export default function QuoteList({ onMenuChange }: QuoteListProps) {
       },
       {
         headerName: '',
-        field: 'amortization',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
+        // 操作列（行のデータを持たない）のため field ではなく colId
+        colId: 'amortization',
         cellRenderer: QuoteButtonRenderer,
         sortable: false,
         filter: false,

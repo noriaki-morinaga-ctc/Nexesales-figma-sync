@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
-import { matchesSearchQuery } from "../../utils/common/searchNormalize";
+import { matchesSearchQuery } from "@/app/utils/common/searchNormalize";
 import { cn } from "./utils";
 
 // 選択肢（value／label／code／badge で統一）

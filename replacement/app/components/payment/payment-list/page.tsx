@@ -16,17 +16,17 @@ import type {
   GetRowIdParams,
 } from 'ag-grid-community';
 
-import { SearchRangeField } from '../../ui/search-range-field';
-import { CopyableArea } from '../../ui/copyable-area';
-import { SingleCombobox } from '../../ui/single-combobox';
-import { MultiCombobox } from '../../ui/multi-combobox';
+import { SearchRangeField } from '@/app/components/ui/search-range-field';
+import { CopyableArea } from '@/app/components/ui/copyable-area';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { MultiCombobox } from '@/app/components/ui/multi-combobox';
 import {
   useOrgCascadeSearch,
   toOrgComboOptions,
-} from '../../ui/use-org-cascade-search';
-import type { OrgCascadeConfig } from '../../../utils/common/orgCascade';
-import type { OrgLevel } from '../../../constants/orgHierarchy';
-import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+} from '@/app/components/ui/use-org-cascade-search';
+import type { OrgCascadeConfig } from '@/app/utils/common/orgCascade';
+import type { OrgLevel } from '@/app/types/organization';
+import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
 import {
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
@@ -39,28 +39,28 @@ import {
   GRID_MONTH_TEXT_FILTER,
   GRID_EMPTY_TEXT,
   StatusIconCellRenderer,
-} from '../../grid';
-import { MonthYearPicker } from '../../ui/month-year-picker';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { SearchClearButton } from '../../ui/search-clear-button';
+} from '@/app/components/grid';
+import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { SearchClearButton } from '@/app/components/ui/search-clear-button';
 import {
   buildSearchSummary,
   formatSummaryRange,
   formatSummaryValue,
-} from '../../ui/search-summary';
+} from '@/app/components/ui/search-summary';
 import {
   FORM_LABEL_CLASS,
   BUTTON_STYLES,
   SEARCH_GRID_CLASS,
   SEARCH_LABEL_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/styles/commonStyles';
 import {
   RETAILER_OPTIONS,
   PRIMARY_STORE_OPTIONS,
   TERTIARY_STORE_OPTIONS,
   STATUS_FILTER_OPTIONS,
-  storeOptionsForRetailer,
-} from '../../../constants/paymentListSearchOptions';
+} from '@/app/constants/paymentListSearchOptions';
+import { storeOptionsForRetailer } from '@/app/utils/payment/payment-list/paymentListSearchOptions';
 import {
   VOUCHER_TYPE,
   VOUCHER_TYPE_ALL,
@@ -68,8 +68,9 @@ import {
   STATUS_FILTER_EXCLUDING_NO_PAYMENT,
   formatRepresentative,
   matchesPaymentListFilter,
-} from '../../../utils/payment/payment-list/paymentApplicationList';
-import { ScreenTitle } from '../../ui/screen-title';
+} from '@/app/utils/payment/payment-list/paymentApplicationList';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 
 // 検索条件の初期値（クリアボタンで戻す値）
 const INITIAL_DATE_BASIS = 'accounting'; // 計上年月
@@ -109,6 +110,7 @@ const ORG_CASCADE_CONFIG: OrgCascadeConfig = {
     terminalOrg: '末端組織',
     salesRep: '営業担当者',
   },
+  units: { salesRep: '名' },
 };
 
 // ステータスごとのアイコン・色設定。
@@ -371,11 +373,9 @@ const PresenceTagRenderer = (
 const dashIfEmpty = (value: unknown): string =>
   value ? String(value) : GRID_EMPTY_TEXT;
 
-interface PaymentListProps {
-  onMenuChange?: (menuId: string) => void;
-}
-
-export default function PaymentList({ onMenuChange }: PaymentListProps) {
+export default function PaymentList() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // 列状態（列幅・並び順・ソート）の保存／復元（共通フック）。
   // 返り値を <AgGridReact> に spread するだけで永続化が有効になる。
   // 備考・販売計画選択・他部門受領の列削除と振替元部署の列追加で列構成が変わるため、
@@ -937,9 +937,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
   // TODO: 選択行（data）の内容を遷移先へ引き継ぐ。支払の画面出し分けは
   //       本来は商流販売店で決まるが、未実装のため行単位の巡回で代替している。
   const handleDetail = (data: PaymentApplicationData) => {
-    onMenuChange?.(
-      detailMenuIdByRowId.get(data.id) ?? PAYMENT_DETAIL_MENU_IDS[0]
-    );
+    navigate(detailMenuIdByRowId.get(data.id) ?? PAYMENT_DETAIL_MENU_IDS[0]);
   };
 
   // セルのダブルクリック処理（行内のどこでも詳細ボタンと同じ画面へ遷移する）。
@@ -954,12 +952,12 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
 
   // ＋振替追加ボタン押下処理（振替詳細画面へ遷移する。振替元の選択は振替詳細側で行う）
   const handleAddTransfer = () => {
-    onMenuChange?.(TRANSFER_DETAIL_MENU_ID);
+    navigate(TRANSFER_DETAIL_MENU_ID);
   };
 
   // ＋商流販売店紐づけなし支払追加ボタン押下処理（支払詳細(商流販売店紐づけなし)へ遷移する）
   const handleAddNoLinkPayment = () => {
-    onMenuChange?.(PAYMENT_DETAIL_UNLINKED_MENU_ID);
+    navigate(PAYMENT_DETAIL_UNLINKED_MENU_ID);
   };
 
   // 分割・振替のアコーディオン（AG Grid の Master Detail。計画一覧の販売店展開と同じ方式）。
@@ -1006,7 +1004,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
             cellClass: 'cell-left',
           },
           {
-            headerName: '担当者',
+            headerName: '営業担当者',
             field: 'personName',
             flex: 1,
             cellClass: 'cell-left',
@@ -1047,7 +1045,10 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
       // ── 識別・状態の列 ──
       {
         headerName: '',
-        field: 'detail',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
+        // 操作列（行のデータを持たない）のため field ではなく colId
+        colId: 'detail',
         cellRenderer: DetailButtonRenderer,
         sortable: false,
         filter: false,
@@ -1410,14 +1411,15 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
                     3行目＝ステータス系＋区分系（ステータス・伝票種別）／4行目＝商流系（販売店・一次店・三次店）。
                   各行の先頭の項目に col-start-1 を付けて行を折り返す。 */}
               <div className={SEARCH_GRID_CLASS}>
-                {/* 期間系: 年月 [開始]～[終了]（2列分）。ラベルは「年月」1つだけ置き、
-                    開始は1列目・終了は2列目の入力欄の幅いっぱいに置き、「～」は2列目のラベルの位置に置く（共通部品 SearchRangeField → 05）。範囲はグループにして名前を付ける */}
+                {/* 期間系: 年月 [開始]～[終了]。ラベルは「年月」1つだけ置き、
+                    開始～終了をセットで1項目分に置く（共通部品 SearchRangeField・部品は compact → 05）。範囲はグループにして名前を付ける */}
                 <SearchRangeField
                   label="年月"
                   groupLabel="検索対象年月の範囲"
                   start={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={yearMonthStart}
                       onChange={setYearMonthStart}
                       required={false}
@@ -1428,6 +1430,7 @@ export default function PaymentList({ onMenuChange }: PaymentListProps) {
                   end={
                     <MonthYearPicker
                       className="w-full"
+                      compact
                       value={yearMonthEnd}
                       onChange={setYearMonthEnd}
                       required={false}

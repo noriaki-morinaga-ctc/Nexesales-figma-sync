@@ -2,7 +2,7 @@ import type { GridApi } from 'ag-grid-community';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { BUTTON_BASE, BUTTON_STYLES } from '../../../../../styles/commonStyles';
+import { BUTTON_BASE, BUTTON_STYLES } from '@/styles/commonStyles';
 
 interface ExpandCollapseButtonProps {
   // 開閉するグリッドの API（onGridReady で受け取る。準備前は null）

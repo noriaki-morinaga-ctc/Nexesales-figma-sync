@@ -6,21 +6,21 @@
 // 単価系の小数第2位・計算式ツールチップ）は新規作成でもそのまま効く必要がある。
 // 空行だと判定が変わって効かなくなる、という取りこぼしを防ぐために確認する。
 import { describe, it, expect } from 'vitest';
+import { BILLING_STAFF_BY_STORE_NAME } from '@/mocks/payment/billing-detail-aic';
+import { NEW_BILLING_ID } from '@/app/constants/billing';
+import { createEmptyBilling } from '@/mocks/common/billing';
 import {
-  BILLING_STAFF_BY_STORE_NAME,
-  NEW_BILLING_ID,
-  createEmptyBilling,
   createEmptyBillingDetailRows,
   isBillingDetailStatusLocked,
-} from './billingMockData';
+} from '@/app/utils/payment/billing/billing';
 import {
   billingCalcAmountOf,
   billingDiffOf,
   billingFormulaTooltipOf,
   billingUnitPriceOf,
   isBillingAmountMismatch,
-} from '../utils/payment/billing/billingDetailFormula';
-import { formatBillingUnitPrice } from '../utils/payment/billing/billingNumberFormat';
+} from '@/app/utils/payment/billing/billingDetailFormula';
+import { formatBillingUnitPrice } from '@/app/utils/payment/billing/billingNumberFormat';
 
 const newEntry = createEmptyBilling();
 const newRows = createEmptyBillingDetailRows();

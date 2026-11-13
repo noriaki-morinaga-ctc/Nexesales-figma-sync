@@ -15,11 +15,9 @@
 //      利用者がその項目を操作すると、自動で選んだ値ではなくなる（以後は①〜⑥のとおり）
 // 画面ごとに持つ階層は違ってよい（例：末端組織の無い画面）。levels に上位から順に渡す。
 // 純関数として提供し、状態は呼び出し側（hooks）が持つ。
-import {
-  ORG_ITEMS,
-  orgAncestor,
-  type OrgLevel,
-} from '../../constants/orgHierarchy';
+import { ORG_ITEMS } from '@/app/constants/orgHierarchy';
+import { orgAncestor } from '@/app/utils/common/orgHierarchy';
+import type { OrgLevel } from '@/app/types/organization';
 
 export interface OrgCascadeState {
   /** 階層ごとの選択値（表示順＝マスタの並び） */
@@ -35,6 +33,8 @@ export interface OrgCascadeConfig {
   levels: readonly OrgLevel[];
   /** 項目名（例：salesRep → 作成者）。検索条件カードを折り畳んだときの要約に使う */
   labels: Partial<Record<OrgLevel, string>>;
+  /** 検索条件カードを折り畳んだときの要約で、表示しきれない値の数に付ける単位（既定「件」。担当者は「名」） */
+  units?: Partial<Record<OrgLevel, string>>;
 }
 
 export interface OrgCascadeResult {

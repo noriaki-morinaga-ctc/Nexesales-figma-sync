@@ -12,14 +12,11 @@ import { toast } from 'sonner';
 import {
   masterConfirmMessage,
   masterMessage,
-} from '../../../constants/masterMessages';
-import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { ScreenTitle } from '../../ui/screen-title';
-import { SingleCombobox } from '../../ui/single-combobox';
-import {
-  BUTTON_STYLES,
-  FORM_LABEL_CLASS,
-} from '../../../../styles/commonStyles';
+} from '@/app/utils/common/masterMessages';
+import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { SingleCombobox } from '@/app/components/ui/single-combobox';
+import { BUTTON_STYLES, FORM_LABEL_CLASS } from '@/styles/commonStyles';
 import { MasterSearchCard } from './MasterSearchCard';
 import { MasterListCard } from './MasterListCard';
 import { MasterEditPane } from './MasterEditPane';

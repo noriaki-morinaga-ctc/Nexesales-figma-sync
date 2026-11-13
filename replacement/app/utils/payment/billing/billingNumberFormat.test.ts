@@ -6,7 +6,7 @@ import {
   formatBillingUnitPrice,
   roundBillingNumber,
 } from './billingNumberFormat';
-import { BILLING_DETAIL_BY_DATA_SOURCE } from '../../../constants/billingMockData';
+import { BILLING_DETAIL_BY_DATA_SOURCE } from '@/mocks/common/billing';
 
 describe('roundBillingNumber', () => {
   it('小数第3位を四捨五入して第2位まで持つ', () => {

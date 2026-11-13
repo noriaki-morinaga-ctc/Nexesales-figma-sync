@@ -26,7 +26,7 @@ import type {
   ValueGetterParams,
 } from 'ag-grid-community';
 import { Ban, Copy, Download, Plus, SquarePen, Trash2 } from 'lucide-react';
-import { CollapsibleCard } from '../../ui/collapsible-card';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import {
   GRID_BASE_PROPS,
   GRID_DATE_TEXT_FILTER,
@@ -36,7 +36,7 @@ import {
   GRID_STATUS_BAR,
   useGridColumnState,
   withHeaderTooltips,
-} from '../../grid';
+} from '@/app/components/grid';
 import type {
   MasterFieldDef,
   MasterGridRow,
@@ -330,6 +330,8 @@ export function MasterListCard({
     if (!generation) return undefined;
     return {
       headerName: '',
+      // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+      suppressColumnsToolPanel: true,
       headerTooltip: '世代の展開',
       colId: 'generationToggle',
       valueGetter: () => '',

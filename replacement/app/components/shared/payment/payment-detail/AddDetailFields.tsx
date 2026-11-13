@@ -3,15 +3,15 @@
 //   InputField    … グリッドで編集できる列に対応する活性の入力欄
 //   ReadOnlyField … グリッドで編集できない列に対応する非活性の表示欄
 //                  （自動採番・マスタからの自動表示・数式による自動算出）
-import { Label } from '../../../ui/label';
-import { Input } from '../../../ui/input';
-import { TEXT_INPUT_CLASS } from '../../../../../styles/commonStyles';
-import { NumericInput } from '../../../ui/numeric-input';
+import { Label } from '@/app/components/ui/label';
+import { Input } from '@/app/components/ui/input';
+import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
+import { NumericInput } from '@/app/components/ui/numeric-input';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../../ui/single-combobox';
-import { RequiredBadge } from '../../../ui/required-badge';
+} from '@/app/components/ui/single-combobox';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 
 // 非活性欄の見た目（グリッドの編集不可セル＝灰と対応させる）。
 const READONLY_INPUT_CLASS =

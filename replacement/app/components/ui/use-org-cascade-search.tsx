@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import {
-  findOrgItem,
-  type OrgItem,
-  type OrgLevel,
-} from '../../constants/orgHierarchy';
+import { findOrgItem } from '@/app/utils/common/orgHierarchy';
+import type { OrgItem, OrgLevel } from '@/app/types/organization';
 import {
   applyOrgSelection,
   orgCandidates,
   type OrgCascadeConfig,
   type OrgCascadeState,
-} from '../../utils/common/orgCascade';
+} from '@/app/utils/common/orgCascade';
 import type { MultiComboboxOption } from './multi-combobox';
 import { formatSummaryValues, type SearchSummaryItem } from './search-summary';
 

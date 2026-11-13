@@ -25,6 +25,7 @@ import { format, parse } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
+  viewportGridHeight,
   useGridColumnState,
   GRID_DEFAULT_COL_DEF,
   GRID_STATUS_BAR,
@@ -35,24 +36,33 @@ import {
   useRevealNewRows,
   GRID_NUMBER_TEXT_FILTER,
   GRID_EMPTY_TEXT,
-} from '../../grid';
-import { RequiredBadge } from '../../ui/required-badge';
+} from '@/app/components/grid';
+import { RequiredBadge } from '@/app/components/ui/required-badge';
 import {
   SingleCombobox,
   type SingleComboboxOption,
-} from '../../ui/single-combobox';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { TEXT_INPUT_CLASS, CARD_CLASS } from '../../../../styles/commonStyles';
-import { Label } from '../../ui/label';
-import { DateMonthYearPicker } from '../../ui/date-month-year-picker';
-import { DateMonthYearCellEditor } from '../../ui/date-month-year-cell-editor';
-import { Popover, PopoverTrigger, PopoverContent } from '../../ui/popover';
-import { Calendar } from '../../ui/calendar';
-import { RightPane } from '../../ui/right-pane';
-import { BottomPane } from '../../ui/bottom-pane';
-import { CollapsibleCard } from '../../ui/collapsible-card';
-import { PaymentPlanSelectionPane } from '../../shared/payment/payment-detail/PaymentPlanSelectionPane';
+} from '@/app/components/ui/single-combobox';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import {
+  TEXT_INPUT_CLASS,
+  CARD_CLASS,
+  SEARCH_GRID_CLASS,
+  SEARCH_LABEL_CLASS,
+} from '@/styles/commonStyles';
+import { Label } from '@/app/components/ui/label';
+import { DateMonthYearPicker } from '@/app/components/ui/date-month-year-picker';
+import { DateMonthYearCellEditor } from '@/app/components/ui/date-month-year-cell-editor';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/app/components/ui/popover';
+import { Calendar } from '@/app/components/ui/calendar';
+import { RightPane } from '@/app/components/ui/right-pane';
+import { BottomPane } from '@/app/components/ui/bottom-pane';
+import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
+import { PaymentPlanSelectionPane } from '@/app/components/shared/payment/payment-detail/PaymentPlanSelectionPane';
 import {
   Dialog,
   DialogContent,
@@ -60,7 +70,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
+} from '@/app/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,12 +80,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogCancel,
-} from '../../ui/alert-dialog';
-import { ScreenTitle } from '../../ui/screen-title';
-
-interface PaymentDetailOtherProps {
-  onMenuChange?: (menuId: string) => void;
-}
+} from '@/app/components/ui/alert-dialog';
+import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 支払確認ダイアログで扱うアクション種別
 type ConfirmAction = 'apply' | 'withdraw' | 'approve' | 'reject' | null;
@@ -137,8 +145,8 @@ interface ExpansionExpenseData {
   measureCode: string; // 施策コード（"コード:名称"）
   approvalNumber: string; // 稟議決裁番号（テキストボックス）
   approvalDate: string; // 稟議決裁日（日付テキストボックス）
-  note1: string; // 摘要１（社内用）
-  note2: string; // 摘要２（社外用）
+  note1: string; // 摘要1（社内用）
+  note2: string; // 摘要2（社外用）
   accountAmount: string; // 勘定科目別金額（テキストボックス）
   differenceReason: string; // 差異理由（テキストボックス）
   invoiceNumber: string; // 請求書番号（テキストボックス）
@@ -417,9 +425,9 @@ const ActionsCellRenderer = (props: ICellRendererParams) => {
   );
 };
 
-export default function PaymentDetailOther({
-  onMenuChange,
-}: PaymentDetailOtherProps) {
+export default function PaymentDetailOther() {
+  // 画面の切り替え（→ ui/use-app-navigation）
+  const navigate = useAppNavigation();
   // フォーム状態管理（ヘッダーエリア：支払申請承認画面と同一項目）
   const [invoiceCount, setInvoiceCount] = useState('1');
   const [paymentDestination, setPaymentDestination] =
@@ -542,9 +550,7 @@ export default function PaymentDetailOther({
   // 戻る確定 → 支払申請一覧参照画面へ遷移
   const handleBackConfirm = () => {
     setIsBackDialogOpen(false);
-    if (onMenuChange) {
-      onMenuChange('payment-list');
-    }
+    navigate('payment-list');
   };
 
   // 支払確認ダイアログの確定
@@ -559,9 +565,7 @@ export default function PaymentDetailOther({
   // ヘッダー項目（テキストラベル）の共通描画
   const renderLabelField = (label: string, value: string) => (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right">
-        {label}
-      </label>
+      <label className={SEARCH_LABEL_CLASS}>{label}</label>
       <span className="h-8 flex items-center text-sm text-gray-900">
         {value}
       </span>
@@ -979,17 +983,17 @@ export default function PaymentDetailOther({
         cellEditorPopup: true,
         cellStyle: { backgroundColor: EDITABLE_CELL_BG },
       },
-      // 摘要１（社内用）（テキストボックス）
+      // 摘要1（社内用）（テキストボックス）
       {
-        headerName: '摘要１（社内用）',
+        headerName: '摘要1（社内用）',
         field: 'note1',
         editable: true,
         cellEditor: 'agTextCellEditor',
         cellStyle: { backgroundColor: EDITABLE_CELL_BG },
       },
-      // 摘要２（社外用）（テキストボックス）
+      // 摘要2（社外用）（テキストボックス）
       {
-        headerName: '摘要２（社外用）',
+        headerName: '摘要2（社外用）',
         field: 'note2',
         editable: true,
         cellEditor: 'agTextCellEditor',
@@ -1051,6 +1055,8 @@ export default function PaymentDetailOther({
       // 行アクション（編集・コピー・削除）
       {
         headerName: '',
+        // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
+        suppressColumnsToolPanel: true,
         field: 'actions',
         pinned: 'right',
         lockPinned: true,
@@ -1158,21 +1164,27 @@ export default function PaymentDetailOther({
         >
           <div className="p-4">
             {/* 1行目: 対象年月 / 販売計画書No */}
-            <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+            <div
+              className={`${SEARCH_GRID_CLASS} mb-2 items-center pb-3 border-b border-gray-300`}
+            >
               {renderLabelField('対象年月', '2025年5月')}
               {renderLabelField('販売計画書No', 'D2420TK08')}
               <div className="col-span-2" />
             </div>
 
             {/* 計上年月 / 支払明細書No */}
-            <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+            <div
+              className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            >
               {renderLabelField('計上年月', '2025年6月')}
               {renderLabelField('支払明細書No', 'C2400NTO2')}
               <div className="col-span-2" />
             </div>
 
             {/* 販売店 / 三次店 / 一次店 */}
-            <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+            <div
+              className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            >
               {renderLabelField('販売店', '21100677:XXX九州')}
               {renderLabelField('三次店', '10863223:YYY九州')}
               {renderLabelField('一次店', '10888030:ZZZ九州支店')}
@@ -1180,7 +1192,7 @@ export default function PaymentDetailOther({
             </div>
 
             {/* 事業場 / 部署 / 営業担当者（基本情報の最終行・下ボーダーなし） */}
-            <div className="grid grid-cols-4 gap-3 mb-2">
+            <div className={`${SEARCH_GRID_CLASS} mb-2`}>
               {renderLabelField('事業場', '10000623:首都圏支社')}
               {renderLabelField('部署', '10002990:首都圏営業二部')}
               {renderLabelField('営業担当者', '5172733:アサヒ太郎')}
@@ -1450,7 +1462,7 @@ export default function PaymentDetailOther({
 
           <div
             className="expansion-detail-grid w-full px-3 pb-3 pt-0"
-            style={{ height: 'calc(100vh - 8rem)', minHeight: '25rem' }}
+            style={{ height: viewportGridHeight(8), minHeight: '25rem' }}
           >
             <AgGridReact
               onRowDataUpdated={reveal.onRowDataUpdated}
@@ -1685,7 +1697,7 @@ export default function PaymentDetailOther({
 
               {/* 摘要１・摘要２ */}
               <div className="space-y-2">
-                <Label htmlFor="pane-note1">摘要１（社内用）</Label>
+                <Label htmlFor="pane-note1">摘要1（社内用）</Label>
                 <Input
                   id="pane-note1"
                   className={TEXT_INPUT_CLASS}
@@ -1694,7 +1706,7 @@ export default function PaymentDetailOther({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pane-note2">摘要２（社外用）</Label>
+                <Label htmlFor="pane-note2">摘要2（社外用）</Label>
                 <Input
                   id="pane-note2"
                   className={TEXT_INPUT_CLASS}
@@ -1828,24 +1840,13 @@ export default function PaymentDetailOther({
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
             {/* コメント欄（差戻しボタンの左・支払申請承認を参考） */}
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="expansion-comment"
-                className="text-sm text-gray-600 whitespace-nowrap"
-              >
-                コメント
-              </label>
-              <textarea
-                id="expansion-comment"
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                placeholder="コメントを入力（差戻し理由など）"
-                rows={2}
-                className="h-10 w-[32rem] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-              />
-            </div>
+            <FooterCommentField
+              id="expansion-comment"
+              value={commentInput}
+              onChange={setCommentInput}
+            />
             <button
               className="btn-action-base btn-action-red"
               onClick={() => setConfirmAction('reject')}

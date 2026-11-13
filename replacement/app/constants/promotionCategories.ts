@@ -1,11 +1,5 @@
-// 商品区分・販促区分の選択肢定義（販促区分.xlsx 準拠）
-// 商品区分ごとに表示する販促区分リストの単一の情報源（Single Source of Truth）。
-// 各画面（販売計画表・年間計画・シミュレーション）はこのモジュールを参照する。
-
-export interface SelectOption {
-  value: string;
-  label: string;
-}
+import type { SelectOption } from '@/app/types/master';
+import { getPromotionLabels } from '@/app/utils/sales-plan/common/promotionCategories';
 
 const toOptions = (labels: string[]): SelectOption[] =>
   labels.map((label) => ({ value: label, label }));
@@ -59,17 +53,9 @@ export const PROMOTABLE_CATEGORIES = ['定番商品', '特売', '新商品', '�
 // 販促区分が存在しない場合に表示する記号（特殊商品など）
 export const PROMOTION_NONE_LABEL = '-';
 
-// 指定した商品区分の販促区分ラベル配列を返す（未定義カテゴリは空配列）
-export const getPromotionLabels = (category: string): string[] =>
-  PROMOTION_LABELS_BY_CATEGORY[category] ?? [];
-
 // 指定した商品区分の販促区分オプション（value/label）配列を返す
 export const getPromotionOptions = (category: string): SelectOption[] =>
   toOptions(getPromotionLabels(category));
-
-// 販促区分が選択可能な商品区分か（リストを持つか）
-export const hasPromotionOptions = (category: string): boolean =>
-  getPromotionLabels(category).length > 0;
 
 // ===== 商品区分の選択肢（画面種別ごと） =====
 // マージン率固定・NET入力画面: 定番商品 / 新商品 / 特売 / ギフト

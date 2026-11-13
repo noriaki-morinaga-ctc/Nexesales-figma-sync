@@ -6,7 +6,7 @@
 // データ元別の内訳は、支払回数を分けずに合計行をデータ元ごとに分けて出すため（→ 課題 No.1275）。
 // 値は明細から集計する。請求金額が未設定の行は0として数え、差額のマイナスを許容する
 //（請求EDIの取込か手入力で請求金額が入ると、画面上で再集計する）。
-import { DATA_SOURCES, type DataSource } from '../../../constants/dataSource';
+import { DATA_SOURCES, type DataSource } from '@/app/constants/dataSource';
 
 // 税率別の列（表示順）。
 export const TAX_RATE_COLUMNS = [
