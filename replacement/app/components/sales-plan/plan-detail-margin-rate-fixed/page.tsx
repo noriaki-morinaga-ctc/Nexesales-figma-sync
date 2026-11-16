@@ -12,6 +12,8 @@ import { Button } from '@/app/components/ui/button';
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import { PlanSearchPane } from '@/app/components/shared/sales-plan/plan-detail/PlanSearchPane';
 import { PlanAggregationPane } from '@/app/components/shared/sales-plan/plan-detail/PlanAggregationPane';
+import { PLAN_DETAIL_SECTION_OPTIONS } from '@/app/components/shared/sales-plan/plan-detail/PlanDetailHeaderMenus';
+import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
 import { DetailTable } from './components/DetailTable';
 import {
   PlanNonProductExpensePane,
@@ -33,12 +35,6 @@ import { Input } from '@/app/components/ui/input';
 import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import { Label } from '@/app/components/ui/label';
 import { ExpenseBlockFields } from '@/app/components/shared/sales-plan/common/ExpenseBlockFields';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/app/components/ui/tabs';
 import { RequiredBadge } from '@/app/components/ui/required-badge';
 import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import { BottomPane } from '@/app/components/ui/bottom-pane';
@@ -598,6 +594,16 @@ export default function PlanDetailMarginRateFixed() {
     );
   };
 
+  // 販売計画(詳細)／拡売費計画の切替（それぞれの見出しの行の先頭に置く。UX-106）
+  const sectionSwitch = (
+    <SegmentToggle
+      ariaLabel="販売計画の表示"
+      options={[...PLAN_DETAIL_SECTION_OPTIONS]}
+      value={activeTab}
+      onChange={setActiveTab}
+    />
+  );
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-gray-100">
       {/* 左ペイン：メインコンテンツ */}
@@ -618,11 +624,6 @@ export default function PlanDetailMarginRateFixed() {
                   // 折り畳んでも対象年月・ステータス・販売店を見出しに表示する
                   showSummaryWhenCollapsed
                   basicInfo={PLAN_BASIC_INFO}
-                  onStatusClick={() =>
-                    togglePane(isCommentHistoryPaneShown, () =>
-                      setIsCommentHistoryPaneShown(true)
-                    )
-                  }
                   targetYearMonth={targetYearMonth}
                   onChangeTargetYearMonth={(v) =>
                     requestResetConfirm(
@@ -660,125 +661,106 @@ export default function PlanDetailMarginRateFixed() {
                 {/* 販売計画(詳細)／拡売費計画のタブと中身を1枚の影付きの開閉カードに入れる（→ 05「白カード」・UX-065） */}
                 <CollapsibleCard title="販売計画" className="mb-4">
                   <div className="p-4">
-                    <Tabs
-                      value={activeTab}
-                      onValueChange={setActiveTab}
-                      className="w-full"
-                    >
-                      <TabsList className="grid w-full grid-cols-2  bg-transparent p-0 h-auto gap-1">
-                        <TabsTrigger
-                          value="sales-detail"
-                          className="flex items-center justify-center gap-2 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded px-4 py-3"
-                        >
-                          <span className="font-medium">販売計画(詳細)</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="non-product-expense"
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 border-b-2 border-transparent data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:border-b-blue-600 text-gray-600 transition-colors rounded"
-                        >
-                          <span className="font-medium">拡売費計画</span>
-                        </TabsTrigger>
-                      </TabsList>
+                    {/* 販売計画(詳細)／拡売費計画の切替は、横いっぱいのタブにせず、それぞれの見出しの行の先頭に
+                        SegmentToggle で置く（UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus） */}
+                    {activeTab === 'sales-detail' && (
+                      <DetailTable
+                        ref={detailTableRef}
+                        sectionSwitch={sectionSwitch}
+                        isPlanNavigationDisabled={isAfterTradingSystemChange(
+                          targetYearMonth
+                        )}
+                        onNavigate={(menuId) =>
+                          // 年間計画作成の基本情報を本画面と一致させるため取引制度を渡す
+                          navigate(
+                            menuId,
+                            menuId === 'annual-plan-creation'
+                              ? { tradingSystem: 'マージン率固定' }
+                              : undefined
+                          )
+                        }
+                        onOpenFixedMargin={() =>
+                          togglePane(isFixedMarginPaneShown, () =>
+                            setIsFixedMarginPaneShown(true)
+                          )
+                        }
+                        onOpenAddDetail={handleOpenAddDetail}
+                        onDeleteDetail={handleDeleteDetail}
+                        onOpenAnnualContract={handleOpenAnnualContract}
+                        onOpenCenterFee={handleOpenCenterFee}
+                        onOpenWholesaleIncentive={handleOpenWholesaleIncentive}
+                        copyPaneMode={copyPaneMode}
+                        onOpenPlanCopy={() =>
+                          togglePane(copyPaneMode === 'plan', () =>
+                            setCopyPaneMode('plan')
+                          )
+                        }
+                        onOpenHeadquartersCopy={() =>
+                          togglePane(copyPaneMode === 'headquarters', () =>
+                            setCopyPaneMode('headquarters')
+                          )
+                        }
+                        onCloseCopyPane={() => setCopyPaneMode(null)}
+                        annualContractAvg={annualContractAvg}
+                        centerFeeAvg={centerFeeAvg}
+                        wholesaleIncentiveAvg={wholesaleIncentiveAvg}
+                        fixedMarginAvg={fixedMarginAvg}
+                        onRowsChange={handleDetailRowsChange}
+                      />
+                    )}
 
-                      <TabsContent value="sales-detail">
-                        <DetailTable
-                          ref={detailTableRef}
-                          isPlanNavigationDisabled={isAfterTradingSystemChange(
-                            targetYearMonth
-                          )}
-                          onNavigate={(menuId) =>
-                            // 年間計画作成の基本情報を本画面と一致させるため取引制度を渡す
-                            navigate(
-                              menuId,
-                              menuId === 'annual-plan-creation'
-                                ? { tradingSystem: 'マージン率固定' }
-                                : undefined
-                            )
-                          }
-                          onOpenFixedMargin={() =>
-                            togglePane(isFixedMarginPaneShown, () =>
-                              setIsFixedMarginPaneShown(true)
-                            )
-                          }
-                          onOpenAddDetail={handleOpenAddDetail}
-                          onDeleteDetail={handleDeleteDetail}
-                          onOpenAnnualContract={handleOpenAnnualContract}
-                          onOpenCenterFee={handleOpenCenterFee}
-                          onOpenWholesaleIncentive={
-                            handleOpenWholesaleIncentive
-                          }
-                          copyPaneMode={copyPaneMode}
-                          onOpenPlanCopy={() =>
-                            togglePane(copyPaneMode === 'plan', () =>
-                              setCopyPaneMode('plan')
-                            )
-                          }
-                          onOpenHeadquartersCopy={() =>
-                            togglePane(copyPaneMode === 'headquarters', () =>
-                              setCopyPaneMode('headquarters')
-                            )
-                          }
-                          onCloseCopyPane={() => setCopyPaneMode(null)}
-                          annualContractAvg={annualContractAvg}
-                          centerFeeAvg={centerFeeAvg}
-                          wholesaleIncentiveAvg={wholesaleIncentiveAvg}
-                          fixedMarginAvg={fixedMarginAvg}
-                          onRowsChange={handleDetailRowsChange}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="non-product-expense">
-                        <PlanNonProductExpensePane
-                          initialRows={NON_PRODUCT_EXPENSE_ROWS}
-                          ref={expenseGridRef}
-                          onOpenAddExpense={handleOpenAddExpense}
-                          onDeleteExpense={handleDeleteExpense}
-                          onOpenCopyExpense={handleCopyExpenseRow}
-                          pendingCopyRow={pendingCopyExpenseRow}
-                          onCopyComplete={() => setPendingCopyExpenseRow(null)}
-                          onOpenReference={() =>
-                            togglePane(isReferencePaneShown, () =>
-                              setIsReferencePaneShown(true)
-                            )
-                          }
-                          pendingReferenceRows={pendingReferenceCopyRows}
-                          onReferenceConsumed={() =>
-                            setPendingReferenceCopyRows(null)
-                          }
-                          onRowsChange={handleExpenseRowsChange}
-                          rateLinkedRows={rateLinkedExpenseRows}
-                          // 拡売費計画タブにも右ペインを開くリンクを出す（9/29 第35回 決定事項10・課題1780）
-                          rateLinks={[
-                            {
-                              label: '年契基本分',
-                              value: annualContractAvg,
-                              onClick: handleOpenAnnualContract,
-                            },
-                            {
-                              label: 'センターフィ',
-                              value: centerFeeAvg,
-                              onClick: handleOpenCenterFee,
-                            },
-                            {
-                              label: '取組強化マージン',
-                              value: wholesaleIncentiveAvg,
-                              onClick: handleOpenWholesaleIncentive,
-                            },
-                            {
-                              label: '固定マージン率',
-                              value: fixedMarginAvg,
-                              onClick: () =>
-                                togglePane(isFixedMarginPaneShown, () =>
-                                  setIsFixedMarginPaneShown(true)
-                                ),
-                            },
-                          ]}
-                          onRateLinkedPostingMonthChange={
-                            handleRateLinkedPostingMonthChange
-                          }
-                        />
-                      </TabsContent>
-                    </Tabs>
+                    {activeTab === 'non-product-expense' && (
+                      <PlanNonProductExpensePane
+                        sectionSwitch={sectionSwitch}
+                        initialRows={NON_PRODUCT_EXPENSE_ROWS}
+                        ref={expenseGridRef}
+                        onOpenAddExpense={handleOpenAddExpense}
+                        onDeleteExpense={handleDeleteExpense}
+                        onOpenCopyExpense={handleCopyExpenseRow}
+                        pendingCopyRow={pendingCopyExpenseRow}
+                        onCopyComplete={() => setPendingCopyExpenseRow(null)}
+                        onOpenReference={() =>
+                          togglePane(isReferencePaneShown, () =>
+                            setIsReferencePaneShown(true)
+                          )
+                        }
+                        pendingReferenceRows={pendingReferenceCopyRows}
+                        onReferenceConsumed={() =>
+                          setPendingReferenceCopyRows(null)
+                        }
+                        onRowsChange={handleExpenseRowsChange}
+                        rateLinkedRows={rateLinkedExpenseRows}
+                        // 拡売費計画タブにも右ペインを開くリンクを出す（9/29 第35回 決定事項10・課題1780）
+                        rateLinks={[
+                          {
+                            label: '年契基本分',
+                            value: annualContractAvg,
+                            onClick: handleOpenAnnualContract,
+                          },
+                          {
+                            label: 'センターフィ',
+                            value: centerFeeAvg,
+                            onClick: handleOpenCenterFee,
+                          },
+                          {
+                            label: '取組強化マージン',
+                            value: wholesaleIncentiveAvg,
+                            onClick: handleOpenWholesaleIncentive,
+                          },
+                          {
+                            label: '固定マージン率',
+                            value: fixedMarginAvg,
+                            onClick: () =>
+                              togglePane(isFixedMarginPaneShown, () =>
+                                setIsFixedMarginPaneShown(true)
+                              ),
+                          },
+                        ]}
+                        onRateLinkedPostingMonthChange={
+                          handleRateLinkedPostingMonthChange
+                        }
+                      />
+                    )}
                   </div>
                 </CollapsibleCard>
               </section>
@@ -851,6 +833,11 @@ export default function PlanDetailMarginRateFixed() {
                 id="sales-plan-retail-comment"
                 value={commentInput}
                 onChange={setCommentInput}
+                onOpenHistory={() =>
+                  togglePane(isCommentHistoryPaneShown, () =>
+                    setIsCommentHistoryPaneShown(true)
+                  )
+                }
               />
               <button
                 type="button"
@@ -1326,7 +1313,7 @@ export default function PlanDetailMarginRateFixed() {
           const onlyNew = isAddExpenseOnlyNew;
           const setOnlyNew = setIsAddExpenseOnlyNew;
           return (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* サマリ商品名 */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">

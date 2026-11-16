@@ -1248,12 +1248,6 @@ export default function PaymentDetailWithoutInvoice() {
                     key={`payment-detail-${invoiceCount}`}
                     initialValues={activeRound?.paymentInfo}
                     breakdownItems={paymentBreakdownItems}
-                    onStatusClick={() => {
-                      const isOpen = isCommentHistoryPaneShown;
-                      closeAllRightPanes();
-                      if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-                      setIsCommentHistoryPaneShown(true);
-                    }}
                   />
                 </section>
 
@@ -1584,6 +1578,12 @@ export default function PaymentDetailWithoutInvoice() {
                 value={commentInput}
                 onChange={setCommentInput}
                 disabled={!footerActions.comment}
+                onOpenHistory={() => {
+                  const isOpen = isCommentHistoryPaneShown;
+                  closeAllRightPanes();
+                  if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
+                  setIsCommentHistoryPaneShown(true);
+                }}
               />
               <button
                 className="btn-action-base btn-action-red"

@@ -34,6 +34,7 @@ import {
   GRID_NO_FILTER_COLUMN_TYPES,
   GRID_EMPTY_TEXT,
   useGridColumnState,
+  viewportGridHeight,
 } from '@/app/components/grid';
 import { QuoteBasicInfoPane } from '@/app/components/shared/payment/quote/QuoteBasicInfoPane';
 import { QuotePaymentDetailPane } from '@/app/components/shared/payment/quote/QuotePaymentDetailPane';
@@ -390,6 +391,10 @@ const TAX_CLASS_COMBO_OPTIONS = EXPENSE_TAX_CLASS_OPTIONS.map((o) => ({
   label: o.value,
 }));
 
+// タブ2「他部門から分割された経費明細」（画面のいちばん下の表）の高さで画面の縦幅から引く分（rem）。
+// 最下部までスクロールした状態で、表が画面にちょうど収まる値（UX-099。実測で決めた値）。
+const SPLIT_FROM_OTHER_GRID_OFFSET_REM = 8.25;
+
 export default function PaymentDetailQuote() {
   // 画面の切り替え（→ ui/use-app-navigation）
   const navigate = useAppNavigation();
@@ -624,15 +629,7 @@ export default function PaymentDetailQuote() {
                     <h2 id="payment-detail-heading" className="sr-only">
                       支払明細情報
                     </h2>
-                    <QuotePaymentDetailPane
-                      status="承認待ち"
-                      onStatusClick={() => {
-                        const isOpen = isCommentHistoryPaneShown;
-                        closeAllRightPanes();
-                        if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
-                        setIsCommentHistoryPaneShown(true);
-                      }}
-                    />
+                    <QuotePaymentDetailPane status="承認待ち" />
                   </section>
 
                   {/* 拡売費一覧（独立カード） */}
@@ -689,9 +686,15 @@ export default function PaymentDetailQuote() {
                       </div>
                     </div>
 
+                    {/* 画面のいちばん下の表は、画面いっぱいの高さにする（タブ1の拡売費と同じ。UX-099 → 05「画面いっぱいのグリッド」） */}
                     <div
                       className="expense-item-grid w-full px-3 pb-3 pt-0"
-                      style={{ height: '22.5rem' }}
+                      style={{
+                        height: viewportGridHeight(
+                          SPLIT_FROM_OTHER_GRID_OFFSET_REM
+                        ),
+                        minHeight: '25rem',
+                      }}
                     >
                       <AgGridReact
                         {...detailGridColumnStateProps}
@@ -755,6 +758,12 @@ export default function PaymentDetailQuote() {
                 id="payment-quote-comment"
                 value={commentInput}
                 onChange={setCommentInput}
+                onOpenHistory={() => {
+                  const isOpen = isCommentHistoryPaneShown;
+                  closeAllRightPanes();
+                  if (isOpen) return; // 開くボタン再押下で閉じる（トグル）
+                  setIsCommentHistoryPaneShown(true);
+                }}
               />
               <button
                 className="btn-action-base btn-action-red"
@@ -894,9 +903,9 @@ export default function PaymentDetailQuote() {
           const f = editExpenseForm;
           const setF = setEditExpenseForm;
           return (
-            <div className="grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3 @2xl:grid-cols-3">
               {/* 卸からの請求名称（全幅） */}
-              <div className="space-y-1.5 @md:col-span-2 @2xl:col-span-3">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-3">
                 <Label className="text-sm font-medium text-gray-700">
                   卸からの請求名称
                 </Label>
@@ -975,7 +984,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 施策コード */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   施策コード
                 </Label>
@@ -1016,7 +1025,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 摘要1（社内用） */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   摘要1（社内用）
                 </Label>
@@ -1031,7 +1040,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 摘要2（社外用） */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   摘要2（社外用）
                 </Label>
@@ -1083,9 +1092,9 @@ export default function PaymentDetailQuote() {
           const f = copyEditForm;
           const setF = setCopyEditForm;
           return (
-            <div className="grid grid-cols-1 gap-x-4 gap-y-4 @md:grid-cols-2 @2xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3 @2xl:grid-cols-3">
               {/* 卸からの請求名称（全幅） */}
-              <div className="space-y-1.5 @md:col-span-2 @2xl:col-span-3">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-3">
                 <Label className="text-sm font-medium text-gray-700">
                   卸からの請求名称
                 </Label>
@@ -1164,7 +1173,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 施策コード */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   施策コード
                 </Label>
@@ -1205,7 +1214,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 摘要1（社内用） */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   摘要1（社内用）
                 </Label>
@@ -1220,7 +1229,7 @@ export default function PaymentDetailQuote() {
               </div>
 
               {/* 摘要2（社外用） */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 @2xl:col-span-1">
                 <Label className="text-sm font-medium text-gray-700">
                   摘要2（社外用）
                 </Label>

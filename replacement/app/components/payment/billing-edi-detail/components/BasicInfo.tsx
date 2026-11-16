@@ -55,7 +55,9 @@ export function BasicInfo({ row }: BasicInfoProps) {
     // 件数以外の項目は遷移元の請求EDI取込一覧グリッドと同じ並びにそろえている
     <div className={FIT_GRID_CLASS}>
       {/* 対象 */}
-      <div className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}>
+      <div
+        className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
+      >
         {/* 請求元企業は提供企業名（1-17）の連携値をそのまま表示する（変換しない）。
             請求元(変換前)は請求EDI取込一覧から削除したことに合わせ、本画面からも外した */}
         <InfoItem label="請求元企業" value={formatPayeeName(row)} />
@@ -73,7 +75,9 @@ export function BasicInfo({ row }: BasicInfoProps) {
 
       {/* 件数（決定16で削除したのは請求EDI取込一覧のグリッド列であり、
           請求EDI取込結果詳細では取込分の規模が分かるよう残す） */}
-      <div className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}>
+      <div
+        className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
+      >
         <InfoItem
           label="請求書数"
           value={`${row.counts.invoices.toLocaleString()} 件`}
@@ -91,7 +95,9 @@ export function BasicInfo({ row }: BasicInfoProps) {
       {/* 担当（再取込未実施／再取込後 未解消の2件数は、知りたいのは残りのエラー件数で
           エラー事業所数が現時点の件数を表すため削除した
           → 一覧 4.レイアウト AK89 スレッド 加藤 2026-09-14） */}
-      <div className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}>
+      <div
+        className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
+      >
         {/* エラー種別ごとの対応部署（決定10）。一覧と同じくマスタの値をそのまま出す。
             値は人ではなく部署のため「担当者」から改称した
             （→ 4.レイアウト AK59 スレッド 芳賀 2026-10-11） */}

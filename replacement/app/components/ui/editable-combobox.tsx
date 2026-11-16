@@ -5,6 +5,7 @@ import {
   matchesSearchQuery,
   normalizeForSearch,
 } from '@/app/utils/common/searchNormalize';
+import { scrollIntoListView, useDropdownPlacement } from './use-dropdown-placement';
 
 // 入力可能コンボボックス（自作）。
 // SingleCombobox（検索付き単一選択）との違いは「候補から選ぶだけでなく、候補に無い値を
@@ -81,31 +82,14 @@ export function EditableCombobox({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
-  // 候補はポータルで body 直下に描画するため、入力欄の位置・幅を算出して固定配置する。
+  // 候補一覧の向き（下に入らず上のほうが広ければ上）と、ポータル描画の固定配置の位置。
   // 幅は入力欄の幅、ただし 15rem 未満にはしない（SingleCombobox と同じ）
-  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
-  const updateMenuPosition = React.useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setMenuStyle({
-      position: 'fixed',
-      top: r.bottom + 4,
-      left: r.left,
-      width: Math.max(240, r.width),
-    });
-  }, []);
-
-  React.useEffect(() => {
-    if (!open || !usePortal) return;
-    updateMenuPosition();
-    window.addEventListener('scroll', updateMenuPosition, true);
-    window.addEventListener('resize', updateMenuPosition);
-    return () => {
-      window.removeEventListener('scroll', updateMenuPosition, true);
-      window.removeEventListener('resize', updateMenuPosition);
-    };
-  }, [open, usePortal, updateMenuPosition]);
+  const { side, menuStyle } = useDropdownPlacement({
+    open,
+    usePortal,
+    containerRef,
+    menuRef: listRef,
+  });
 
   // 外クリックで閉じる。候補はポータル（containerRef の外）なので listRef も判定に含める
   React.useEffect(() => {
@@ -123,7 +107,8 @@ export function EditableCombobox({
   // 既存値は全選択し、そのまま打ち直せるようにする。
   React.useEffect(() => {
     if (!autoOpen) return;
-    inputRef.current?.focus();
+    // preventScroll：フォーカスで表・画面をスクロールさせない（UX-094）
+    inputRef.current?.focus({ preventScroll: true });
     inputRef.current?.select();
   }, [autoOpen]);
 
@@ -148,12 +133,15 @@ export function EditableCombobox({
     setActiveIndex(-1);
   }, [value]);
 
-  // ハイライト位置を表示領域内へスクロール
+  // ハイライト位置を候補一覧の中だけでスクロールして見せる（表・画面は動かさない）
   React.useEffect(() => {
     if (!open || activeIndex < 0) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
+    scrollIntoListView(
+      listRef.current,
+      listRef.current?.querySelector<HTMLElement>(
+        `[data-index="${activeIndex}"]`
+      ) ?? null
+    );
   }, [activeIndex, open]);
 
   // 入力欄を押したときは絞り込みを解いて候補を全件出す（SingleCombobox と同じ挙動）
@@ -250,11 +238,14 @@ export function EditableCombobox({
         renderMenu(
           <div
             ref={listRef}
-            style={usePortal ? menuStyle : undefined}
+            // 固定配置の位置（ポータル描画）と、入りきらないときの高さの上限（JS で計算した値）
+            style={menuStyle}
             className={
               usePortal
                 ? 'fixed z-50 max-h-80 overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-md'
-                : 'absolute z-50 mt-1 max-h-80 w-full min-w-60 overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-md'
+                : side === 'above'
+                  ? 'absolute bottom-full z-50 mb-1 max-h-80 w-full min-w-60 overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-md'
+                  : 'absolute top-full z-50 mt-1 max-h-80 w-full min-w-60 overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-md'
             }
           >
             {items.length === 0 ? (

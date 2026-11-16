@@ -1,7 +1,6 @@
 // 計画詳細(自販機)：基本情報カード（対象年月・ステータス・販売計画No.・事業場・部署・作成者・販売店・三次店・一次店）
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { History } from 'lucide-react';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import { BasicInfoCollapsedSummary } from '@/app/components/shared/sales-plan/common/BasicInfoCollapsedSummary';
 import { MonthStripPicker } from '@/app/components/ui/month-strip-picker';
@@ -10,11 +9,7 @@ import {
   PlanBasicInfoRow,
   PlanBasicInfoSpacer,
 } from '@/app/components/ui/plan-basic-info';
-import {
-  SEARCH_LABEL_CLASS,
-  BUTTON_STYLES,
-  BUTTON_BASE,
-} from '@/styles/commonStyles';
+import { SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
 import {
   BASIC_INFO_CREATOR,
   BASIC_INFO_DEALER,
@@ -43,17 +38,12 @@ const BASIC_INFO_FIRST_STORE_COL_SPAN = 'col-span-2';
 const BASIC_INFO_INITIAL_YEAR_MONTH = '2026/07';
 
 interface BasicInfoCardProps {
-  // 「コメント履歴」ボタン（右ペインの開閉）
-  onCommentHistoryToggle: () => void;
   // 見出しの行の右端（開閉の左）に置くもの。別の画面へ移るボタン（ScreenLinkButton）など
   //（専用の行を作らず見出しの行に置く → 02 §6・UX-060）
   headerActions?: ReactNode;
 }
 
-export function BasicInfoCard({
-  onCommentHistoryToggle,
-  headerActions,
-}: BasicInfoCardProps) {
+export function BasicInfoCard({ headerActions }: BasicInfoCardProps) {
   // カードの開閉（既定は展開）
   const [isOpen, setIsOpen] = useState(true);
   // 基本情報の対象年月（月ストリップ）。基準画面 計画詳細(マージン率固定・NET入力)と同様、
@@ -112,23 +102,8 @@ export function BasicInfoCard({
             </div>
           </div>
 
-          <PlanBasicInfoField
-            label="ステータス"
-            value={BASIC_INFO_STATUS}
-            trailing={
-              // 5列表示では列幅が狭くなるため、2xl 未満はアイコンのみ表示にして
-              // 必要幅を縮める（読み上げ名は aria-label で維持）。
-              <button
-                type="button"
-                onClick={onCommentHistoryToggle}
-                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-1 px-2 py-1 whitespace-nowrap text-xs`}
-                aria-label="コメント履歴"
-              >
-                <History className="h-4 w-4" />
-                <span className="hidden 2xl:inline">コメント履歴</span>
-              </button>
-            }
-          />
+          {/* ステータス（コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
+          <PlanBasicInfoField label="ステータス" value={BASIC_INFO_STATUS} />
         </PlanBasicInfoRow>
 
         {/* 2行目: 本画面固有の販売計画No.。

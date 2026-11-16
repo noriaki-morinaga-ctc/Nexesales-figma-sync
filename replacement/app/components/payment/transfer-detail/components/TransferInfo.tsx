@@ -1,6 +1,5 @@
 // Todo：朴：C追加口・拡売費支払モック修正中
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { History } from 'lucide-react';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import {
   FIT_CELL_CLASS,
@@ -99,8 +98,6 @@ export interface TransferDetailBasicInfoValues {
 interface TransferDetailSearchProps {
   // 基本情報の値が変わるたびに現在値を通知する。
   onChange?: (values: TransferDetailBasicInfoValues) => void;
-  // ステータス横のコメント履歴ボタン押下時のハンドラ
-  onStatusClick?: () => void;
   // 振替明細に枝番行（振替先行）が1本でもあるか。
   // 固定する側を切り替えると枝番行の商流・組織が基本情報の値で上書きされるため、
   // 枝番行がある場合のみ確認ダイアログを挟む。
@@ -112,7 +109,6 @@ interface TransferDetailSearchProps {
 
 export function TransferDetailSearch({
   onChange,
-  onStatusClick,
   hasBranchRows = false,
   terminalOrgOptions = [],
 }: TransferDetailSearchProps = {}) {
@@ -304,7 +300,7 @@ export function TransferDetailSearch({
           {/* 1行目: 振替元・振替先のどちらを固定するかの指定（基本情報の最上段・左端）。
               対象年月より上に置き、以降の入力がどちらの立場のものかを先に決める。 */}
           <div
-            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             <div className={FIT_WIDE_CELL_CLASS}>
               <label className={FIT_LABEL_CLASS}>固定する側</label>
@@ -343,7 +339,7 @@ export function TransferDetailSearch({
 
           {/* 2行目: 対象年月 / 計上年月 */}
           <div
-            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {/* 対象年月（カレンダー選択） */}
             <div className={FIT_CELL_CLASS}>
@@ -390,7 +386,7 @@ export function TransferDetailSearch({
           {/* 3行目: 販売店 / 三次店 / 一次店（単一選択・コード/名称で検索）。
               並びはグリッド・支払詳細(追加口請求書有)と揃える。 */}
           <div
-            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {renderComboField(
               `${STORE_LABEL_PREFIX[executor]}販売店`,
@@ -429,7 +425,7 @@ export function TransferDetailSearch({
               営業担当者は振替元・振替先で呼び分ける項目ではないためラベルは据え置き、
               値のみ担当組織に追従させる。 */}
           <div
-            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {renderLabelField(
               `${STORE_LABEL_PREFIX[executor]}事業場`,
@@ -454,7 +450,7 @@ export function TransferDetailSearch({
           {/* 下段（支払申請者）: 申請事業場 / 申請部署 / 申請末端組織 / 申請者。
               並びは支払詳細(追加口請求書有) の支払情報エリアに合わせる。 */}
           <div
-            className={`${FIT_ROW_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${FIT_ROW_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {renderLabelField('申請事業場', BASIC_INFO.applicantOffice)}
             {renderLabelField('申請部署', BASIC_INFO.applicantDept)}
@@ -463,7 +459,7 @@ export function TransferDetailSearch({
           </div>
 
           {/* ステータス（基本情報の最終行・下ボーダーなし）。
-              横にコメント履歴ボタンを配置（支払詳細(追加口請求書有)の支払情報と同形式）。 */}
+              コメント履歴はフッターのコメント欄の「履歴」から開く（UI/UX UX-107）。 */}
           <div className={`${FIT_ROW_CLASS} mb-2`}>
             <div className={FIT_WIDE_CELL_CLASS}>
               <label className={FIT_LABEL_CLASS}>ステータス</label>
@@ -473,15 +469,6 @@ export function TransferDetailSearch({
                 <span className="h-8 flex items-center text-sm text-gray-900">
                   {BASIC_INFO.status}
                 </span>
-                <button
-                  type="button"
-                  onClick={onStatusClick}
-                  className="btn-toolbar-outline"
-                  aria-label="コメント履歴"
-                >
-                  <History className="h-4 w-4" />
-                  コメント履歴
-                </button>
               </div>
             </div>
           </div>

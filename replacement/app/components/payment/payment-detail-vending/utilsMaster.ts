@@ -9,9 +9,6 @@ import {
   MANAGEMENT_CODE_COMBO_OPTIONS_BY_CATEGORY,
   SUMMARY_TARGET_BY_CATEGORY_CODE,
   SUMMARY_MANAGEMENT_CODE,
-  DETAIL_CARD_HEIGHT_OFFSET,
-  DETAIL_CARD_INITIAL_RATIO,
-  DETAIL_CARD_MIN_HEIGHT,
   EDITABLE_CELL_BG,
   NON_EDITABLE_CELL_BG,
   INHERITED_TEXT_COLOR,
@@ -86,12 +83,6 @@ export const matchesSplitDestSummaryItem = (
       managementCategory: d.splitDestMgmtCategory ?? '',
     },
     item
-  );
-
-export const initialDetailCardHeight = (): number =>
-  Math.max(
-    DETAIL_CARD_MIN_HEIGHT,
-    (window.innerHeight - DETAIL_CARD_HEIGHT_OFFSET) * DETAIL_CARD_INITIAL_RATIO
   );
 
 // 分割先行は入力不可（灰背景・薄いグレー文字＝親の参照値）、通常行は editableBase で表示する cellStyle。

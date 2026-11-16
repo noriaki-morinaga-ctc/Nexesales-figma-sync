@@ -63,6 +63,23 @@ export function asRowStyle<A extends unknown[]>(
   return fn as unknown as (...args: A) => RowStyle;
 }
 
+// ── 並べ替えの印（全画面共通。UI/UX UX-098）────────────────────────
+// 見出しの並べ替えの印を、標準の矢印（↑↓）から「▲と▼を上下に並べた形」にする。
+// 今の向きを濃く（見出しの文字色＝currentColor）、反対の向きを薄く（不透明度 0.3）出す。
+// 並べ替えていない列には出さない（unSortIcon は使わない）。AG Grid 公式の icons で差し替え、
+// gridSetup.ts の provideGlobalGridOptions で全グリッドに登録する（画面で icons を渡さない）。
+// 大きさは幅 0.5rem・高さ 0.75rem（w-2 h-3）。
+const sortIconHtml = (active: 'asc' | 'desc') =>
+  '<svg class="h-3 w-2" viewBox="0 0 8 12" aria-hidden="true">' +
+  `<path d="M4 0L8 5H0Z" fill="currentColor"${active === 'asc' ? '' : ' fill-opacity="0.3"'}/>` +
+  `<path d="M0 7H8L4 12Z" fill="currentColor"${active === 'desc' ? '' : ' fill-opacity="0.3"'}/>` +
+  '</svg>';
+
+export const GRID_SORT_ICONS = {
+  sortAscending: sortIconHtml('asc'),
+  sortDescending: sortIconHtml('desc'),
+};
+
 // ── グリッド共通テーマ（全画面共通）───────────────────────────────
 // 高さ・余白・フォント・背景をテーマ側に集約し、各画面のグリッドで共有する。
 // App.tsx の provideGlobalGridOptions に theme として登録しているため、
@@ -351,8 +368,76 @@ export function gridFilterContextMenuItems(
 export const suppressEditNavKeys = (
   params: SuppressKeyboardEventParams
 ): boolean =>
-  !!params.editing &&
-  ['Enter', 'ArrowUp', 'ArrowDown'].includes(params.event.key);
+  openPulldownOnAltDown(params) ||
+  (!!params.editing &&
+    ['Enter', 'ArrowUp', 'ArrowDown'].includes(params.event.key));
+
+// プルダウンのセル（コンボ・選択式）で、編集していないときに Alt+↓ を押したら編集を始めて
+// 選択肢を開く（UI/UX UX-102 → 06「プルダウン系の Alt+↓」）。F2／直接入力／ダブルクリック
+// （画面設計標準 4.6）はそのまま。AG Grid の「下のセルへ移る」動きは止める（true を返す）。
+// 編集の開始は AG Grid 公式の api.startEditingCell。コンボは autoOpen で選択肢を開く。
+// AG Grid 標準の選択式（agSelectCellEditor 等。openPicker=true）は一覧が閉じた状態で始まるため、
+// 編集を始めたあと、その部品（ピッカー）に Alt+↓ を送って一覧を開く（ピッカーは Alt+↓ で開く作り）。
+// 入力できないセル・フル幅行では何もしない。
+export const openPulldownOnAltDown = (
+  params: SuppressKeyboardEventParams,
+  openPicker = false
+): boolean => {
+  const { event, editing, api, node, column } = params;
+  if (
+    editing ||
+    event.type !== 'keydown' ||
+    !event.altKey ||
+    event.key !== 'ArrowDown'
+  )
+    return false;
+  if (node.rowIndex == null || !column.isCellEditable(node)) return false;
+  event.preventDefault();
+  const rowIndex = node.rowIndex;
+  // キーの処理の途中で編集を始めないよう、次のタスクで始める
+  setTimeout(() => {
+    api.startEditingCell({
+      rowIndex,
+      colKey: column,
+      rowPinned: node.rowPinned ?? undefined,
+    });
+    if (!openPicker) return;
+    // 選択式は、編集の部品（ピッカー）が描かれるのを待って（最大 5 回・30ms おき）Alt+↓ を送り、一覧を開く
+    const openWhenReady = (tries: number) => {
+      const wrapper = document.querySelector(
+        '.ag-cell-inline-editing .ag-picker-field-wrapper, .ag-popup-editor .ag-picker-field-wrapper'
+      );
+      if (!wrapper) {
+        if (tries > 0) setTimeout(() => openWhenReady(tries - 1), 30);
+        return;
+      }
+      wrapper.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowDown',
+          altKey: true,
+          bubbles: true,
+        })
+      );
+    };
+    openWhenReady(5);
+  });
+  return true;
+};
+
+// プルダウンのセル（コンボ・AG Grid 標準の選択式）で、そのセルが入力できるか（UX-103）。
+// 列の既定（GRID_DEFAULT_COL_DEF）の cellClassRules 'cell-pulldown' で右端に ▼ を出すのに使う。
+export const PULLDOWN_CELL_EDITORS: readonly unknown[] = [
+  SingleComboboxCellEditor,
+  EditableComboboxCellEditor,
+  'agSelectCellEditor',
+  'agRichSelectCellEditor',
+];
+export function isPulldownCell(params: CellClassParams): boolean {
+  if (!PULLDOWN_CELL_EDITORS.includes(params.colDef?.cellEditor)) return false;
+  // 固定行（合計・単位の行）・行データの無い行は対象外
+  if (!params.node || params.node.rowPinned || !params.data) return false;
+  return params.column.isCellEditable(params.node);
+}
 
 // 空白セルのプレースホルダ（画面設計標準）。
 // 値が無い（null / undefined / 空文字）データセルには、ハイフン「-」を表示する。
@@ -435,10 +520,19 @@ export const GRID_DEFAULT_COL_DEF: ColDef = {
   // 対象列（cellEditor が一致する編集中セル）のみ Enter／↑／↓ を抑止し、
   // 他エディタ・非編集セルは AG Grid の既定動作のまま（＝影響なし）。
   // 列側で独自の suppressKeyboardEvent を持つ列（例: ComboCellEditor 系）はそちらが優先される。
-  suppressKeyboardEvent: (params) =>
-    (params.colDef?.cellEditor === SingleComboboxCellEditor ||
-      params.colDef?.cellEditor === EditableComboboxCellEditor) &&
-    suppressEditNavKeys(params),
+  // あわせて、プルダウンのセル（コンボ・AG Grid 標準の選択式）は Alt+↓ で編集を始めて選択肢を開く
+  // （openPulldownOnAltDown。UX-102）。
+  suppressKeyboardEvent: (params) => {
+    const editor = params.colDef?.cellEditor;
+    if (
+      editor === SingleComboboxCellEditor ||
+      editor === EditableComboboxCellEditor
+    )
+      return suppressEditNavKeys(params);
+    if (editor === 'agSelectCellEditor' || editor === 'agRichSelectCellEditor')
+      return openPulldownOnAltDown(params, true);
+    return false;
+  },
   // 編集で値が変わったセルを黄色ハイライト（→ 02 §7.2）。色は grid.css の
   // `.ag-cell.ag-cell-changed`。変更判定は各グリッドの context.isCellChanged（useChangedCells）。
   // 読取専用グリッドは isCellChanged 未設定のため常に false（＝副作用なし）。
@@ -448,6 +542,8 @@ export const GRID_DEFAULT_COL_DEF: ColDef = {
     // 値が無いセルの「-」をグレーにする（画面設計標準 3.11・4.2 ⑥。色は grid.css .ag-cell.cell-empty）
     // 判定は表示する文字で行う（値が空でも valueFormatter で文字を出す列をグレーにしない）
     'cell-empty': (p: any) => isEmptyCellDisplay(p),
+    // 入力できるプルダウンのセルの右端に ▼ を出す（プルダウンだと分かるように。grid.css .ag-cell.cell-pulldown。UX-103）
+    'cell-pulldown': (p: any) => isPulldownCell(p),
   },
   // 値が無いセルはグレーの半角「-」を表示する（列で独自の valueFormatter を持つ列はそちらが優先）
   valueFormatter: formatEmptyAsDash,
@@ -504,12 +600,11 @@ export function withSpanSafeHeaderHeight<TData>(
   return walk(defs, 1);
 }
 
-// ── 明細グリッドの既定の縦幅（画面をまたいで統一）─────────────────
-// 基準は 支払詳細(自販機) の「支払明細情報」カード本体の高さ。
+// ── 明細グリッドの既定の縦幅（下端のバーで高さを変える、いちばん下ではない表）──────
 //   既定＝「画面高 － 上部の固定領域(8.75rem)」の 3/4、下限＝18.75rem。
 // 画面高から算出するため、画面サイズが変わっても同じ見え方（比率）を保てる。
-// ※支払詳細(自販機) は画面固有の定数で同じ値を持つ（当該画面のリサイズ処理と一体のため）。
-//   本定数を変更する場合は、そちらの DETAIL_CARD_* も合わせること。
+// ※詳細画面のいちばん下の表は使わない。画面いっぱいの高さ viewportGridHeight(X) にする
+//   （→ 05「画面いっぱいのグリッド」・UX-099）。
 export const DETAIL_GRID_HEIGHT_OFFSET_REM = 8.75;
 export const DETAIL_GRID_HEIGHT_RATIO = 0.75;
 export const DETAIL_GRID_MIN_HEIGHT_REM = 18.75;
@@ -522,13 +617,13 @@ export const detailGridInitialHeight = (): number =>
       DETAIL_GRID_HEIGHT_RATIO
   );
 
-// 上記の既定高さ（CSS）。リサイズハンドルを持たず、CSS だけで高さを決めるグリッド用。
-export const DETAIL_GRID_HEIGHT_CSS = `max(${DETAIL_GRID_MIN_HEIGHT_REM}rem, (100vh - ${DETAIL_GRID_HEIGHT_OFFSET_REM}rem) * ${DETAIL_GRID_HEIGHT_RATIO})`;
-
 // 行の展開（masterDetail＝アコーディオン）の開閉アイコン。折り畳みカード（CollapsibleCard）と同じく
 // 閉じている時は下向き（∨）、開いている時は上向き（∧）にする（AG Grid 既定の ▶／▼ を差し替え）。
 // グリッドの icons に渡す。集計ツリー（treeData）の開閉は階層の表示のため対象外（既定の ▶／▼ のまま）。
+// グリッドに icons を渡すと共通設定（provideGlobalGridOptions）の icons が丸ごと置き換わるため、
+// 並べ替えの印（GRID_SORT_ICONS）も含める（UX-098）。
 export const GRID_MASTER_DETAIL_ICONS = {
+  ...GRID_SORT_ICONS,
   groupContracted:
     '<span class="ag-icon ag-icon-chevron-down" unselectable="on" role="presentation"></span>',
   groupExpanded:

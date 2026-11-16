@@ -26,6 +26,7 @@ import {
   useGridColumnState,
   readSavedColumnState,
   gridHeaderStyle,
+  rateOverTextColor,
 } from '@/app/components/grid';
 import {
   computeMonth,
@@ -42,6 +43,16 @@ import {
 import { managementClassCodeOf } from '@/app/utils/common/comboFieldOptions';
 import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
 import { promotionAccountLabel } from '@/app/utils/sales-plan/common/promotionAccountItems';
+import {
+  AGG_ITEM_CELL_CLASS,
+  AGG_ITEM_CONTENT_CLASS,
+  AGG_ITEM_TOGGLE_CLASS,
+  PROMOTION_ITEM_COL_WIDTH,
+  aggItemFilterValue,
+  aggItemFirstRowFilterValue,
+  aggRowBorderBottom,
+  isAggPrimaryRow,
+} from './aggregationTableStyle';
 
 // 種類別セルの表示ラベルを組み立てる（CategoryCellRenderer が pre-line で改行表示）。
 //   1行目：勘定科目（コード＋名称）… インデントなし
@@ -101,6 +112,8 @@ interface PromotionCostsAggregationData {
   dec: number | string | null;
   isPercentage?: boolean;
   isFirstInGroup?: boolean;
+  // 項目（ブロック）の最後の行。下に濃い線を引く（displayRows で付ける。UX-095）
+  isLastInGroup?: boolean;
   groupRowSpan?: number;
   groupName?: string;
   // 集計制御
@@ -359,18 +372,18 @@ const findRowIndex = (
   return found;
 };
 
-// 数値セルの文字色。赤字は「差率（予算比／前年比）行の100%超過」のときのみ返し、
+// 数値セルの文字色。色を付けるのは「差率（予算比／前年比）行の100%超過」のときのみで、
 // それ以外は undefined（＝テーマ既定の黒字）。計画／実績・予算・前年実績・差の各行は、
 // 選択実績セル（左上の三角）でもマイナス値でも常に黒字とする。
-// 色は hex 直書きせず共通の GRID_COLORS.overText を使用する。
-const rateOverTextColor = (
+// 拡売費集計の項目はすべて経費のため、色は共通の rateOverTextColor の経費（赤＝GRID_COLORS.overText）になる（UX-096）。
+const ratioRowTextColor = (
   data: PromotionCostsAggregationData | undefined,
   value: unknown
 ): string | undefined => {
   const subItem = data?.subItem || '';
   const isRatioRow = subItem === '予算比' || subItem === '前年比';
-  return isRatioRow && typeof value === 'number' && value > 100
-    ? GRID_COLORS.overText
+  return isRatioRow && typeof value === 'number'
+    ? rateOverTextColor(value, true)
     : undefined;
 };
 
@@ -713,6 +726,9 @@ export function PromotionCostTotalTab({
       } else {
         visible[i].groupRowSpan = 1;
       }
+      // 次の行がブロックの先頭（または最後の行）なら、この行がブロックの最後
+      visible[i].isLastInGroup =
+        i + 1 >= visible.length || !!visible[i + 1].isFirstInGroup;
     }
     return visible;
   }, [rowData, expandedRows, expandedItems]);
@@ -1056,13 +1072,15 @@ export function PromotionCostTotalTab({
     const showCount =
       hasChildren && !expanded && (data.itemChildCount ?? 0) > 0;
     return (
-      // 勘定科目／管理区分の最大2行表記。文字サイズは年間集計と統一（text-sm＝14px）。
-      // 規約例外（2行ラベル）：2行ラベルを行高に収めるため、行間を leading-tight（1.25）とする。
-      <div className="flex h-full items-center whitespace-pre-line wrap-anywhere text-sm leading-tight">
+      // 勘定科目／管理区分の最大2行表記。項目は左上・太字で、書式は年間集計と共通
+      // （aggregationTableStyle.ts の AGG_ITEM_CONTENT_CLASS。text-sm・行間 leading-tight。UX-095）。
+      <div
+        className={`${AGG_ITEM_CONTENT_CLASS} whitespace-pre-line wrap-anywhere`}
+      >
         {hasChildren ? (
           <button
             type="button"
-            className="flex items-center rounded border-0 bg-transparent px-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`${AGG_ITEM_TOGGLE_CLASS} rounded border-0 bg-transparent px-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500`}
             onClick={(e) => {
               e.stopPropagation();
               toggleItem(itemName);
@@ -1083,7 +1101,9 @@ export function PromotionCostTotalTab({
         <span>
           {params.value}
           {showCount && (
-            <span className="ml-1 text-gray-500">({data.itemChildCount})</span>
+            <span className="ml-1 font-normal text-gray-500">
+              ({data.itemChildCount})
+            </span>
           )}
         </span>
       </div>
@@ -1177,11 +1197,11 @@ export function PromotionCostTotalTab({
       return {
         backgroundColor: stripeColor,
         // 赤字は差率行の100%超過のみ（選択実績セルは左上の三角のみで表現し文字色は変えない）。
-        color: rateOverTextColor(params.data, params.value),
+        color: ratioRowTextColor(params.data, params.value),
         paddingRight: '0.75rem',
-        fontWeight: 'normal',
-        // 販売計画(詳細)に合わせ区切り線を1px GRID_COLORS.gridLineに統一
-        borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+        // 計画／実績の行は太字、項目の境目は濃い線（年間集計と同じ。UX-095）
+        fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
+        borderBottom: aggRowBorderBottom(params.data),
         // 実績反映済み（函数/計算式）セルは、年間計画の1〜5月セルと同様に
         // 枠ではなくセル左上の三角で示す（existingFuncCellStyle → 02 §7）
         ...(highlight ? existingFuncCellStyle() : {}),
@@ -1317,15 +1337,17 @@ export function PromotionCostTotalTab({
           {
             headerName: '種類別',
             field: 'category',
-            width: 216,
+            // 種類別で絞り込んだら配下のサブ項目も残す（絞り込みの値は全行で項目名。AG Grid 公式 filterValueGetter。UX-097）
+            filterValueGetter: aggItemFilterValue,
+            width: PROMOTION_ITEM_COL_WIDTH,
             lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: ItemCellRenderer,
             rowSpan: (params) =>
               params.data?.isFirstInGroup ? params.data?.groupRowSpan || 1 : 1,
-            // 先頭列の左寄せは ag-cell-left（grid.css の1列目中央寄せを戻す。結合したセルの縦中央も
-            // grid.css の先頭列の指定が受け持つ → 02 §6 セルの寄せ）
-            cellClass: 'ag-cell-left',
+            // 先頭列の左寄せは ag-cell-left、結合したセルの中身は上に置く cell-span-top
+            // （grid.css。項目は左上・太字 → 02 §7「集計表の項目と計画／実績の行」・UX-095）
+            cellClass: AGG_ITEM_CELL_CLASS,
             cellStyle: (params) => {
               const stripeColor = GRID_COLORS.background;
               // ドリルダウン階層に応じて1文字ずつインデントを追加
@@ -1333,11 +1355,10 @@ export function PromotionCostTotalTab({
               const drillLevel = params.data?.drillLevel ?? 0;
               return {
                 backgroundColor: stripeColor,
-                // Excelの結合セルと同様、内側の行罫線は入れず外周のみに罫線を入れる
-                fontWeight: 'normal',
                 // ドリルダウン階層ごとに1文字インデント（先頭の開閉ボタン／スペーサ分の余白は cellRenderer 側で確保）
                 paddingLeft: `${drillLevel}em`,
-                borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+                // 結合したセルは項目全体を占めるため、下端（項目の境目）は濃い線
+                borderBottom: `1px solid ${GRID_COLORS.strongDivider}`,
               };
             },
           },
@@ -1345,6 +1366,8 @@ export function PromotionCostTotalTab({
             // 種類別列と同様にrowSpanで結合表示し、1行テキストで編集可能（背景は白）
             headerName: '備考',
             field: 'description',
+            // 備考で絞り込んだら項目ごと残す（備考は先頭の行にしか無いため、絞り込みの値は全行で項目の先頭の行の備考。UX-097）
+            filterValueGetter: aggItemFirstRowFilterValue('description'),
             width: 128,
             lockPinned: true,
             suppressAutoSize: true,
@@ -1366,7 +1389,8 @@ export function PromotionCostTotalTab({
                 backgroundColor: stripeColor,
                 // Excelの結合セルと同様、内側の行罫線は入れず外周のみに罫線を入れる
                 paddingLeft: '0.5rem',
-                borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+                // 結合したセルの下端（項目の境目）は濃い線（UX-095）
+                borderBottom: `1px solid ${GRID_COLORS.strongDivider}`,
               };
             },
           },
@@ -1379,14 +1403,14 @@ export function PromotionCostTotalTab({
             cellRenderer: SubItemCellRenderer,
             // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
             cellClass: 'cell-left',
-            cellStyle: (_params) => {
+            cellStyle: (params) => {
               const stripeColor = GRID_COLORS.background;
               return {
                 backgroundColor: stripeColor,
                 paddingLeft: '0.75rem',
-                fontWeight: 'normal',
-                // 販売計画(詳細)に合わせ区切り線を1px GRID_COLORS.gridLineに統一
-                borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+                // 計画／実績の行は太字、項目の境目は濃い線（年間集計と同じ。UX-095）
+                fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
+                borderBottom: aggRowBorderBottom(params.data),
               };
             },
           },
@@ -1429,10 +1453,11 @@ export function PromotionCostTotalTab({
           return {
             backgroundColor: stripeColor,
             // 赤字は差率行の100%超過のみ（選択実績セルは左上の三角のみで表現し文字色は変えない）。
-            color: rateOverTextColor(params.data, params.value),
+            color: ratioRowTextColor(params.data, params.value),
             paddingRight: '0.75rem',
-            fontWeight: 'normal',
-            borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+            // 計画／実績の行は太字、項目の境目は濃い線（ほかの数値の列と同じ。UX-095）
+            fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
+            borderBottom: aggRowBorderBottom(params.data),
             // 実績反映済み（函数/計算式）セルはセル左上の三角で示す（existingFuncCellStyle）
             ...(highlight ? existingFuncCellStyle() : {}),
           };
@@ -1759,10 +1784,8 @@ export function PromotionCostTotalTab({
         >
           <style>{`
             /* （見出しの背景色・文字色は共通テーマ GRID_THEME に委ねる → 02 §7「ヘッダーの配色」・UI/UX UX-031）
-               ヘッダーと明細の間に青い強調線は引かない */
-            .annual-total-grid .ag-header-cell {
-              padding: 8px 4px;
-            }
+               ヘッダーと明細の間に青い強調線は引かない。
+               見出しのセルの余白は共通テーマのまま（上下に余白を足すと、高さ 1.75rem の見出しで文字の上が切れる。UX-095） */
             /* 見出しの寄せは grid.css の共通指定（左寄せ）に委ねる */
             .annual-total-grid .ag-header-group-cell {
               font-weight: 700;

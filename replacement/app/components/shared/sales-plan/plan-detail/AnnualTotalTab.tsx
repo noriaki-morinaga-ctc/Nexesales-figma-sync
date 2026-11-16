@@ -25,7 +25,18 @@ import {
   useGridColumnState,
   readSavedColumnState,
   gridHeaderStyle,
+  rateOverTextColor,
 } from '@/app/components/grid';
+
+// 予算比・前年比の行の 100%超過の文字色（経費の項目は赤・それ以外は青。#20 の依頼で
+// 第1回手売りセッション 決定事項12「100%超過も赤字にしない」から変更。UX-096）。それ以外の行は undefined（黒）。
+const ratioRowTextColor = (
+  data: { subItem?: string; isExpenseItem?: boolean } | undefined,
+  value: unknown
+): string | undefined =>
+  data?.subItem === '予算比' || data?.subItem === '前年比'
+    ? rateOverTextColor(value, !!data.isExpenseItem)
+    : undefined;
 import {
   computeMonth,
   displayOf,
@@ -39,6 +50,15 @@ import {
   NO_DELIVERY_PRICE_NOTE,
   SALES_UNIT_PRICE_LABEL,
 } from '@/app/constants/aggregationTree';
+import {
+  AGG_ITEM_CELL_CLASS,
+  AGG_ITEM_CONTENT_CLASS,
+  AGG_ITEM_TOGGLE_CLASS,
+  ANNUAL_ITEM_COL_WIDTH,
+  aggItemFilterValue,
+  aggRowBorderBottom,
+  isAggPrimaryRow,
+} from './aggregationTableStyle';
 
 // 項目のマウスオーバーで表示する注記（項目名→注記。課題1815）。
 const ITEM_NOTES: Record<string, string> = {
@@ -74,6 +94,7 @@ interface AnnualTotalData {
   isUnitExempt?: boolean; // 表示単位切替（円/千円）の対象外。函数は数量のため 1/1000 しない
   isFirstInGroup?: boolean;
   isLastInGroup?: boolean; // 項目内の最終行（項目境界の下罫線を引く行）
+  isExpenseItem?: boolean; // 経費の項目の行（予算比・前年比の 100%超過を赤、それ以外は青。UX-096）
   groupRowSpan?: number;
   groupName?: string; // グループ名を全行に保持
   // ドリルダウン制御：予算・前年実績は親ラベル行（展開で「額」「率」の子行を表示）
@@ -264,6 +285,8 @@ export function AnnualTotalTab({
       parent?: string;
       optional?: boolean; // △（補助項目を表示でのみ表示）
       unitExempt?: boolean; // 表示単位切替（円/千円）の対象外（数量項目）
+      // 経費の項目（量経追加口・拡売費とその配下）。予算比・前年比の 100%超過を赤で示す（それ以外は青。UX-096）
+      isExpense?: boolean;
       // 率項目の算出元（分子・分母）。集計列（累計/年間/上期/下期/四半期）を
       // 「Σ分子 ÷ Σ分母 × 100」で算出するために指定する（例：管理利益率＝管理利益額÷売上高）。
       rateNum?: { key: keyof AggAmounts; label: string };
@@ -442,6 +465,7 @@ export function AnnualTotalTab({
         itemParent,
         itemHasChildren,
         itemChildCount,
+        isExpenseItem: !!item.isExpense,
         // 差行は行側で isUnitExempt: true を設定済みなので上書きしない
         isUnitExempt: r.isUnitExempt ?? unitExempt,
       }));
@@ -470,6 +494,7 @@ export function AnnualTotalTab({
         isRate: false,
         level: 0,
         optional: true,
+        isExpense: true,
       },
       {
         name: '量経追加口率',
@@ -478,10 +503,17 @@ export function AnnualTotalTab({
         level: 1,
         parent: '量経追加口',
         optional: true,
+        isExpense: true,
         rateNum: { key: 'volumeAdd', label: '量経追加口' },
         rateDen: { key: 'extSales', label: '社外売上高' },
       },
-      { name: PROMO_ITEM_NAME, key: 'promo', isRate: false, level: 0 },
+      {
+        name: PROMO_ITEM_NAME,
+        key: 'promo',
+        isRate: false,
+        level: 0,
+        isExpense: true,
+      },
       {
         name: '売上連動拡売費',
         key: 'salesLinked',
@@ -489,6 +521,7 @@ export function AnnualTotalTab({
         level: 1,
         parent: PROMO_ITEM_NAME,
         optional: true,
+        isExpense: true,
       },
       {
         name: '売上連動拡売費率',
@@ -497,6 +530,7 @@ export function AnnualTotalTab({
         level: 2,
         parent: '売上連動拡売費',
         optional: true,
+        isExpense: true,
         rateNum: { key: 'salesLinked', label: '売上連動拡売費' },
         rateDen: { key: 'extSales', label: '社外売上高' },
       },
@@ -875,8 +909,9 @@ export function AnnualTotalTab({
     const showCount =
       hasChildren && !expanded && (data.itemChildCount ?? 0) > 0;
     return (
+      // 項目は左上・太字（集計表の共通の書式 → aggregationTableStyle.ts・UX-095）
       <div
-        className="flex h-full items-center"
+        className={AGG_ITEM_CONTENT_CLASS}
         style={{
           whiteSpace: 'pre-line',
           paddingLeft: `${level}rem`,
@@ -885,7 +920,7 @@ export function AnnualTotalTab({
         {hasChildren ? (
           <button
             type="button"
-            className="flex items-center border-0 bg-transparent px-1 cursor-pointer"
+            className={`${AGG_ITEM_TOGGLE_CLASS} border-0 bg-transparent px-1 cursor-pointer`}
             onClick={(e) => {
               e.stopPropagation();
               toggleItem(itemName);
@@ -899,12 +934,14 @@ export function AnnualTotalTab({
             )}
           </button>
         ) : (
-          <span className="inline-block w-6" />
+          <span className="inline-block w-6 shrink-0" />
         )}
         <span>
           {params.value}
           {showCount && (
-            <span className="ml-1 text-gray-500">({data.itemChildCount})</span>
+            <span className="ml-1 font-normal text-gray-500">
+              ({data.itemChildCount})
+            </span>
           )}
         </span>
       </div>
@@ -964,14 +1001,13 @@ export function AnnualTotalTab({
         backgroundColor: isHighlighted
           ? GRID_COLORS.clickHighlightBg
           : stripeColor,
-        // 文字色は常にテーマ既定の黒字。予算比・前年比の100%超過も赤字にしない
-        // （売上高等は超過が良いことのため。第1回手売りセッション 決定事項12）。
+        // 文字色はテーマ既定の黒字。予算比・前年比の100%超過だけ、経費の項目は赤・それ以外は青（UX-096）
+        color: ratioRowTextColor(params.data, params.value),
         paddingRight: '0.75rem',
-        fontWeight: 'normal',
+        // 計画／実績の行は太字（UX-095）
+        fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
         // サブ行間は薄い罫線、項目境界（各項目の最終行）は濃い罫線で区切る（重複防止のため下罫線に一本化）
-        borderBottom: params.data?.isLastInGroup
-          ? `1px solid ${GRID_COLORS.strongDivider}`
-          : `1px solid ${GRID_COLORS.gridLine}`,
+        borderBottom: aggRowBorderBottom(params.data),
         border: isHighlighted
           ? `0.125rem solid ${GRID_COLORS.clickHighlightBorder}`
           : undefined,
@@ -1013,7 +1049,10 @@ export function AnnualTotalTab({
             // 見出しが空の列は列選択に出さない（空白のチェックボックスになるため → 02 §8・UX-061）
             suppressColumnsToolPanel: true,
             field: 'group',
-            width: 144,
+            // 項目で絞り込んだら配下のサブ項目（予算・前年実績・差・比）も残す。項目名は先頭の行にしか
+            // 無いため、絞り込みの値は全行で項目名にする（AG Grid 公式 filterValueGetter。UX-097）
+            filterValueGetter: aggItemFilterValue,
+            width: ANNUAL_ITEM_COL_WIDTH,
             lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: GroupCellRenderer,
@@ -1022,15 +1061,14 @@ export function AnnualTotalTab({
                 ? params.data?.groupRowSpan || 1
                 : 1;
             },
-            // 先頭列の左寄せは ag-cell-left（grid.css の1列目中央寄せを戻す。結合したセルの縦中央も
-            // grid.css の先頭列の指定が受け持つ → 02 §6 セルの寄せ）
-            cellClass: 'ag-cell-left',
+            // 先頭列の左寄せは ag-cell-left、結合したセルの中身は上に置く cell-span-top
+            // （grid.css。項目は左上・太字 → 02 §7「集計表の項目と計画／実績の行」・UX-095）
+            cellClass: AGG_ITEM_CELL_CLASS,
             cellStyle: (_params) => {
               const stripeColor = GRID_COLORS.background;
 
               return {
                 backgroundColor: stripeColor,
-                fontWeight: 'normal',
                 // 項目列は1文字インデント
                 paddingLeft: '1em',
                 // 項目セルは rowSpan で項目全体を占めるため、下端（項目境界）に濃い横罫線
@@ -1053,11 +1091,10 @@ export function AnnualTotalTab({
               return {
                 backgroundColor: stripeColor,
                 paddingLeft: '0.75rem',
-                fontWeight: 'normal',
+                // 計画／実績の行は太字（UX-095）
+                fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
                 // サブ行間は薄い罫線、項目境界（最終行）は濃い罫線で区切る
-                borderBottom: params.data?.isLastInGroup
-                  ? `1px solid ${GRID_COLORS.strongDivider}`
-                  : `1px solid ${GRID_COLORS.gridLine}`,
+                borderBottom: aggRowBorderBottom(params.data),
               };
             },
           },
@@ -1103,9 +1140,12 @@ export function AnnualTotalTab({
 
           return {
             backgroundColor: stripeColor,
+            // 予算比・前年比の100%超過は、経費の項目は赤・それ以外は青（ほかの数値の列と同じ。UX-096）
+            color: ratioRowTextColor(params.data, params.value),
             paddingRight: '0.75rem',
-            fontWeight: 'normal',
-            borderBottom: `1px solid ${GRID_COLORS.gridLine}`,
+            // 計画／実績の行は太字、項目の境目は濃い線（ほかの数値の列と同じ。UX-095）
+            fontWeight: isAggPrimaryRow(params.data) ? 'bold' : 'normal',
+            borderBottom: aggRowBorderBottom(params.data),
             // 実績反映済み（函数/計算式）セルはセル左上の三角で示す（existingFuncCellStyle）
             ...(highlight ? existingFuncCellStyle() : {}),
             cursor:
@@ -1719,10 +1759,8 @@ ${note}`
         >
           <style>{`
               /* （見出しの背景色・文字色は共通テーマ GRID_THEME に委ねる → 02 §7「ヘッダーの配色」・UI/UX UX-031）
-                 ヘッダーと明細の間に青い強調線は引かない */
-              .annual-total-grid .ag-header-cell {
-                padding: 8px 4px;
-              }
+                 ヘッダーと明細の間に青い強調線は引かない。
+                 見出しのセルの余白は共通テーマのまま（上下に余白を足すと、高さ 1.75rem の見出しで文字の上が切れる。UX-095） */
 
               /* 見出しの寄せは grid.css の共通指定（左寄せ）に委ねる */
               .annual-total-grid .ag-header-group-cell {

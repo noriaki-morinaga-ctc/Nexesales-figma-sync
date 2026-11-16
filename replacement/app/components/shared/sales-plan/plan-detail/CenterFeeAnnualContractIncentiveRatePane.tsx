@@ -473,54 +473,76 @@ export function CenterFeeAnnualContractIncentiveRatePane({
         description={description}
         collapsed={collapsed}
         onCollapsedChange={onCollapsedChange}
+        // ペイン全体に掛かるボタン（更新）はフッターに固定して表示する（本文をスクロールしても見える。UX-105 → 02 §13.5）
+        footer={
+          <Button
+            type="button"
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={handleClickUpdate}
+          >
+            {submitLabel}
+          </Button>
+        }
       >
-        <div className="space-y-4">
-          {/* 1段目：算出方法（縦並び） */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">
-              算出方法
-            </Label>
-            <RadioGroup
-              value={tier1Mode}
-              onValueChange={(v) => setTier1Mode(v as Tier1Mode)}
-            >
-              <div className="flex items-center space-x-2 ml-4">
-                <RadioGroupItem
-                  value="delivery"
-                  id={`${idPrefix}-tier1-delivery`}
-                />
-                <Label htmlFor={`${idPrefix}-tier1-delivery`}>
-                  納品金額（%）
-                </Label>
-                <span className="text-red-500">
-                  ※納価未入力の行は計算されません
-                </span>
+        {/* 右ペインは縦に間延びさせず、縦スクロールなしで収める（UI/UX UX-100 → 02 §13.5）。
+            算出方法〜水2L は「項目名を左（w-14）・ラジオを右に横1行」で1つの枠にまとめ、
+            一括入力は横1行、管理区分〜計上月は2列の格子にする。枠の余白は p-3・枠の間は space-y-3 */}
+        <div className="space-y-3">
+          {/* 1段目：算出方法・反映方法・PB商品・水2L（1つの枠） */}
+          <div className="space-y-1.5 rounded-lg border border-gray-300 bg-white p-3">
+            <div className="flex items-start gap-2">
+              <Label className="w-14 shrink-0 pt-0.5 text-sm font-medium text-gray-700">
+                算出方法
+              </Label>
+              <div className="min-w-0 space-y-1">
+                <RadioGroup
+                  value={tier1Mode}
+                  onValueChange={(v) => setTier1Mode(v as Tier1Mode)}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <RadioGroupItem
+                      value="delivery"
+                      id={`${idPrefix}-tier1-delivery`}
+                    />
+                    <Label htmlFor={`${idPrefix}-tier1-delivery`}>
+                      納品金額（%）
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <RadioGroupItem
+                      value="externalSales"
+                      id={`${idPrefix}-tier1-external`}
+                    />
+                    <Label htmlFor={`${idPrefix}-tier1-external`}>
+                      社外売上高（%）
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <RadioGroupItem
+                      value="manual"
+                      id={`${idPrefix}-tier1-manual`}
+                    />
+                    <Label htmlFor={`${idPrefix}-tier1-manual`}>
+                      直接入力（金額）
+                    </Label>
+                  </div>
+                </RadioGroup>
+                {/* 納品金額のときだけ出す注記（選択肢の下に1行） */}
+                {tier1Mode === 'delivery' && (
+                  <p className="text-xs text-red-700">
+                    ※納価未入力の行は計算されません
+                  </p>
+                )}
               </div>
-              <div className="flex items-center space-x-2 ml-4">
-                <RadioGroupItem
-                  value="externalSales"
-                  id={`${idPrefix}-tier1-external`}
-                />
-                <Label htmlFor={`${idPrefix}-tier1-external`}>
-                  社外売上高（%）
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 ml-4">
-                <RadioGroupItem
-                  value="manual"
-                  id={`${idPrefix}-tier1-manual`}
-                />
-                <Label htmlFor={`${idPrefix}-tier1-manual`}>
-                  直接入力（金額）
-                </Label>
-              </div>
-            </RadioGroup>
+            </div>
 
             {/* 係数入力欄（社外売上高を選択したときのみ表示）。
                 RadioGroup 内に入れ子にするとロービングtabindexでTab遷移順が崩れるため、
                 RadioGroup の外に配置して表示順どおりにフォーカスが移るようにする。 */}
             {tier1Mode === 'externalSales' && (
-              <div className="ml-8 space-y-1">
+              // 係数の欄は横1行（項目名・入力欄・%・短い説明。縦に詰める → 02 §13.5。UX-100）
+              <div className="ml-16">
                 <div className="flex items-center gap-2">
                   <Label
                     htmlFor={`${idPrefix}-index`}
@@ -542,8 +564,8 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                     placeholder="100"
                     className={
                       enableIndex
-                        ? 'w-24 text-right bg-white no-spinner border border-gray-300'
-                        : 'w-24 text-right bg-gray-100 text-gray-500 no-spinner border border-gray-300 cursor-not-allowed'
+                        ? 'w-16 text-right bg-white no-spinner border border-gray-300'
+                        : 'w-16 text-right bg-gray-100 text-gray-500 no-spinner border border-gray-300 cursor-not-allowed'
                     }
                   />
                   <span
@@ -551,139 +573,101 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                   >
                     %
                   </span>
+                  {/* 係数の説明（社外売上高に掛ける割合。100％なら社外売上高のまま） */}
+                  <span
+                    className="text-xs text-gray-600"
+                    title="社外売上高に掛ける係数です。100％の場合、社外売上高をそのまま使用します"
+                  >
+                    ※100％でそのまま使用
+                  </span>
                 </div>
-                <p className="text-xs text-gray-600">
-                  ※社外売上高に掛ける係数を入力します。100％の場合、社外売上高をそのまま使用します。
-                </p>
               </div>
             )}
-          </div>
 
-          {/* 2段目：反映方法・PB商品（手入力時は非表示） */}
-          {tier1Mode !== 'manual' && (
-            <>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
-                  反映方法
-                </Label>
-                <RadioGroup
-                  value={tier2Mode}
-                  onValueChange={(v) => setTier2Mode(v as Tier2Mode)}
-                >
-                  <div className="flex items-center space-x-6 ml-4">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="distribution"
-                        id={`${idPrefix}-tier2-distribution`}
-                      />
-                      <Label htmlFor={`${idPrefix}-tier2-distribution`}>
-                        商流別
-                      </Label>
-                    </div>
-                    {/* メタブランド別（年契基本分・センターフィ率で活性。取組強化マージン率は
-                        メタブランド別が存在しないため表示は残して非活性にする） */}
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="brand"
-                        id={`${idPrefix}-tier2-brand`}
-                        disabled={!enableBrandMode}
-                      />
-                      <Label
-                        htmlFor={`${idPrefix}-tier2-brand`}
-                        className={
-                          enableBrandMode
-                            ? 'text-sm text-gray-700'
-                            : 'text-sm text-gray-500 cursor-not-allowed'
-                        }
-                      >
-                        メタブランド別
-                      </Label>
-                    </div>
-                  </div>
-                </RadioGroup>
-              </div>
-              {/* PB商品（センターフィ率のみ活性。年契基本分・取組強化マージンは非活性） */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
-                  PB商品
-                </Label>
-                <RadioGroup
-                  value={excludePB ? 'exclude' : 'include'}
-                  onValueChange={(v) => setExcludePB(v === 'exclude')}
-                  disabled={!enablePB}
-                >
-                  <div className="flex items-center space-x-6 ml-4">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="exclude"
-                        id={`${idPrefix}-pb-exclude`}
-                        disabled={!enablePB}
-                      />
-                      <Label
-                        htmlFor={`${idPrefix}-pb-exclude`}
-                        className={
-                          enablePB
-                            ? 'text-sm text-gray-700'
-                            : 'text-sm text-gray-500 cursor-not-allowed'
-                        }
-                      >
-                        除く
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="include"
-                        id={`${idPrefix}-pb-include`}
-                        disabled={!enablePB}
-                      />
-                      <Label
-                        htmlFor={`${idPrefix}-pb-include`}
-                        className={
-                          enablePB
-                            ? 'text-sm text-gray-700'
-                            : 'text-sm text-gray-500 cursor-not-allowed'
-                        }
-                      >
-                        含む
-                      </Label>
-                    </div>
-                  </div>
-                </RadioGroup>
-              </div>
-              {/* 水2L（年契基本分のみ。センターフィ率・取組強化マージン率には
-                  水2Lの区分が無いため showWater2L=false で行ごと表示しない） */}
-              {showWater2L && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">
-                    水2L
+            {/* 反映方法・PB商品・水2L（手入力時は非表示）。項目名を左・ラジオを右に横1行 */}
+            {tier1Mode !== 'manual' && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Label className="w-14 shrink-0 text-sm font-medium text-gray-700">
+                    反映方法
                   </Label>
                   <RadioGroup
-                    value={shouldExcludeWater2L ? 'exclude' : 'include'}
-                    onValueChange={(v) =>
-                      setShouldExcludeWater2L(v === 'exclude')
-                    }
+                    value={tier2Mode}
+                    onValueChange={(v) => setTier2Mode(v as Tier2Mode)}
                   >
-                    <div className="flex items-center space-x-6 ml-4">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-x-4">
+                      <div className="flex items-center gap-1.5">
                         <RadioGroupItem
-                          value="exclude"
-                          id={`${idPrefix}-water2l-exclude`}
+                          value="distribution"
+                          id={`${idPrefix}-tier2-distribution`}
+                        />
+                        <Label htmlFor={`${idPrefix}-tier2-distribution`}>
+                          商流別
+                        </Label>
+                      </div>
+                      {/* メタブランド別（年契基本分・センターフィ率で活性。取組強化マージン率は
+                        メタブランド別が存在しないため表示は残して非活性にする） */}
+                      <div className="flex items-center gap-1.5">
+                        <RadioGroupItem
+                          value="brand"
+                          id={`${idPrefix}-tier2-brand`}
+                          disabled={!enableBrandMode}
                         />
                         <Label
-                          htmlFor={`${idPrefix}-water2l-exclude`}
-                          className="text-sm text-gray-700"
+                          htmlFor={`${idPrefix}-tier2-brand`}
+                          className={
+                            enableBrandMode
+                              ? 'text-sm text-gray-700'
+                              : 'text-sm text-gray-500 cursor-not-allowed'
+                          }
+                        >
+                          メタブランド別
+                        </Label>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+                {/* PB商品（センターフィ率のみ活性。年契基本分・取組強化マージンは非活性） */}
+                <div className="flex items-center gap-2">
+                  <Label className="w-14 shrink-0 text-sm font-medium text-gray-700">
+                    PB商品
+                  </Label>
+                  <RadioGroup
+                    value={excludePB ? 'exclude' : 'include'}
+                    onValueChange={(v) => setExcludePB(v === 'exclude')}
+                    disabled={!enablePB}
+                  >
+                    <div className="flex items-center gap-x-4">
+                      <div className="flex items-center gap-1.5">
+                        <RadioGroupItem
+                          value="exclude"
+                          id={`${idPrefix}-pb-exclude`}
+                          disabled={!enablePB}
+                        />
+                        <Label
+                          htmlFor={`${idPrefix}-pb-exclude`}
+                          className={
+                            enablePB
+                              ? 'text-sm text-gray-700'
+                              : 'text-sm text-gray-500 cursor-not-allowed'
+                          }
                         >
                           除く
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-1.5">
                         <RadioGroupItem
                           value="include"
-                          id={`${idPrefix}-water2l-include`}
+                          id={`${idPrefix}-pb-include`}
+                          disabled={!enablePB}
                         />
                         <Label
-                          htmlFor={`${idPrefix}-water2l-include`}
-                          className="text-sm text-gray-700"
+                          htmlFor={`${idPrefix}-pb-include`}
+                          className={
+                            enablePB
+                              ? 'text-sm text-gray-700'
+                              : 'text-sm text-gray-500 cursor-not-allowed'
+                          }
                         >
                           含む
                         </Label>
@@ -691,13 +675,55 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                     </div>
                   </RadioGroup>
                 </div>
-              )}
-            </>
-          )}
+                {/* 水2L（年契基本分のみ。センターフィ率・取組強化マージン率には
+                  水2Lの区分が無いため showWater2L=false で行ごと表示しない） */}
+                {showWater2L && (
+                  <div className="flex items-center gap-2">
+                    <Label className="w-14 shrink-0 text-sm font-medium text-gray-700">
+                      水2L
+                    </Label>
+                    <RadioGroup
+                      value={shouldExcludeWater2L ? 'exclude' : 'include'}
+                      onValueChange={(v) =>
+                        setShouldExcludeWater2L(v === 'exclude')
+                      }
+                    >
+                      <div className="flex items-center gap-x-4">
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="exclude"
+                            id={`${idPrefix}-water2l-exclude`}
+                          />
+                          <Label
+                            htmlFor={`${idPrefix}-water2l-exclude`}
+                            className="text-sm text-gray-700"
+                          >
+                            除く
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="include"
+                            id={`${idPrefix}-water2l-include`}
+                          />
+                          <Label
+                            htmlFor={`${idPrefix}-water2l-include`}
+                            className="text-sm text-gray-700"
+                          >
+                            含む
+                          </Label>
+                        </div>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* 直接入力（金額）フォーム */}
           {tier1Mode === 'manual' && (
-            <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-300">
+            <div className="space-y-3 p-3 bg-white rounded-lg border border-gray-300">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">
                   直接入力（金額）
@@ -722,45 +748,44 @@ export function CenterFeeAnnualContractIncentiveRatePane({
 
           {/* 率入力フォーム（商流別／メタブランド別 共通） */}
           {tier1Mode !== 'manual' && (
-            <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-300">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
+            <div className="space-y-2 p-3 bg-white rounded-lg border border-gray-300">
+              {/* 一括入力は横1行（項目名・入力欄・%・全行に入力・説明） */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Label
+                  htmlFor={`${idPrefix}-bulk`}
+                  className="text-sm font-medium text-gray-700"
+                >
                   一括入力
                 </Label>
-                <div className="flex items-center gap-2 mb-2">
-                  <NumericInput
-                    step="0.01"
-                    placeholder="10"
-                    value={bulkValue}
-                    onChange={(e) => {
-                      if (isWithinTwoDecimals(e.target.value)) {
-                        setBulkValue(e.target.value);
-                      }
-                    }}
-                    className="w-24 text-right bg-white no-spinner border border-gray-300"
-                  />
-                  <span className="text-gray-700">%</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-xs ml-2"
-                    onClick={handleApplyToAll}
-                  >
-                    ↓全行に入力
-                  </Button>
-                </div>
-                <div className="text-xs text-blue-700 px-2 py-1 rounded">
-                  ※ 各行へ数値をコピーします。個別に修正可能です。
-                </div>
+                <NumericInput
+                  id={`${idPrefix}-bulk`}
+                  step="0.01"
+                  placeholder="10"
+                  value={bulkValue}
+                  onChange={(e) => {
+                    if (isWithinTwoDecimals(e.target.value)) {
+                      setBulkValue(e.target.value);
+                    }
+                  }}
+                  className="w-16 text-right bg-white no-spinner border border-gray-300"
+                />
+                <span className="text-gray-700">%</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleApplyToAll}
+                >
+                  ↓全行に入力
+                </Button>
+                <span className="text-xs text-gray-600">
+                  個別に修正できます
+                </span>
               </div>
 
-              <div className="text-sm text-center text-gray-600 py-2">
-                ↓ 各行の入力欄へ反映（編集可能）
-              </div>
-
-              <div className="space-y-3 border-t border-gray-300 pt-4">
-                <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+              <div className="space-y-1.5 border-t border-gray-300 pt-2">
+                <div className="flex items-center justify-between pb-1 border-b border-gray-200">
                   <span className="text-sm font-bold text-gray-700">
                     {listHeaderLabel}
                   </span>
@@ -817,8 +842,9 @@ export function CenterFeeAnnualContractIncentiveRatePane({
               算出方法によらず表示する。管理区分・管理コードは担当者が選択し、対象月以降の将来月にも反映する想定
               （センターフィも初期値〔マスタ管理者が設定した値〕を上書きして選択できる）。
               施策（年契基本分・取組強化マージンのみ）は対象月以降の将来月にも反映し、計上月は対象月のみに適用する想定。 */}
-          <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-300">
-            <div className="space-y-2">
+          {/* 2列の格子：管理区分・管理コードは横いっぱい、施策区分・施策コード・計上月は2列 */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 bg-white rounded-lg border border-gray-300">
+            <div className="col-span-2 space-y-1">
               <Label
                 htmlFor={`${idPrefix}-management-class`}
                 className="text-sm font-medium text-gray-700"
@@ -834,7 +860,7 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                 ariaRequired
               />
             </div>
-            <div className="space-y-2">
+            <div className="col-span-2 space-y-1">
               <Label
                 htmlFor={`${idPrefix}-management-code`}
                 className="text-sm font-medium text-gray-700"
@@ -852,7 +878,7 @@ export function CenterFeeAnnualContractIncentiveRatePane({
             </div>
             {showCampaign && (
               <>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-1">
                   <Label
                     htmlFor={`${idPrefix}-campaign-class`}
                     className="text-sm font-medium text-gray-700"
@@ -871,7 +897,7 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                     <p className="text-xs text-red-600">{campaignClassError}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-1">
                   <Label
                     htmlFor={`${idPrefix}-campaign-code`}
                     className="text-sm font-medium text-gray-700"
@@ -892,7 +918,7 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                 </div>
               </>
             )}
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-1">
               <Label
                 htmlFor={`${idPrefix}-posting-month`}
                 className="text-sm font-medium text-gray-700"
@@ -906,16 +932,6 @@ export function CenterFeeAnnualContractIncentiveRatePane({
                 onChange={setPostingMonth}
               />
             </div>
-          </div>
-
-          {/* 更新ボタン（右ペイン右下ではなく入力欄の最下段直下に配置） */}
-          <div className="flex justify-end">
-            <Button
-              className="bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-lg"
-              onClick={handleClickUpdate}
-            >
-              {submitLabel}
-            </Button>
           </div>
         </div>
       </RightPane>

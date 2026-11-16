@@ -31,7 +31,9 @@ import type {
 } from '@/app/types/billingEdi';
 import { setupAgGrid } from './components/grid';
 
-LicenseManager.setLicenseKey('AG_GRID_LICENSE_KEY');
+LicenseManager.setLicenseKey(
+  'AG_GRID_LICENSE_KEY'
+);
 
 // AG Grid の全画面共通の設定（モジュール・テーマ・ロケール・右クリックメニュー・列フィルタ等。→ grid/gridSetup）
 setupAgGrid();

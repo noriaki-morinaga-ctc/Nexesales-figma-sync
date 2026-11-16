@@ -478,17 +478,10 @@ export const SUMMARY_CARD_DEFAULT_HEIGHT = 512;
 
 export const SUMMARY_CARD_MIN_HEIGHT = 200;
 
-// 支払明細情報カードの本体高さ（px）。サマリカードと同じくドラッグで手動調整する。
-// 既定値は「画面高 － 上部の固定領域(140px)」の 3/4。画面高に応じて算出するため、
-// 従来のビューポート基準の高さ（calc(100vh - 8.75rem)）との比率を画面サイズによらず保てる。
-export const DETAIL_CARD_HEIGHT_OFFSET = 140;
-
-export const DETAIL_CARD_INITIAL_RATIO = 0.75;
-
-export const DETAIL_CARD_MIN_HEIGHT = 300;
-
-// 拡縮の上限（既定の 800px では画面いっぱいまで広げられないため、画面高を上限にする）
-export const DETAIL_CARD_MAX_HEIGHT = 2000;
+// 支払明細情報（画面のいちばん下の表）の高さで画面の縦幅から引く分（rem。アプリのヘッダー・
+// 画面下部のボタンの列・カードの下の余白）。最下部までスクロールした状態で、表が画面に
+// ちょうど収まる値（viewportGridHeight に渡す。UX-099。実測で決めた値）。
+export const DETAIL_GRID_OFFSET_REM = 9;
 
 export const SALES_STORE_COMBO_OPTIONS =
   SALES_STORE_OPTIONS.map(toStoreComboOption);

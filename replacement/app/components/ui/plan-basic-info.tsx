@@ -52,7 +52,7 @@ export function PlanBasicInfoRow({
   return (
     <div
       className={`${fit ? FIT_ROW_CLASS : SEARCH_GRID_CLASS}${
-        divider ? ' mb-2 pb-3 border-b border-gray-300' : ''
+        divider ? ' mb-2.5 pb-2.5 border-b border-gray-300' : ''
       }`}
     >
       {children}

@@ -213,10 +213,6 @@ export default function TransferDetail() {
                   onChange={setBasicInfo}
                   hasBranchRows={hasBranchRows}
                   terminalOrgOptions={TRANSFER_TERMINAL_ORG_OPTIONS}
-                  onStatusClick={() =>
-                    // 開くボタン再押下で閉じる（トグル）
-                    setIsCommentHistoryPaneShown((prev) => !prev)
-                  }
                 />
               </section>
 
@@ -290,6 +286,10 @@ export default function TransferDetail() {
                 id="payment-c-comment"
                 value={commentInput}
                 onChange={setCommentInput}
+                onOpenHistory={() =>
+                  // 開くボタン再押下で閉じる（トグル）
+                  setIsCommentHistoryPaneShown((prev) => !prev)
+                }
               />
               <button
                 className="btn-action-base btn-action-red"

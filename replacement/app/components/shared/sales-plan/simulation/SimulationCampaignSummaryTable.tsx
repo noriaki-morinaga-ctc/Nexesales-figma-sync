@@ -20,6 +20,7 @@ import {
   GRID_NUMBER_TEXT_FILTER,
   GRID_MONTH_TEXT_FILTER,
   asCellStyle,
+  rateOverTextColor,
   useGridColumnState,
 } from '@/app/components/grid';
 import {
@@ -181,11 +182,13 @@ export function SimulationCampaignSummaryTable({
     }, [])
   );
 
-  // 率セルのスタイル（100%超過は赤字。合計行クリームは踏襲）
+  // 率セルのスタイル（合計行クリームは踏襲）。率の列は管理利益率・値入率で経費の項目ではないため、
+  // 100%超過は青字（経費の項目は赤・それ以外は青 → UX-096）
   const rateCellStyle = useCallback(
     (params: any) => {
       const style: any = { ...textCellStyle(params) };
-      if (toNum(params.value) > 100) style.color = GRID_COLORS.overText;
+      const color = rateOverTextColor(toNum(params.value), false);
+      if (color) style.color = color;
       return style;
     },
     [textCellStyle]

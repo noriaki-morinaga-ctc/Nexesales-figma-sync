@@ -161,6 +161,16 @@ export function MarginNetRatePane(props: MarginNetRatePaneProps) {
         description={paneDescription}
         collapsed={props.collapsed}
         onCollapsedChange={props.onCollapsedChange}
+        // ペイン全体に掛かるボタン（更新）はフッターに固定して表示する（本文をスクロールしても見える。UX-105 → 02 §13.5）
+        footer={
+          <Button
+            type="button"
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={handleClickUpdate}
+          >
+            更新
+          </Button>
+        }
       >
         {/* 一括入力エリア（各行への入力補助。確定は「更新」ボタン。率設定ペイン群で表記統一） */}
         <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -250,16 +260,6 @@ export function MarginNetRatePane(props: MarginNetRatePaneProps) {
               );
             })}
           </div>
-        </div>
-
-        {/* 更新ボタン（右ペイン右下ではなく入力欄の最下段直下に配置） */}
-        <div className="mt-4 flex justify-end">
-          <Button
-            className="bg-blue-500 hover:bg-blue-600 text-white py-5 rounded-lg"
-            onClick={handleClickUpdate}
-          >
-            更新
-          </Button>
         </div>
       </RightPane>
 

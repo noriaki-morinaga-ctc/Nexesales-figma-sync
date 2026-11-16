@@ -37,7 +37,7 @@ import {
   useChangedCells,
   useGridColumnState,
   useRevealNewRows,
-  detailGridInitialHeight,
+  viewportGridHeight,
   GRID_NUMBER_TEXT_FILTER,
   GRID_NUMBER_FILTER,
   GRID_EMPTY_TEXT,
@@ -89,10 +89,6 @@ import {
 import type { StoreOrgSelection } from '@/app/types/organization';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import type { TransferDetailBasicInfoValues } from './TransferInfo';
-import {
-  useResizableHeight,
-  ResizeHandle,
-} from '@/app/components/ui/resizable-panel';
 
 import { BUTTON_STYLES, BUTTON_BASE } from '@/styles/commonStyles';
 
@@ -913,6 +909,10 @@ const applyExpenseFormulas = (api: any): ExpenseSummary => {
   return { grandPay, transferPay };
 };
 
+// 表の高さで画面の縦幅から引く分（rem。アプリのヘッダー・画面下部のボタンの列・カードの下の余白）。
+// 最下部までスクロールした状態で、表が画面にちょうど収まる値（UX-099。実測で決めた値）。
+const TRANSFER_GRID_OFFSET_REM = 10.25;
+
 export const NonProductExpensePane = forwardRef<
   NonProductExpensePaneHandle,
   NonProductExpensePaneProps
@@ -993,17 +993,6 @@ export const NonProductExpensePane = forwardRef<
       return lineNo;
     },
   }));
-
-  // グリッドの縦幅（リサイズハンドルのドラッグで手動調整可能）。
-  const GRID_MIN_HEIGHT = 240; // 縮めすぎ防止の下限
-  // 既定の高さは 支払詳細(追加口請求書有) の「拡売費」と同じ算出式で揃える
-  //（grid/ の detailGridInitialHeight）。
-  const gridResize = useResizableHeight({
-    defaultHeight: detailGridInitialHeight,
-    minHeight: GRID_MIN_HEIGHT,
-    maxHeight: Infinity,
-  });
-  const gridHeight = gridResize.height;
 
   // タイトル下の合計サマリーバーの表示値（総合計＋グループ別の支払金額・計画金額）。
   // 数式の一括適用（applyExpenseFormulas）で再集計するたびに更新する。
@@ -2102,9 +2091,16 @@ export const NonProductExpensePane = forwardRef<
           </div>
         </div>
 
+        {/* 画面のいちばん下の表は、画面いっぱいの高さにする（UX-099 → 05「画面いっぱいのグリッド」）。
+            最下部までスクロールした状態で表が画面（ヘッダーとボタンの列のあいだ）にちょうど収まる高さ。
+            下ペインを開いている間はペインの高さだけ低くなる（viewportGridHeight）。下端のバーで高さは変えない */}
         <div
           className="expense-grid"
-          style={{ height: gridHeight, width: '100%' }}
+          style={{
+            height: viewportGridHeight(TRANSFER_GRID_OFFSET_REM),
+            minHeight: '25rem',
+            width: '100%',
+          }}
         >
           {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）に委譲。 */}
           <style>{`
@@ -2147,15 +2143,6 @@ export const NonProductExpensePane = forwardRef<
             onRowDataUpdated={reveal.onRowDataUpdated}
             statusBar={GRID_STATUS_BAR}
             {...GRID_BASE_PROPS}
-          />
-        </div>
-
-        {/* リサイズハンドル：上下ドラッグでグリッドの縦幅を手動調整する。
-            カードの p-4 を相殺してカード下端いっぱいに帯を表示する。 */}
-        <div className="relative h-2">
-          <ResizeHandle
-            onMouseDown={gridResize.handleMouseDown}
-            ariaLabel="拡売費一覧の高さを変更"
           />
         </div>
       </>

@@ -85,7 +85,7 @@ export function AdditionalPaymentBasicInfoPane() {
         <div className="p-4">
           {/* 1行目: 対象年月 / 販売計画書No / 支払No / 分割・振替有無 */}
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 items-center pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 items-center pb-2.5 border-b border-gray-300`}
           >
             {renderLabelField('対象年月', BASIC_INFO.targetMonth)}
             {/* 販売計画書No は計画詳細へのリンク（支払詳細(自販機)と同じ）。URL 遷移ではなく
@@ -116,7 +116,7 @@ export function AdditionalPaymentBasicInfoPane() {
 
           {/* 2行目: 販売店 / 三次店 / 一次店 */}
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {renderLabelField('販売店', BASIC_INFO.store)}
             {renderLabelField('三次店', BASIC_INFO.tertiaryStore)}

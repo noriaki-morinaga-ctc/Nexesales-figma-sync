@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { matchesSearchQuery } from '@/app/utils/common/searchNormalize';
 import { cn } from './utils';
+import { scrollIntoListView, useDropdownPlacement } from './use-dropdown-placement';
 
 // 単一選択の検索付きコンボボックス。
 // 複数選択は MultiCombobox（ボタン＋チェックボックス一覧）を使う。本部品は
@@ -106,33 +107,14 @@ export function SingleCombobox({
     if (!next) setQuery('');
   }, []);
 
-  // ドロップダウンはポータルで body 直下に描画するため、トリガーの位置・幅を
-  // 算出して固定配置する（祖先の overflow-hidden に左右されず常に前面に出せる）。
+  // 候補一覧の向き（下に入らず上のほうが広ければ上）と、ポータル描画の固定配置の位置。
   // 幅はトリガーの幅、ただし 15rem 未満にはしない（MultiCombobox と同じ。候補名が切れないようにする）。
-  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
-  const updateMenuPosition = React.useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setMenuStyle({
-      position: 'fixed',
-      top: r.bottom + 4,
-      left: r.left,
-      width: Math.max(240, r.width),
-    });
-  }, []);
-
-  // 開いている間はトリガー位置に追従（スクロール・リサイズで再計算）
-  React.useEffect(() => {
-    if (!open || !usePortal) return;
-    updateMenuPosition();
-    window.addEventListener('scroll', updateMenuPosition, true);
-    window.addEventListener('resize', updateMenuPosition);
-    return () => {
-      window.removeEventListener('scroll', updateMenuPosition, true);
-      window.removeEventListener('resize', updateMenuPosition);
-    };
-  }, [open, usePortal, updateMenuPosition]);
+  const { side, menuStyle } = useDropdownPlacement({
+    open,
+    usePortal,
+    containerRef,
+    menuRef: listRef,
+  });
 
   // 外クリックで閉じる。ドロップダウンはポータル（containerRef の外）なので listRef も判定に含める。
   React.useEffect(() => {
@@ -152,8 +134,9 @@ export function SingleCombobox({
   // 絞り込み欄を出さないときは候補一覧へフォーカスし、↑↓・Enter で選べるようにする。
   React.useEffect(() => {
     if (!open) return;
-    if (searchable) inputRef.current?.focus();
-    else listboxRef.current?.focus();
+    // preventScroll：フォーカスで表・画面をスクロールさせない（UX-094）
+    if (searchable) inputRef.current?.focus({ preventScroll: true });
+    else listboxRef.current?.focus({ preventScroll: true });
   }, [open, searchable]);
 
   const selectedOption = React.useMemo(
@@ -200,13 +183,13 @@ export function SingleCombobox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // ハイライト位置を表示領域内へスクロール
+  // ハイライト位置を候補一覧の中だけでスクロールして見せる（表・画面は動かさない）
   React.useEffect(() => {
     if (!open) return;
     const el = listRef.current?.querySelector<HTMLElement>(
       `[data-index="${activeIndex}"]`
     );
-    el?.scrollIntoView({ block: 'nearest' });
+    scrollIntoListView(listboxRef.current, el ?? null);
   }, [activeIndex, open]);
 
   const select = (val: string, viaKeyboard = false) => {
@@ -312,11 +295,14 @@ export function SingleCombobox({
         renderMenu(
           <div
             ref={listRef}
-            style={usePortal ? menuStyle : undefined}
+            // 固定配置の位置（ポータル描画）と、入りきらないときの高さの上限（JS で計算した値）
+            style={menuStyle}
             className={`z-50 flex flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-md ${
               usePortal
                 ? 'fixed'
-                : 'absolute left-0 top-full mt-1 w-full min-w-60'
+                : side === 'above'
+                  ? 'absolute bottom-full left-0 mb-1 w-full min-w-60'
+                  : 'absolute left-0 top-full mt-1 w-full min-w-60'
             }`}
           >
             {/* 絞り込み欄（searchable={false} の短い固定リストでは出さない） */}
@@ -347,7 +333,7 @@ export function SingleCombobox({
               aria-activedescendant={
                 items[activeIndex] ? `${listboxId}-${activeIndex}` : undefined
               }
-              className="max-h-80 overflow-y-auto p-1 outline-none"
+              className="max-h-80 min-h-0 overflow-y-auto p-1 outline-none"
             >
               {items.length === 0 ? (
                 <div className="px-2 py-3 text-center text-sm text-gray-500">

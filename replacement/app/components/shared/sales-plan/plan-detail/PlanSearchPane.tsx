@@ -1,4 +1,3 @@
-import { History } from 'lucide-react';
 import { useState } from 'react';
 
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
@@ -7,19 +6,13 @@ import { StoreTierFields } from '@/app/components/shared/sales-plan/common/Store
 import { BasicInfoCollapsedSummary } from '@/app/components/shared/sales-plan/common/BasicInfoCollapsedSummary';
 import type { PlanBasicInfo } from '@/app/types/planDetail';
 import { joinCodeName } from '@/app/utils/common/nameCode';
-import {
-  SEARCH_GRID_CLASS,
-  SEARCH_LABEL_CLASS,
-  BUTTON_STYLES,
-  BUTTON_BASE,
-} from '@/styles/commonStyles';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
 import { EmptyValue } from '@/app/components/ui/empty-value';
 
 interface PlanSearchPaneProps {
-  // ステータス（＋コメント履歴ボタン）を表示するか（既定: 表示）。
+  // ステータスを表示するか（既定: 表示）。
   // 年間計画作成のように単月のステータスを持たない画面では false にする。
   showStatus?: boolean;
-  onStatusClick?: () => void;
   // 計画の基本情報（画面が取得して渡す）
   basicInfo: PlanBasicInfo;
   // 対象年月（親で制御する場合に渡す。集計エリアと共有するため）
@@ -42,7 +35,6 @@ export function PlanSearchPane({
   showStatus = true,
   showTargetYearMonth = true,
   showTradingSystemAndChannel = true,
-  onStatusClick,
   basicInfo,
   targetYearMonth: targetYearMonthProp,
   onChangeTargetYearMonth,
@@ -126,7 +118,7 @@ export function PlanSearchPane({
             2行目以降の列位置とも縦に揃う。 */}
         {(showTargetYearMonth || showStatus) && (
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {/* 対象年月 */}
             {showTargetYearMonth ? (
@@ -144,7 +136,7 @@ export function PlanSearchPane({
               <div className="col-span-4 flex items-center gap-2" />
             )}
 
-            {/* ステータス（横にコメント履歴ボタンを配置）。
+            {/* ステータス（コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107）。
               showStatus=false の画面では5列目を空セルにして列位置だけ揃える。 */}
             {showStatus ? (
               <div className="flex items-center gap-2">
@@ -152,19 +144,6 @@ export function PlanSearchPane({
                 <div className="h-8 flex items-center text-sm text-gray-900 whitespace-nowrap px-2">
                   {basicInfo.status}
                 </div>
-                {/* 対象年月を月ストリップにしたことで1行目の必要幅が増え、1280px幅では
-                ラベル+値+本ボタンが収まらずカードのoverflow-hiddenでボタン右側が
-                見切れる。2xl未満はアイコンのみにして必要幅を縮め、aria-labelで
-                読み上げ名は維持する（拡売費計画(商流販売店に紐づき無し)と同様）。 */}
-                <button
-                  type="button"
-                  onClick={onStatusClick}
-                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-1 px-2 py-1 whitespace-nowrap text-xs`}
-                  aria-label="コメント履歴"
-                >
-                  <History className="h-4 w-4" />
-                  <span className="hidden 2xl:inline">コメント履歴</span>
-                </button>
               </div>
             ) : (
               <div className="flex items-center gap-2" />
@@ -175,7 +154,7 @@ export function PlanSearchPane({
         {/* 2行目: 5列グリッド。取引制度・チャネルを持たない画面では行ごと出力しない。 */}
         {showTradingSystemAndChannel && (
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {/* 取引制度 */}
             <div className="flex items-center gap-2">
@@ -205,7 +184,7 @@ export function PlanSearchPane({
 
         {/* 3行目: 5列グリッド（作成者の真横に三次店企業を並べる） */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           {/* 事業場 */}
           <div className="flex items-center gap-2">

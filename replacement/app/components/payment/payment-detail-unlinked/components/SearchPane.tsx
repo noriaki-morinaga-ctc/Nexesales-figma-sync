@@ -123,7 +123,7 @@ export function SearchPane(_props: SearchPaneProps) {
       <div className="p-4">
         {/* 1行目: 作成単位パターン（②③④のラジオ）を最上部に配置。
               選んだパターンにより、どの商流販売店項目がダミーコードになるかが決まる。 */}
-        <div className="flex items-start gap-2 mb-2 pb-3 border-b border-gray-300">
+        <div className="flex items-start gap-2 mb-2.5 pb-2.5 border-b border-gray-300">
           <label className={`${SEARCH_LABEL_CLASS} pt-1.5`}>作成単位</label>
           <RadioGroup
             value={pattern}
@@ -143,7 +143,7 @@ export function SearchPane(_props: SearchPaneProps) {
 
         {/* 2行目: 販売店 / 三次店 / 一次店。パターンによりダミーコード固定になる（権限 P9-11）。 */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           <div className="flex items-center gap-2">
             <label className={SEARCH_LABEL_CLASS}>販売店</label>
@@ -201,7 +201,7 @@ export function SearchPane(_props: SearchPaneProps) {
 
         {/* 3行目: 事業場 / 部署 / 末端組織 / 営業担当者（組織階層順・上段＝販売計画側） */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           <div className="flex items-center gap-2">
             <label className={SEARCH_LABEL_CLASS}>事業場</label>

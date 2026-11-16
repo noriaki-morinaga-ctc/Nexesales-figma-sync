@@ -146,7 +146,7 @@ export function QuoteSourcePane({
         <CollapsibleCard title="支払情報">
           <div className="p-4">
             {/* 1行目: 支払先 / 発生日 / 支払予定日 */}
-            <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+            <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
               <LabelField label="支払先" value={quoteSource.destination} />
               <LabelField label="発生日" value={quoteSource.occurrenceDate} />
               <LabelField

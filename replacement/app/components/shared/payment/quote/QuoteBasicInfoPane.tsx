@@ -97,7 +97,7 @@ export function QuoteBasicInfoPane({
       <div className="p-4">
         {/* 1行目: 5列グリッド */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           {/* 販売計画書 No. */}
           <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export function QuoteBasicInfoPane({
 
         {/* 2行目: 5列グリッド（4・5列目は空） */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           {/* 事業場 */}
           <div className="flex items-center gap-2">

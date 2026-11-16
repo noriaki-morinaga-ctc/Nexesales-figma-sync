@@ -312,13 +312,13 @@ export function AllocationPaneSourceInfo({
     <CollapsibleCard title="振替元情報" defaultOpen={false}>
       <div className="p-4">
         {/* 1行目：販売店・一次店・三次店（振替明細で「振替」を押下した行の商流） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 items-center pb-2.5 border-b border-gray-300">
           <ReadonlyField label="販売店" value={src.store} />
           <ReadonlyField label="一次店" value={src.primaryStore} />
           <ReadonlyField label="三次店" value={src.tertiaryStore} />
         </div>
         {/* 2行目：費用負担部署・管理区分・管理コード（基本情報と同様に行ごとに下線で区切る） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 items-center pb-2.5 border-b border-gray-300">
           <ReadonlyField label="費用負担部署" value={src.dept} />
           <ReadonlyField
             label="管理区分"
@@ -330,7 +330,7 @@ export function AllocationPaneSourceInfo({
           />
         </div>
         {/* 3行目：支払金額・施策区分・施策コード */}
-        <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 items-center pb-2.5 border-b border-gray-300">
           <ReadonlyField label="支払金額" value={formatInt(src.payAmount)} />
           <ReadonlyField
             label="施策区分"
@@ -342,7 +342,7 @@ export function AllocationPaneSourceInfo({
           />
         </div>
         {/* 4行目：支払No・支払回数・明細No（振替明細で「振替」を押下した行の値） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 items-center pb-2.5 border-b border-gray-300">
           <ReadonlyField label="支払No" value={src.paymentDetailNo} />
           <ReadonlyField label="支払回数" value={toText(src.paymentCount)} />
           <ReadonlyField label="明細No" value={toText(src.detailNo)} />

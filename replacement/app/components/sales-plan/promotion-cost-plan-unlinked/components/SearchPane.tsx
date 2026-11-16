@@ -1,4 +1,3 @@
-import { History } from 'lucide-react';
 import { useState } from 'react';
 
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
@@ -25,22 +24,15 @@ import {
   PLAN_NO_DATA_MONTHS,
 } from '@/mocks/common/planBasicInfo';
 import { SingleCombobox } from '@/app/components/ui/single-combobox';
-import {
-  SEARCH_GRID_CLASS,
-  SEARCH_LABEL_CLASS,
-  BUTTON_STYLES,
-  BUTTON_BASE,
-} from '@/styles/commonStyles';
+import { SEARCH_GRID_CLASS, SEARCH_LABEL_CLASS } from '@/styles/commonStyles';
 
 interface SearchPaneProps {
-  onStatusClick?: () => void;
   // 対象年月（親で制御する場合に渡す。コピー元の下ペインと共有するため）
   targetYearMonth?: string;
   onChangeTargetYearMonth?: (value: string) => void;
 }
 
 export function SearchPane({
-  onStatusClick,
   targetYearMonth: targetYearMonthProp,
   onChangeTargetYearMonth,
 }: SearchPaneProps) {
@@ -122,7 +114,7 @@ export function SearchPane({
               収まる唯一の span が col-span-4。ステータスは5列目に固定され、
               2行目以降の列位置とも縦に揃う。 */}
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {/* 対象年月 */}
             <div className="col-span-4 flex items-center gap-2">
@@ -136,24 +128,12 @@ export function SearchPane({
               </div>
             </div>
 
-            {/* ステータス（非活性。横にコメント履歴ボタンを配置） */}
+            {/* ステータス（非活性。コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
             <div className="flex items-center gap-2">
               <label className={SEARCH_LABEL_CLASS}>ステータス</label>
               <div className="h-8 flex items-center text-sm text-gray-900 whitespace-nowrap px-2">
                 {BASIC_INFO_STATUS}
               </div>
-              {/* 1280px幅ではステータス列（col-span-1）にラベル+値+本ボタンが収まらず、
-                  カードのoverflow-hiddenでボタン右側が見切れていた（既存事象）。
-                  2xl未満はアイコンのみにして必要幅を縮め、aria-labelで読み上げ名は維持する。 */}
-              <button
-                type="button"
-                onClick={onStatusClick}
-                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} flex items-center gap-1 px-2 py-1 whitespace-nowrap text-xs`}
-                aria-label="コメント履歴"
-              >
-                <History className="h-4 w-4" />
-                <span className="hidden 2xl:inline">コメント履歴</span>
-              </button>
             </div>
           </div>
 
@@ -162,7 +142,7 @@ export function SearchPane({
               （1600px基準）のままだと1280pxでラベルが折り返す。2xl(1536px)未満はパターンを
               広く・ロールを狭くし、1600px（2xl）では従来のパターン/ロール比を維持する。 */}
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             <fieldset className="col-span-3 2xl:col-span-2 flex items-center gap-2">
               <legend className="sr-only">パターン（紐づけ種別）</legend>
@@ -218,7 +198,7 @@ export function SearchPane({
 
           {/* 3行目: 事業場／部署／末端組織／作成者 */}
           <div
-            className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+            className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
           >
             {/* 事業場（本画面では常に非活性。販売店と同様、常時disabledのため onChange は no-op） */}
             <div className="flex items-center gap-2">

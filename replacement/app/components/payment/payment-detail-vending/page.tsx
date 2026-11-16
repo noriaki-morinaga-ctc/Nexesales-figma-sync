@@ -10,7 +10,7 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
-import { ReceiptText, History, Plus } from 'lucide-react';
+import { ReceiptText, Plus } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import {
   ColDef,
@@ -33,6 +33,7 @@ import {
   useRevealNewRows,
   GRID_NO_FILTER_COLUMN_TYPES,
   CellColorLegend,
+  viewportGridHeight,
 } from '@/app/components/grid';
 import { FORM_LABEL_CLASS, TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import { RequiredBadge } from '@/app/components/ui/required-badge';
@@ -81,8 +82,7 @@ import {
   PAYMENT_DESTINATION_PANE_OPTIONS,
   SUMMARY_CARD_DEFAULT_HEIGHT,
   SUMMARY_CARD_MIN_HEIGHT,
-  DETAIL_CARD_MIN_HEIGHT,
-  DETAIL_CARD_MAX_HEIGHT,
+  DETAIL_GRID_OFFSET_REM,
   PAYMENT_ROUND_OPTIONS,
   NON_EDITABLE_CELL_BG,
   ID_COLUMN_DEF,
@@ -92,7 +92,6 @@ import {
 import {
   isExpenseSectionRow,
   isExpenseAggregateRow,
-  initialDetailCardHeight,
   deriveManagementCodeDeps,
 } from './utilsMaster';
 import {
@@ -283,13 +282,6 @@ export default function PaymentDetailVending() {
   const summaryResize = useResizableHeight({
     defaultHeight: SUMMARY_CARD_DEFAULT_HEIGHT,
     minHeight: SUMMARY_CARD_MIN_HEIGHT,
-  });
-
-  // 支払明細情報カード本体（明細グリッド）の高さ（px）。初期値のみ画面高から算出する。
-  const detailResize = useResizableHeight({
-    defaultHeight: initialDetailCardHeight(),
-    minHeight: DETAIL_CARD_MIN_HEIGHT,
-    maxHeight: DETAIL_CARD_MAX_HEIGHT,
   });
 
   // 支払明細情報カードのグリッド表示切替（青枠ボタン群）。
@@ -1437,7 +1429,7 @@ export default function PaymentDetailVending() {
           >
             <div className="p-4">
               {/* 1行目: 支払先 / ステータス */}
-              <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+              <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                 {/* 支払先（コード/名称で検索する単一選択・2列分結合） */}
                 <div className="flex items-center gap-2 col-span-2">
                   <label
@@ -1458,7 +1450,7 @@ export default function PaymentDetailVending() {
                     />
                   </div>
                 </div>
-                {/* ステータス（右にコメント履歴ボタン） */}
+                {/* ステータス（コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
                 <div className="flex items-center gap-2 col-span-2">
                   <label
                     className={`${FORM_LABEL_CLASS} whitespace-nowrap w-36 text-right`}
@@ -1468,20 +1460,11 @@ export default function PaymentDetailVending() {
                   <span className="h-8 flex items-center text-sm text-gray-900">
                     {status}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsCommentPanelOpen(true)}
-                    className="btn-toolbar-outline ml-8"
-                    aria-label="コメント履歴"
-                  >
-                    <History className="h-4 w-4" />
-                    コメント履歴
-                  </button>
                 </div>
               </div>
 
               {/* 2行目: 発生日 / 計上月 / 支払予定日 */}
-              <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+              <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                 {/* 発生日（カレンダー付） */}
                 <div className="flex items-center gap-2">
                   <label
@@ -1536,7 +1519,7 @@ export default function PaymentDetailVending() {
               </div>
 
               {/* 3行目: 申請日 / 申請事業場 / 申請部署 / 申請者 */}
-              <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+              <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                 <LabelField label="申請日" value={applicationDate} />
                 <LabelField label="申請事業場" value={applicantOffice} />
                 <LabelField label="申請部署" value={applicantDept} />
@@ -1634,8 +1617,13 @@ export default function PaymentDetailVending() {
             />
             <div
               className="expense-item-grid w-full px-3 pt-0 pb-2"
-              // 高さはリサイズハンドルで調整した値（JS動的値のため inline style）
-              style={{ height: detailResize.height }}
+              // 画面のいちばん下の表は、画面いっぱいの高さにする（UX-099 → 05「画面いっぱいのグリッド」）。
+              // 最下部までスクロールした状態で表が画面にちょうど収まる高さ。下ペインを開いている間は
+              // ペインの高さだけ低くなる（viewportGridHeight）。下端のバーで高さは変えない
+              style={{
+                height: viewportGridHeight(DETAIL_GRID_OFFSET_REM),
+                minHeight: '25rem',
+              }}
             >
               <AgGridReact
                 // グリッド切替で列構成・列状態が変わるため、view 切替時は再マウントして
@@ -1671,12 +1659,6 @@ export default function PaymentDetailVending() {
                 {...GRID_BASE_PROPS}
                 context={detailGridContext}
               />
-            </div>
-
-            {/* リサイズハンドル：上下ドラッグでカード本体（明細グリッド）の高さを調整する。
-                計画詳細(NET固定)＝ PlanAggregationPane と同じ共通部品を使う */}
-            <div className="relative h-2">
-              <ResizeHandle onMouseDown={detailResize.handleMouseDown} />
             </div>
           </CollapsibleCard>
         </div>
@@ -1716,6 +1698,7 @@ export default function PaymentDetailVending() {
         actions={footerActions}
         commentInput={commentInput}
         onCommentInputChange={setCommentInput}
+        onOpenHistory={() => setIsCommentPanelOpen(true)}
         isNoPayment={isNoPayment}
         onToggleNoPayment={() => setIsNoPayment((prev) => !prev)}
         onBack={() => setPendingNavigation('paymentList')}

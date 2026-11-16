@@ -1,6 +1,5 @@
 // 支払詳細(引用)画面用：PaymentDetailPane をベースに作成
 import { useState } from 'react';
-import { History } from 'lucide-react';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import { RequiredBadge } from '@/app/components/ui/required-badge';
@@ -12,8 +11,6 @@ import { MonthYearPicker } from '@/app/components/ui/month-year-picker';
 interface PaymentDetailPaneProps {
   // 支払明細情報のステータス（モック。画面ごとに違う）
   status: string;
-  // ステータス横のコメント履歴ボタン押下時のハンドラ
-  onStatusClick?: () => void;
 }
 
 // 支払先の選択肢（支払詳細(その他)と同じ単一選択コンボボックス）
@@ -24,10 +21,7 @@ const PAYMENT_DESTINATION_OPTIONS = [
 ].map((opt) => ({ value: opt, label: opt }));
 
 // 支払明細情報エリア（支払詳細(引用)）。基本情報とは別ファイルに分離。
-export function QuotePaymentDetailPane({
-  status,
-  onStatusClick,
-}: PaymentDetailPaneProps) {
+export function QuotePaymentDetailPane({ status }: PaymentDetailPaneProps) {
   // 折り畳み状態（既定は展開）
   const [isPaymentDetailOpen, setIsPaymentDetailOpen] = useState(true);
 
@@ -56,7 +50,7 @@ export function QuotePaymentDetailPane({
     >
       <div className="p-4">
         {/* 1行目: 支払先 / ステータス（支払回数はカード上部へ移動） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
           {/* 支払先（単一選択・コード/名称で検索・2列分結合） */}
           <div className="flex items-center gap-2 col-span-2">
             <label
@@ -77,7 +71,7 @@ export function QuotePaymentDetailPane({
               />
             </div>
           </div>
-          {/* ステータス（支払先の右へ移動・横にコメント履歴ボタン） */}
+          {/* ステータス（支払先の右へ移動。コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
           <div className="flex items-center gap-2 col-span-2">
             <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right">
               ステータス
@@ -85,20 +79,11 @@ export function QuotePaymentDetailPane({
             <span className="h-8 flex items-center text-sm text-gray-900">
               {status}
             </span>
-            <button
-              type="button"
-              onClick={onStatusClick}
-              className="btn-toolbar-outline"
-              aria-label="コメント履歴"
-            >
-              <History className="h-4 w-4" />
-              コメント履歴
-            </button>
           </div>
         </div>
 
         {/* 2行目: 発生日 / 計上年月 / 拡売費支払予定日 */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
           {/* 発生日（カレンダー付） */}
           <div className="flex items-center gap-2">
             <label

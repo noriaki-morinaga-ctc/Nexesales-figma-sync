@@ -30,6 +30,17 @@ const AMOUNT_NODE_VISIBILITY: Partial<
   Record<AggregationView, DisplayVisibility>
 > = { monthlyDetail: 'hidden', simulation: 'hidden' };
 
+// 経費の項目（最上位のノードの key）。比率（予算比・前年比など）が 100% を超えたとき、
+// 経費の項目は赤、それ以外（函数・売上高・利益・納品金額など）は青で示す（UI/UX UX-096）。
+// 配下のノード（売上連動拡売費・センターフィ等）は最上位の key（hierarchyPath[0]）で判定する。
+export const EXPENSE_TOP_ITEM_KEYS: ReadonlySet<string> = new Set([
+  'volumeAdd', // 量経追加口
+  'promoTotal', // 拡売費（売上連動拡売費＋直接固定費）
+  'cost', // 売上原価
+  'variableCost', // 変動費（CF/ロケ補填）
+  'salesDiscount', // 売上値引
+]);
+
 // 資料「各項目_折りたたみ表示」の階層をそのまま定義。
 // 親（chevron＋件数）→子（＞なし）→孫（＞＞）の3階層まで。
 export const AGGREGATION_TREE: AggTreeNode[] = [

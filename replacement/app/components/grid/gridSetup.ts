@@ -18,6 +18,7 @@ import {
   attachFilterInputClearButtons,
   installNumberInputWheelGuard,
   gridHeaderStyle,
+  GRID_SORT_ICONS,
 } from './gridCommon';
 
 let isAgGridSetUp = false;
@@ -52,6 +53,8 @@ export function setupAgGrid(): void {
     // 列幅で省略されたときだけツールチップを出す（画面設計標準 4.2 ⑥）。
     // 計算式をツールチップで見せるグリッドは、画面側で tooltipShowMode="standard" にする
     tooltipShowMode: 'whenTruncated',
+    // 並べ替えの印は ▲▼ を上下に並べた形（今の向きを濃く。並べ替え中の列だけ。→ grid/gridCommon・UX-098）
+    icons: GRID_SORT_ICONS,
     // 件数表示（statusBar）を付けないグリッドにも、非表示の列があるときだけ「非表示の列：N列　列選択」を出す
     //（列は見出しの右クリックの「列選択」でどのグリッドでも隠せるため。非表示の列が無いときは grid.css で行ごと隠す。
     // 件数表示のあるグリッドは GRID_STATUS_BAR の件数パネルが同じ表示を持つ。→ 02 §8「非表示の列」・UX-054）

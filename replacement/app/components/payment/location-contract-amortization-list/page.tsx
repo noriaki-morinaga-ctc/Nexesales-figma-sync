@@ -1809,7 +1809,7 @@ export default function LocationContractAmortizationList() {
 
             {/* 解約情報タブ：解約日・計上月〜コメント入力欄 */}
             <TabsContent value="info">
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 {/* 解約日 */}
                 <div className="flex items-center gap-2">
                   <label

@@ -9,7 +9,6 @@ import {
   SquarePen,
   Copy,
   Upload,
-  History,
   Undo2,
   CornerUpLeft,
 } from 'lucide-react';
@@ -1165,7 +1164,7 @@ export default function PaymentDetailOther() {
           <div className="p-4">
             {/* 1行目: 対象年月 / 販売計画書No */}
             <div
-              className={`${SEARCH_GRID_CLASS} mb-2 items-center pb-3 border-b border-gray-300`}
+              className={`${SEARCH_GRID_CLASS} mb-2.5 items-center pb-2.5 border-b border-gray-300`}
             >
               {renderLabelField('対象年月', '2025年5月')}
               {renderLabelField('販売計画書No', 'D2420TK08')}
@@ -1174,7 +1173,7 @@ export default function PaymentDetailOther() {
 
             {/* 計上年月 / 支払明細書No */}
             <div
-              className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+              className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
             >
               {renderLabelField('計上年月', '2025年6月')}
               {renderLabelField('支払明細書No', 'C2400NTO2')}
@@ -1183,7 +1182,7 @@ export default function PaymentDetailOther() {
 
             {/* 販売店 / 三次店 / 一次店 */}
             <div
-              className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+              className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
             >
               {renderLabelField('販売店', '21100677:XXX九州')}
               {renderLabelField('三次店', '10863223:YYY九州')}
@@ -1209,7 +1208,7 @@ export default function PaymentDetailOther() {
         >
           <div className="p-4">
             {/* 1行目: 支払回数 / 支払先 */}
-            <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+            <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="invoice-count"
@@ -1255,7 +1254,7 @@ export default function PaymentDetailOther() {
             </div>
 
             {/* 2行目: 発生日 / 拡売費支払予定日 / ステータス */}
-            <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+            <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
               {/* 発生日（カレンダー付） */}
               <div className="flex items-center gap-2">
                 <label
@@ -1352,7 +1351,7 @@ export default function PaymentDetailOther() {
                 </div>
               </div>
 
-              {/* ステータス（横にコメント履歴ボタンを配置：支払申請承認と同じ配置） */}
+              {/* ステータス（コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
               <div className="flex items-center gap-2 col-span-2">
                 <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right">
                   ステータス
@@ -1360,15 +1359,6 @@ export default function PaymentDetailOther() {
                 <span className="h-8 flex items-center text-sm text-gray-900">
                   登録（担当者承認待ち）
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setCommentPanelOpen(true)}
-                  className="btn-toolbar-outline"
-                  aria-label="コメント履歴"
-                >
-                  <History className="h-4 w-4" />
-                  コメント履歴
-                </button>
               </div>
             </div>
 
@@ -1846,6 +1836,7 @@ export default function PaymentDetailOther() {
               id="expansion-comment"
               value={commentInput}
               onChange={setCommentInput}
+              onOpenHistory={() => setCommentPanelOpen(true)}
             />
             <button
               className="btn-action-base btn-action-red"

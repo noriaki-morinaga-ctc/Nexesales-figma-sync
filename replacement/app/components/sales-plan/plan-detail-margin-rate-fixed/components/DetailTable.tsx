@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import {
   useMemo,
   useCallback,
@@ -40,7 +40,12 @@ import {
 
 import { planDetailTotalRatesOf } from '@/app/utils/sales-plan/plan-detail/planDetailTotalRates';
 
-import { PlanRateLinks } from '@/app/components/shared/sales-plan/plan-detail/PlanRateLinks';
+import {
+  PlanBulkActionsMenu,
+  PlanRateMenu,
+  PlanRelatedScreensMenu,
+} from '@/app/components/shared/sales-plan/plan-detail/PlanDetailHeaderMenus';
+import { HeaderDivider } from '@/app/components/shared/common/HeaderDivider';
 import { Input } from '@/app/components/ui/input';
 
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
@@ -69,8 +74,6 @@ import {
 
 import {
   FORM_LABEL_CLASS,
-  BUTTON_STYLES,
-  BUTTON_BASE,
   TEXT_INPUT_CLASS,
 } from '@/styles/commonStyles';
 import { heldRowKeyOf } from '@/app/utils/sales-plan/simulation/heldCategoryRows';
@@ -147,6 +150,8 @@ interface DetailTableProps {
   // グリッドの全明細行が変わったときに親へ通知する（販売計画(集計)の算出元）。
   // 親側は必ず useCallback で安定化したハンドラを渡すこと（毎レンダリング再生成すると無限ループになる）。
   onRowsChange?: (rows: ProductData[]) => void;
+  // 見出しの行の先頭に置く「販売計画(詳細)｜拡売費計画」の切替（親が持つ。UX-106）
+  sectionSwitch?: React.ReactNode;
 }
 
 export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
@@ -169,6 +174,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       onNavigate,
       isPlanNavigationDisabled = false,
       onRowsChange,
+      sectionSwitch,
     },
     ref
   ) {
@@ -851,107 +857,68 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       <>
         {/* 販売計画(詳細)のタブの中身（カードの枠・見出しは親の開閉カード〔CollapsibleCard〕が持つため、ここでは枠を付けない → 05「白カード」・UX-065） */}
         <div className="mb-4">
-          <div className="text-gray-900 text-left pb-4">
-            {/* 1段目: タイトル、コピーボタン、函数計画の初期表示 */}
-            <div className="flex items-center gap-2 flex-nowrap">
-              {/* 計画種別: 前月計画コピー / 本部計画コピー（右ペインで実行） */}
-              <button
-                onClick={onOpenPlanCopy}
-                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm`}
-                aria-label="前月計画コピー"
-              >
-                前月計画コピー
-              </button>
-              <button
-                onClick={onOpenHeadquartersCopy}
-                className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm ml-2`}
-                aria-label="本部計画コピー"
-              >
-                本部計画コピー
-              </button>
-
-              {/* Case Plan Initial Display */}
-              <label
-                htmlFor="case-plan-percentage"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap ml-[1.875rem] mr-0 my-0`}
-              >
-                函数計画の初期表示：前年実績比
-              </label>
-              <div className="flex items-center gap-1">
-                <Input
-                  type="text"
-                  value={casePlanPercentage}
-                  onChange={(e) => {
-                    // 整数3桁・小数第1位まで入力可能（数字と小数点のみ許可）
-                    const value = e.target.value
-                      .replace(/[^0-9.]/g, '') // 数字と小数点以外を除去
-                      .replace(/(\..*)\./g, '$1') // 2つ目以降の小数点を除去
-                      .replace(/^(\d{0,3})(\.\d?)?.*$/, '$1$2'); // 整数3桁・小数1桁に制限
-                    setCasePlanPercentage(value);
-                  }}
-                  id="case-plan-percentage"
-                  className={`${TEXT_INPUT_CLASS} w-15 border rounded px-2 py-1 focus:border-blue-500 text-right`}
-                  maxLength={5}
-                />
-                <span className="text-gray-900 text-sm">%</span>
-                {/* 函数反映ボタン：表示中タブの計画函数へ率を適用 */}
-                <button
-                  onClick={() => setIsApplyConfirmShown(true)}
-                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-3 py-1 whitespace-nowrap text-sm ml-2`}
-                  aria-label="函数反映"
-                >
-                  函数反映
-                </button>
-              </div>
-
-              {/* Total Store Count */}
-              <label
-                htmlFor="total-store-count"
-                className={`${FORM_LABEL_CLASS} whitespace-nowrap ml-[1.875rem] mr-0 my-0`}
-              >
-                総店舗数
-              </label>
-              <Input
-                type="text"
-                value={totalStoreCount}
-                onChange={(e) => {
-                  const value = e.target.value
-                    .replace(/[^0-9]/g, '')
-                    .slice(0, 3);
-                  setTotalStoreCount(value);
-                }}
-                id="total-store-count"
-                className={`${TEXT_INPUT_CLASS} w-15 border rounded px-2 py-1 focus:border-blue-500 text-right`}
-                maxLength={3}
+          {/* 見出しの行（1行。UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus）。
+              左：販売計画(詳細)｜拡売費計画 › 商品区分 ｜ 総店舗数。右：凡例・一括操作・率設定・関連画面・明細追加。
+              入りきらない幅では折り返す（flex-wrap） */}
+          <div className="flex flex-wrap items-center gap-2 pb-3 text-left text-gray-900">
+            {sectionSwitch}
+            {sectionSwitch && (
+              <ChevronRight
+                className="h-5 w-5 text-gray-400"
+                aria-hidden="true"
               />
+            )}
+            {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090） */}
+            <SegmentToggle
+              ariaLabel="商品区分"
+              options={[
+                { value: 'all', label: '全て' },
+                { value: '定番商品', label: '定番商品' },
+                { value: '新商品', label: '新商品' },
+                { value: '特売', label: '特売' },
+                { value: 'ギフト', label: 'ギフト' },
+              ]}
+              value={activeTab}
+              onChange={(tab) => switchTab(tab)}
+            />
+            <HeaderDivider />
+            <label
+              htmlFor="total-store-count"
+              className={`${FORM_LABEL_CLASS} whitespace-nowrap`}
+            >
+              総店舗数
+            </label>
+            <Input
+              type="text"
+              value={totalStoreCount}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+                setTotalStoreCount(value);
+              }}
+              id="total-store-count"
+              className={`${TEXT_INPUT_CLASS} w-15 text-right`}
+              maxLength={3}
+            />
 
+            <div className="ml-auto flex items-center gap-2">
               {/* コピー由来カラーバーの凡例（この画面は参照ペイン無し＝販売計画コピー元は出ない） */}
-              <CopySourceLegend
-                showReference={false}
-                className="ml-[1.875rem]"
+              <CopySourceLegend showReference={false} />
+              {/* 一括操作：前月計画コピー・本部計画コピー（右ペインで実行）・函数反映 */}
+              <PlanBulkActionsMenu
+                onPlanCopy={() => onOpenPlanCopy?.()}
+                onHeadquartersCopy={() => onOpenHeadquartersCopy?.()}
+                casePlanPercentage={casePlanPercentage}
+                onCasePlanPercentageChange={setCasePlanPercentage}
+                onApplyCasePlan={() => setIsApplyConfirmShown(true)}
               />
-            </div>
-
-            {/* 2段目: セグメントタブ */}
-            <div className="flex items-center gap-2 mt-2">
-              {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090） */}
-              <SegmentToggle
-                ariaLabel="商品区分"
-                options={[
-                  { value: 'all', label: '全て' },
-                  { value: '定番商品', label: '定番商品' },
-                  { value: '新商品', label: '新商品' },
-                  { value: '特売', label: '特売' },
-                  { value: 'ギフト', label: 'ギフト' },
-                ]}
-                value={activeTab}
-                onChange={(tab) => switchTab(tab)}
-              />
-
-              {/* 年契基本分・センターフィ等の右ペインを開くリンク（拡売費計画タブと共通部品） */}
-              <PlanRateLinks
-                className="ml-[1.875rem]"
+              {/* 率設定：年契基本分・センターフィ等の右ペインを開く（拡売費計画と共通の並び） */}
+              <PlanRateMenu
                 items={[
+                  {
+                    label: '固定マージン率',
+                    value: fixedMarginAvg,
+                    onClick: onOpenFixedMargin,
+                  },
                   {
                     label: '年契基本分',
                     value: annualContractAvg,
@@ -967,54 +934,38 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                     value: wholesaleIncentiveAvg,
                     onClick: onOpenWholesaleIncentive,
                   },
+                ]}
+              />
+              {/* 関連画面：年間計画・シミュレーション（未保存時は確認後に画面遷移） */}
+              <PlanRelatedScreensMenu
+                items={[
                   {
-                    label: '固定マージン率',
-                    value: fixedMarginAvg,
-                    onClick: onOpenFixedMargin,
+                    label: '年間計画',
+                    onClick: () =>
+                      handleNavigateWithGuard('annual-plan-creation'),
+                    disabled: isPlanNavigationDisabled,
+                  },
+                  {
+                    label: 'シミュレーション',
+                    onClick: () =>
+                      handleNavigateWithGuard(
+                        'sales-plan-simulation-margin-rate-fixed'
+                      ),
+                    disabled: isPlanNavigationDisabled,
                   },
                 ]}
               />
-
-              {/* 右端配置ボタン */}
-              <div className="flex items-center gap-2 ml-auto">
-                {/* 年間計画ボタン（未保存時はアラート後に画面遷移） */}
-                <button
-                  onClick={() =>
-                    handleNavigateWithGuard('annual-plan-creation')
-                  }
-                  disabled={isPlanNavigationDisabled}
-                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-2 py-1 whitespace-nowrap text-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white`}
-                  aria-label="年間計画"
-                >
-                  年間計画
-                </button>
-
-                {/* シミュレーションボタン */}
-                <button
-                  onClick={() =>
-                    handleNavigateWithGuard(
-                      'sales-plan-simulation-margin-rate-fixed'
-                    )
-                  }
-                  disabled={isPlanNavigationDisabled}
-                  className={`${BUTTON_STYLES.outline} ${BUTTON_BASE} px-2 py-1 whitespace-nowrap text-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white`}
-                  aria-label="シミュレーション"
-                >
-                  シミュレーション
-                </button>
-
-                {/* 明細追加ボタン */}
-                <button
-                  onClick={() =>
-                    handleAddRow(activeTab === 'all' ? '' : activeTab)
-                  }
-                  className="btn-toolbar-outline"
-                  aria-label="明細追加"
-                >
-                  <Plus className="h-4 w-4" />
-                  明細追加
-                </button>
-              </div>
+              {/* 明細追加ボタン */}
+              <button
+                onClick={() =>
+                  handleAddRow(activeTab === 'all' ? '' : activeTab)
+                }
+                className="btn-toolbar-outline"
+                aria-label="明細追加"
+              >
+                <Plus className="h-4 w-4" />
+                明細追加
+              </button>
             </div>
           </div>
 

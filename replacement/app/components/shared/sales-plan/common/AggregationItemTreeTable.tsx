@@ -31,6 +31,7 @@ import {
   GRID_DEFAULT_COL_DEF,
   GRID_COLORS,
   GRID_STATUS_BAR,
+  rateOverTextColor,
   useFormulaSourceHighlight,
   type FormulaDef,
   type FormulaDefs,
@@ -51,6 +52,7 @@ import {
   AGG_RATIO_FORMULAS,
   AGG_COLUMN_LABELS,
 } from '@/app/constants/aggregationFormulas';
+import { EXPENSE_TOP_ITEM_KEYS } from '@/app/constants/aggregationTree';
 
 // 期間サブタブのアイコン（対象月合計＝カレンダー／累計＝トレンド／年間＝期間）。
 const PERIOD_TAB_ICONS = [Calendar, TrendingUp, CalendarRange];
@@ -225,7 +227,7 @@ function AggregationTreeCell(params: ICellRendererParams) {
 export interface AggTreeColumn {
   key: string;
   headerName: string;
-  // 率列（100%超で赤字・末尾%表示）
+  // 率列（100%超で、経費の項目は赤字・それ以外は青字。末尾%表示）
   isRate?: boolean;
 }
 
@@ -479,9 +481,15 @@ export function AggregationItemTreeTable({
     if (toNum(params.value) < 0) style.color = GRID_COLORS.overText;
     return style;
   };
+  // 比率（予算比・前年比）の 100%超過は、経費の項目は赤・それ以外は青（UX-096）。
+  // 経費かどうかは行の最上位の項目（hierarchyPath[0]）で判定する。
   const rateCellStyle = (params: any) => {
     const style: any = { textAlign: 'right' };
-    if (toNum(params.value) > 100) style.color = GRID_COLORS.overText;
+    const color = rateOverTextColor(
+      toNum(params.value),
+      EXPENSE_TOP_ITEM_KEYS.has(params.data?.hierarchyPath?.[0])
+    );
+    if (color) style.color = color;
     return style;
   };
 

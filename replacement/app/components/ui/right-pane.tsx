@@ -297,8 +297,9 @@ export function RightPane({
                 </span>
               </div>
 
-              {/* ヘッダー */}
-              <SheetHeader className="relative border-b border-gray-200 px-6 pt-6 pb-4">
+              {/* ヘッダー。右ペインは縦に間延びさせず、縦スクロールなしで収める方針のため
+                  見出し・本文・フッターの余白は 1rem（左右）・0.75rem（上下）に詰める（UI/UX UX-100 → 02 §13.5） */}
+              <SheetHeader className="relative border-b border-gray-200 px-4 py-3">
                 <div className="flex items-center gap-2 pr-8">
                   <SheetTitle className={SCREEN_TITLE_CLASS}>{title}</SheetTitle>
                 </div>
@@ -314,7 +315,7 @@ export function RightPane({
                 {/* ×ボタン */}
                 <button
                   type="button"
-                  className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="absolute top-1/2 right-4 -translate-y-1/2 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   onClick={() => void requestClose()}
                   aria-label="閉じる"
                 >
@@ -324,7 +325,7 @@ export function RightPane({
 
               {/* コンテンツエリア（スクロール可能・コンテナクエリ対応） */}
               <div
-                className="@container flex flex-1 flex-col overflow-y-auto px-6 py-4"
+                className="@container flex flex-1 flex-col overflow-y-auto px-4 py-3"
                 onInputCapture={markEdited}
                 onChangeCapture={markEdited}
                 onClickCapture={handleClickCapture}
@@ -341,7 +342,7 @@ export function RightPane({
                     if ((e.target as HTMLElement).closest('button')) userEditedRef.current = false;
                   }}
                   className={cn(
-                    'border-t border-gray-200 bg-white px-6 py-4',
+                    'border-t border-gray-200 bg-white px-4 py-3',
                     footerClassName
                   )}
                 >

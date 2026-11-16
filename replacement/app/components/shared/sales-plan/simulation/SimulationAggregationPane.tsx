@@ -2448,9 +2448,9 @@ export function SimulationAggregationPane({
           </div>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {/* 集計単位①メタブランド × ②容器容量G（複数選択・掛け合わせ）─ 課題0290 */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <label className={FORM_LABEL_CLASS}>
               集計単位①（メタブランド）
             </label>

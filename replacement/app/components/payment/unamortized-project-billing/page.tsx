@@ -26,7 +26,6 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import {
   ChevronDown,
-  History,
   X,
   Undo2,
   Trash2,
@@ -342,7 +341,7 @@ export default function UnamortizedProjectBilling() {
                   <CollapsibleContent>
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
                       {/* 1行目: 対象年月 / 支払No. / 支払回数 */}
-                      <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+                      <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                         {/* 対象年月 */}
                         <div className="flex items-center gap-2">
                           <label className={CARD_LABEL_CLASS}>対象年月</label>
@@ -367,8 +366,8 @@ export default function UnamortizedProjectBilling() {
                         <div className="flex items-center gap-2"></div>
                       </div>
 
-                      {/* 2行目: CRMコード / 契約状況 / ステータス（＋コメント履歴） */}
-                      <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+                      {/* 2行目: CRMコード / 契約状況 / ステータス */}
+                      <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                         {/* CRMコード（2段目の先頭） */}
                         <div className="flex items-center gap-2">
                           <label className={CARD_LABEL_CLASS}>CRMコード</label>
@@ -383,28 +382,17 @@ export default function UnamortizedProjectBilling() {
                           </div>
                         </div>
 
-                        {/* ステータス（契約状況の右・＋コメント履歴ボタン） */}
+                        {/* ステータス（契約状況の右。コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
                         <div className="flex items-center gap-2 col-span-2">
                           <label className={CARD_LABEL_CLASS}>ステータス</label>
                           <span className="h-8 flex items-center text-sm text-gray-900">
                             {PAYMENT_STATUS}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowCommentHistoryPane((prev) => !prev)
-                            }
-                            className="btn-toolbar-outline ml-4"
-                            aria-label="コメント履歴"
-                          >
-                            <History className="h-4 w-4" />
-                            コメント履歴
-                          </button>
                         </div>
                       </div>
 
                       {/* 3行目: 販売店 / 三次店 / 一次店 */}
-                      <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+                      <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                         {/* 販売店 */}
                         <div className="flex items-center gap-2">
                           <label className={CARD_LABEL_CLASS}>販売店</label>
@@ -863,6 +851,9 @@ export default function UnamortizedProjectBilling() {
                     id="approval-comment"
                     value={commentInput}
                     onChange={setCommentInput}
+                    onOpenHistory={() =>
+                      setShowCommentHistoryPane((prev) => !prev)
+                    }
                   />
                   {/* 解約取消 */}
                   <button

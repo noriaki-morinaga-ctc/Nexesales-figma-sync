@@ -1,6 +1,6 @@
 // Todo：朴：C追加口・拡売費支払モック修正中
 import { useState, forwardRef, useImperativeHandle } from 'react';
-import { History, ReceiptText } from 'lucide-react';
+import { ReceiptText } from 'lucide-react';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import { SingleCombobox } from '@/app/components/ui/single-combobox';
 import { RequiredBadge } from '@/app/components/ui/required-badge';
@@ -46,8 +46,6 @@ export interface PaymentDetailPaneHandle {
 }
 
 interface PaymentDetailPaneProps {
-  // ステータス横のコメント履歴ボタン押下時のハンドラ
-  onStatusClick?: () => void;
   // ヘッダの「根拠資料格納」ボタン押下時のハンドラ（拡売費ヘッダから移動）
   onStoreEvidence?: () => void;
   // 表示する支払情報（支払回数ごとのデータセット）。未指定時は既定値を使う。
@@ -170,12 +168,7 @@ export const PaymentDetailPane = forwardRef<
   PaymentDetailPaneHandle,
   PaymentDetailPaneProps
 >(function PaymentDetailPane(
-  {
-    onStatusClick,
-    onStoreEvidence,
-    initialValues,
-    breakdownItems,
-  }: PaymentDetailPaneProps,
+  { onStoreEvidence, initialValues, breakdownItems }: PaymentDetailPaneProps,
   ref
 ) {
   // 折り畳み状態（既定は展開）
@@ -278,7 +271,7 @@ export const PaymentDetailPane = forwardRef<
     >
       <div className="p-4">
         {/* 1行目: 支払先 / ステータス（支払回数はタブバー直下へ移動） */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
           {/* 支払先（単一選択・コード/名称で検索・2列分結合） */}
           <div className="flex items-center gap-2 col-span-2">
             <label
@@ -299,7 +292,7 @@ export const PaymentDetailPane = forwardRef<
               />
             </div>
           </div>
-          {/* ステータス（支払先の右へ移動・横にコメント履歴ボタン） */}
+          {/* ステータス（支払先の右へ移動。コメント履歴はフッターのコメント欄の「履歴」から開く。UI/UX UX-107） */}
           <div className="flex items-center gap-2 col-span-2">
             <label className="text-sm text-blue-900 whitespace-nowrap font-bold w-36 text-right">
               ステータス
@@ -307,27 +300,18 @@ export const PaymentDetailPane = forwardRef<
             <span className="h-8 flex items-center text-sm text-gray-900">
               {initial.status}
             </span>
-            <button
-              type="button"
-              onClick={onStatusClick}
-              className="btn-toolbar-outline"
-              aria-label="コメント履歴"
-            >
-              <History className="h-4 w-4" />
-              コメント履歴
-            </button>
           </div>
         </div>
 
         {/* 2行目: 請求方法 */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
           <div className="col-span-2">
             {renderLabelField('請求方法', initial.billingMethod)}
           </div>
         </div>
 
         {/* 3行目: 発生日 / 計上年月 / 拡売費支払予定日 / 申請日 */}
-        <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+        <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
           {/* 発生日（カレンダー付）。選べるのは対象年月内（未来日も可 → 第36回 決定事項9）。 */}
           <div className="flex items-center gap-2">
             <label

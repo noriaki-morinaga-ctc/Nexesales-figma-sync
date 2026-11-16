@@ -24,6 +24,8 @@ interface PaymentDetailFooterProps {
   commentInput: string;
   // コメントの入力
   onCommentInputChange: (value: string) => void;
+  // コメント履歴（右ペイン）を開く（コメント欄の右の「履歴」ボタン。UI/UX UX-107）
+  onOpenHistory: () => void;
   // 支払無し（当月は支払が発生しない伝票）
   isNoPayment: boolean;
   // 支払無しの切替
@@ -41,6 +43,7 @@ interface PaymentDetailFooterProps {
 export function PaymentDetailFooter({
   commentInput,
   onCommentInputChange,
+  onOpenHistory,
   isNoPayment,
   onToggleNoPayment,
   onBack,
@@ -97,6 +100,7 @@ export function PaymentDetailFooter({
               value={commentInput}
               onChange={onCommentInputChange}
               disabled={!actions.comment}
+              onOpenHistory={onOpenHistory}
             />
           </div>
           <button

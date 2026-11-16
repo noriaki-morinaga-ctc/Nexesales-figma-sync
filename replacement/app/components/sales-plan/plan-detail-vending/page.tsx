@@ -2038,7 +2038,6 @@ export default function PlanDetailVending() {
 
         {/* 計画詳細セクション */}
         <BasicInfoCard
-          onCommentHistoryToggle={() => setIsCommentPanelOpen((v) => !v)}
           // 計画詳細(管理対象商品)へ移るボタンは、専用の行を作らず基本情報の見出しの行の右端に置く。
           // 操作ボタンと見分けられる共通部品にする（→ 02 §6・UX-059・UX-060）
           headerActions={
@@ -2446,6 +2445,7 @@ export default function PlanDetailVending() {
       <PlanDetailFooter
         commentInput={commentInput}
         onCommentInputChange={setCommentInput}
+        onOpenHistory={() => setIsCommentPanelOpen((v) => !v)}
         onBack={() => setIsBackConfirmShown(true)}
       />
 

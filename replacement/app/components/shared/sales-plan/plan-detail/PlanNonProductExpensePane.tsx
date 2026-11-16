@@ -16,7 +16,7 @@ import {
   GridApi,
   RowDataUpdatedEvent,
 } from 'ag-grid-community';
-import { Plus, Copy } from 'lucide-react';
+import { ChevronRight, Plus, Copy } from 'lucide-react';
 
 import {
   viewportGridHeight,
@@ -83,7 +83,7 @@ import type {
   NonProductExpenseGridHandle,
 } from '@/app/types/nonProductExpense';
 import { hasPriorYearActual } from '@/app/utils/sales-plan/plan-detail/nonProductExpenseRow';
-import { PlanRateLinks, type PlanRateLinkItem } from './PlanRateLinks';
+import { PlanRateMenu, type PlanRateLinkItem } from './PlanDetailHeaderMenus';
 
 export type { NonProductExpenseData, NonProductExpenseGridHandle };
 
@@ -124,9 +124,11 @@ const isFixedRow = (row?: NonProductExpenseData) =>
 interface PlanNonProductExpensePaneProps {
   // 拡売費の明細の初期値（画面が取得して渡す）
   initialRows: NonProductExpenseData[];
-  // 年契基本分・センターフィ等の右ペインを開くリンク。販売計画(詳細)タブと同じ並びで見出しの2段目に表示する。
-  // 開いた右ペインは販売計画(詳細)タブから開いた場合と同じく編集できる（課題1780）。
+  // 年契基本分・センターフィ等の右ペインを開く項目。販売計画(詳細)と同じく見出しの行の「率設定」メニューに出す。
+  // 開いた右ペインは販売計画(詳細)から開いた場合と同じく編集できる（課題1780）。
   rateLinks?: PlanRateLinkItem[];
+  // 見出しの行の先頭に置く「販売計画(詳細)｜拡売費計画」の切替（親が持つ。UX-106）
+  sectionSwitch?: React.ReactNode;
   onOpenAddExpense?: () => void;
   onDeleteExpense?: (data: NonProductExpenseData) => void;
   onOpenCopyExpense?: (data: NonProductExpenseData) => void;
@@ -229,6 +231,7 @@ export const PlanNonProductExpensePane = forwardRef<
     rateLinkedRows = EMPTY_ROWS,
     onRateLinkedPostingMonthChange,
     rateLinks,
+    sectionSwitch,
   }: PlanNonProductExpensePaneProps,
   ref
 ) {
@@ -1074,29 +1077,34 @@ export const PlanNonProductExpensePane = forwardRef<
   return (
     // 拡売費計画のタブの中身（カードの枠・見出しは親の開閉カード〔CollapsibleCard〕が持つため、ここでは枠を付けない → 05「白カード」・UX-065）
     <div className="mb-4">
-      <div className="pb-4">
-        {/* 1段目: タイトル・拡売費計画(コピー元)・拡売費追加 */}
-        <div className="flex items-center justify-between">
-          {/* タイトルの右隣に「拡売費計画(コピー元)」を配置（右端ではない） */}
-          <div className="flex items-center gap-2">
-            {/* 参照用ボタン（押下で対象期間の自計画を下ペインに表示。対象期間は下ペイン内で指定） */}
-            <button
-              type="button"
-              onClick={() => onOpenReference?.()}
-              className="btn-toolbar-outline"
-            >
-              <Copy className="h-4 w-4" />
-              拡売費計画(コピー元)
-            </button>
+      {/* 見出しの行（1行。UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus）。
+          左：販売計画(詳細)｜拡売費計画 › 拡売費計画(コピー元)・凡例。右：率設定・拡売費追加 */}
+      <div className="flex flex-wrap items-center gap-2 pb-3">
+        {sectionSwitch}
+        {sectionSwitch && (
+          <ChevronRight className="h-5 w-5 text-gray-400" aria-hidden="true" />
+        )}
+        {/* 参照用ボタン（押下で対象期間の自計画を下ペインに表示。対象期間は下ペイン内で指定） */}
+        <button
+          type="button"
+          onClick={() => onOpenReference?.()}
+          className="btn-toolbar-outline"
+        >
+          <Copy className="h-4 w-4" />
+          拡売費計画(コピー元)
+        </button>
+        {/* コピー由来カラーバーの凡例（青=コピー元 / 緑=拡売費コピー / 橙=新規） */}
+        <CopySourceLegend
+          referenceLabel="拡売費計画(コピー元)"
+          detailLabel="拡売費コピー"
+          className="ml-2"
+        />
 
-            {/* コピー由来カラーバーの凡例（青=コピー元 / 緑=拡売費コピー / 橙=新規） */}
-            <CopySourceLegend
-              referenceLabel="拡売費計画(コピー元)"
-              detailLabel="拡売費コピー"
-              className="ml-2"
-            />
-          </div>
-
+        <div className="ml-auto flex items-center gap-2">
+          {/* 率設定：年契基本分・センターフィ等の右ペインを開く（販売計画(詳細)と同じ並び。課題1780） */}
+          {rateLinks && rateLinks.length > 0 && (
+            <PlanRateMenu items={rateLinks} />
+          )}
           {/* 拡売費追加（右端） */}
           <button
             type="button"
@@ -1107,13 +1115,6 @@ export const PlanNonProductExpensePane = forwardRef<
             拡売費追加
           </button>
         </div>
-
-        {/* 2段目: 年契基本分・センターフィ等の右ペインを開くリンク（販売計画(詳細)タブと同じ並び） */}
-        {rateLinks && rateLinks.length > 0 && (
-          <div className="flex items-center gap-2 mt-2">
-            <PlanRateLinks items={rateLinks} />
-          </div>
-        )}
       </div>
 
       {/* AG Grid Table（1920x1080 のPCで画面いっぱいに表示）

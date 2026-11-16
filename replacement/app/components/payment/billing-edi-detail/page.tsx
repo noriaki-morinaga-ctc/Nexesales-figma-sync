@@ -23,6 +23,12 @@ import type {
 } from '@/app/types/billingEdi';
 import { targetCountOf } from '@/app/utils/payment/billing/billingEdiImport';
 import { ScreenTitle } from '@/app/components/ui/screen-title';
+import { viewportGridHeight } from '@/app/components/grid';
+
+// 請求EDI明細（画面のいちばん下の表）の高さで画面の縦幅から引く分（rem。アプリのヘッダー・
+// 画面下部のボタンの列・カードの下の余白）。最下部までスクロールした状態で、表が画面に
+// ちょうど収まる値（UX-099。実測で決めた値）。
+const DETAIL_GRID_OFFSET_REM = 9.5;
 
 interface BillingEdiDetailProps {
   // 一覧の行データ（App.tsx が state で保持）
@@ -107,16 +113,12 @@ export default function BillingEdiDetail({
     return current?.resolveState === '解消' ? null : selectedSummary;
   }, [selectedSummary, isResolvedHidden, source.errorSummaries]);
 
-  // 「エラーサマリ」「請求EDI明細」カードの高さ（ドラッグで拡縮。集計ペインと同じ構成）
+  // 「エラーサマリ」カードの高さ（ドラッグで拡縮。集計ペインと同じ構成）。
+  // 画面のいちばん下の「請求EDI明細」は画面いっぱいの高さ（viewportGridHeight。UX-099）
   const errorSummaryResize = useResizableHeight({
     defaultHeight: 240,
     minHeight: 150,
     maxHeight: 500,
-  });
-  const detailResize = useResizableHeight({
-    defaultHeight: 500,
-    minHeight: 300,
-    maxHeight: 900,
   });
 
   // 形式エラーの値を画面で修正したときの処理。
@@ -244,9 +246,14 @@ export default function BillingEdiDetail({
         {/* 請求EDI明細（参照専用）。決定6により集約せず1行単位で表示する */}
         <CollapsibleCard title="請求EDI明細">
           <div className="p-2">
+            {/* 画面のいちばん下の表は、画面いっぱいの高さにする（UX-099 → 05「画面いっぱいのグリッド」）。
+                最下部までスクロールした状態で表が画面にちょうど収まる高さ。下端のバーで高さは変えない */}
             <div
               className="flex flex-col"
-              style={{ height: detailResize.height }}
+              style={{
+                height: viewportGridHeight(DETAIL_GRID_OFFSET_REM),
+                minHeight: '25rem',
+              }}
             >
               <BillingDetailList
                 rowData={source.details}
@@ -254,10 +261,6 @@ export default function BillingEdiDetail({
                 filterSummary={visibleSelectedSummary}
                 onClearFilter={() => setSelectedSummary(null)}
               />
-            </div>
-            {/* リサイズハンドルはAG Gridの外（表の下端）に配置し、集計ペインと統一する */}
-            <div className="relative h-2">
-              <ResizeHandle onMouseDown={detailResize.handleMouseDown} />
             </div>
           </div>
         </CollapsibleCard>

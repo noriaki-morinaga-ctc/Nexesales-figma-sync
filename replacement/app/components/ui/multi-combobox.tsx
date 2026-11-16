@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { matchesSearchQuery } from "@/app/utils/common/searchNormalize";
 import { cn } from "./utils";
+import { useDropdownPlacement } from "./use-dropdown-placement";
 
 // 選択肢（value／label／code／badge で統一）
 export interface MultiComboboxOption {
@@ -119,39 +120,20 @@ export function MultiCombobox({
     if (!next) setQuery("");
   }, []);
 
-  // ドロップダウンはポータルで body 直下に描画するため、トリガーの位置・幅を
-  // 算出して固定配置する（祖先の overflow-hidden に左右されず常に前面に出せる）。
+  // 候補一覧の向き（下に入らず上のほうが広ければ上）と、ポータル描画の固定配置の位置。
   // 幅はトリガーの幅、ただし 15rem 未満にはしない（候補名が切れないようにする）。
-  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
-  const updateMenuPosition = React.useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setMenuStyle({
-      position: "fixed",
-      top: r.bottom + 4,
-      left: r.left,
-      width: Math.max(240, r.width),
-    });
-  }, []);
+  const { side, menuStyle } = useDropdownPlacement({
+    open,
+    usePortal,
+    containerRef,
+    menuRef,
+  });
 
-  // 開いている間はトリガー位置に追従（スクロール・リサイズで再計算）
-  React.useEffect(() => {
-    if (!open || !usePortal) return;
-    updateMenuPosition();
-    window.addEventListener("scroll", updateMenuPosition, true);
-    window.addEventListener("resize", updateMenuPosition);
-    return () => {
-      window.removeEventListener("scroll", updateMenuPosition, true);
-      window.removeEventListener("resize", updateMenuPosition);
-    };
-  }, [open, usePortal, updateMenuPosition]);
-
-  // 開いたら絞り込み欄へフォーカスする
+  // 開いたら絞り込み欄へフォーカスする（preventScroll：表・画面をスクロールさせない。UX-094）
   React.useEffect(() => {
     if (open) {
       setActiveIndex(-1);
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
   }, [open]);
 
@@ -302,9 +284,14 @@ export function MultiCombobox({
         renderMenu(
           <div
             ref={menuRef}
-            style={usePortal ? menuStyle : undefined}
+            // 固定配置の位置（ポータル描画）と、入りきらないときの高さの上限（JS で計算した値）
+            style={menuStyle}
             className={`z-50 flex flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-md ${
-              usePortal ? "fixed" : "absolute left-0 top-full mt-1 w-full min-w-60"
+              usePortal
+                ? "fixed"
+                : side === "above"
+                  ? "absolute bottom-full left-0 mb-1 w-full min-w-60"
+                  : "absolute left-0 top-full mt-1 w-full min-w-60"
             }`}
           >
             {/* 絞り込み欄 */}
@@ -353,7 +340,7 @@ export function MultiCombobox({
               id={listboxId}
               role="listbox"
               aria-multiselectable="true"
-              className="max-h-80 overflow-y-auto p-1"
+              className="max-h-80 min-h-0 overflow-y-auto p-1"
             >
               {visible.length === 0 ? (
                 <div className="px-2 py-3 text-center text-sm text-gray-500">

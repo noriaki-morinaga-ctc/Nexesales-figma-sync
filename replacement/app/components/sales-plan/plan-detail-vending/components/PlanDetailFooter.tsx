@@ -12,6 +12,8 @@ interface PlanDetailFooterProps {
   // 承認・差戻し等のコメント
   commentInput: string;
   onCommentInputChange: (value: string) => void;
+  // コメント履歴（右ペイン）の開閉（コメント欄の右の「履歴」ボタン。UI/UX UX-107）
+  onOpenHistory: () => void;
   // 「一覧へ戻る」（確認ダイアログを開く）
   onBack: () => void;
 }
@@ -19,6 +21,7 @@ interface PlanDetailFooterProps {
 export function PlanDetailFooter({
   commentInput,
   onCommentInputChange,
+  onOpenHistory,
   onBack,
 }: PlanDetailFooterProps) {
   return (
@@ -40,6 +43,7 @@ export function PlanDetailFooter({
             id="approval-comment"
             value={commentInput}
             onChange={onCommentInputChange}
+            onOpenHistory={onOpenHistory}
           />
           <button
             className="btn-action-base btn-action-red"

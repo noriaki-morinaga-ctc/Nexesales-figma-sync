@@ -177,6 +177,14 @@
   white-space: nowrap;
   min-width: 0;
 }
+/* 集計表の項目（行を結合したセル）は、中身を上に置く（年間集計・拡売費集計。UI/UX UX-095）。
+   1列目はチェックボックス規則で縦中央になるため、セルとその子要素の縦の寄せを上に戻す。
+   1行目の文字の位置はセル描画部品の余白（AGG_ITEM_CONTENT_CLASS）でそろえる。 */
+.ag-cell.cell-span-top,
+.ag-cell[aria-colindex='1'].cell-span-top,
+.ag-cell[aria-colindex='1'].cell-span-top > * {
+  align-items: flex-start;
+}
 
 /* ギフト等でセル結合（rowSpan）した背の高いセル（cellClassRules で付与される
    .gift-merged-bottom）は内容が上寄せになるため、行の高さ中央に配置する。
@@ -477,6 +485,25 @@
   padding: 0 0.25rem;
 }
 
+/* 横スクロールバーの行の左右の空き（左固定・右固定の列の真下）に、スクロールバーを出さない（UI/UX UX-101）。
+   AG Grid はこの空きを overflow-x: scroll にしており、Windows のようにスクロールバーが場所を取る環境では、
+   固定列の下に中身の無いスクロールバーの溝が見える（固定列は横に動かないため要らない）。
+   空きの高さは AG Grid が要素に直接付けるため、隠してもスクロールバーの行の高さは変わらない。 */
+.ag-horizontal-left-spacer,
+.ag-horizontal-right-spacer {
+  overflow-x: hidden !important;
+}
+
+/* 合計の行など上下に固定した行（.ag-floating-top／.ag-floating-bottom）の右端に、縦のスクロールバーを見せない（UI/UX UX-104）。
+   AG Grid は表の本体に縦のスクロールバーがあるとき、列の位置をそろえるため固定行の欄も overflow-y: scroll にし、
+   Windows では固定行の右端に中身の無いスクロールバー（▲▼）が見える。幅（右の空き）は残して列の位置をそろえたまま、
+   色だけを透明にする（AG Grid の scroll／hidden の切り替えはそのまま。scrollbar-gutter で幅を取ると、本体に
+   縦のスクロールバーが無いときに列がずれるため使わない）。 */
+.ag-floating-top,
+.ag-floating-bottom {
+  scrollbar-color: transparent transparent;
+}
+
 /* 件数表示を横スクロールバーと同じ行の左に置く（共通の GRID_STATUS_BAR → 02 §7。UI/UX UX-030）。
    クラスと CSS 変数は件数パネル（GridDisplayedRowsStatusPanel）が付ける。
    --grid-count-w：件数の幅＋間隔／--grid-hscroll-content-w：スクロールバーの中身の幅（列の合計幅－件数の幅）／
@@ -530,4 +557,26 @@
    文言の右に「期限超過」のラベル（OVERDUE_BADGE_CLASS）も出す（UI/UX UX-028 → 02 §7「期限超過の表示」） */
 .ag-cell.cell-overdue {
   background-color: var(--grid-overdue-bg);
+}
+
+/* 入力できるプルダウンのセル（cellClassRules の cell-pulldown。GRID_DEFAULT_COL_DEF が付ける）：
+   右端に小さな ▼（グレー GRID_COLORS.pulldownMark）を出し、プルダウンだと分かるようにする（UI/UX UX-103）。
+   文字が ▼ に重ならないよう右の余白を 1.25rem 取る。編集中（選択肢を開いている間）は出さない。 */
+.ag-cell.cell-pulldown {
+  padding-right: 1.25rem;
+}
+.ag-cell.cell-pulldown::after {
+  content: '▼';
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  font-size: 0.5625rem;
+  line-height: 1;
+  color: var(--grid-pulldown-mark);
+  pointer-events: none;
+}
+.ag-cell.cell-pulldown.ag-cell-inline-editing::after,
+.ag-cell.cell-pulldown.ag-cell-popup-editing::after {
+  display: none;
 }

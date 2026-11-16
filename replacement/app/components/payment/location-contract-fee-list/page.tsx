@@ -11,7 +11,6 @@ import {
   ChevronDown,
   CornerUpLeft,
   Undo2,
-  History,
   ReceiptText,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
@@ -1032,24 +1031,15 @@ export default function LocationContractFeeList() {
           onOpenChange={setIsHeaderOpen}
           className={`${CARD_CLASS} overflow-hidden mb-3`}
         >
-          {/* ヘッダーバー：左に「基本情報」（開閉）、反対側（右）にコメント履歴ボタン＋開閉アイコン */}
+          {/* ヘッダーバー：左に「基本情報」（開閉）、反対側（右）に開閉アイコン */}
           <div className="bg-white px-3 py-3 card-header-accent flex w-full items-center justify-between">
             <CollapsibleTrigger className="flex flex-1 items-center text-left hover:opacity-80 transition-opacity outline-none focus:outline-none focus-visible:outline-none focus:ring-0">
               <span className="text-gray-900 font-bold text-base">
                 基本情報
               </span>
             </CollapsibleTrigger>
+            {/* コメント履歴はフッターのコメント欄の「履歴」から開く（UI/UX UX-107） */}
             <div className="flex items-center gap-3">
-              {/* コメント履歴ボタン（押下で右ペイン表示・販売計画表を踏襲） */}
-              <button
-                type="button"
-                className="bg-white text-blue-600 px-2 py-1 rounded-lg border-2 border-blue-600 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors whitespace-nowrap text-sm flex items-center gap-1"
-                onClick={() => setShowCommentHistoryPane(true)}
-                aria-label="コメント履歴"
-              >
-                <History className="h-4 w-4" />
-                コメント履歴
-              </button>
               <CollapsibleTrigger
                 className="outline-none focus:outline-none focus-visible:outline-none focus:ring-0"
                 aria-label="基本情報の開閉"
@@ -1063,7 +1053,7 @@ export default function LocationContractFeeList() {
           <CollapsibleContent>
             <div className="p-4">
               {/* 対象年度 / 対象月 / 計画No. */}
-              <div className="grid grid-cols-4 gap-3 mb-2 items-center pb-3 border-b border-gray-300">
+              <div className="grid grid-cols-4 gap-3 mb-2.5 items-center pb-2.5 border-b border-gray-300">
                 {renderLabelField('対象年度', '2026')}
                 {renderLabelField('対象月', '7')}
                 {renderLabelField('計画No.', '')}
@@ -1071,7 +1061,7 @@ export default function LocationContractFeeList() {
               </div>
 
               {/* 販売店 / 三次店 / 一次店 */}
-              <div className="grid grid-cols-4 gap-3 mb-2 pb-3 border-b border-gray-300">
+              <div className="grid grid-cols-4 gap-3 mb-2.5 pb-2.5 border-b border-gray-300">
                 {renderLabelField('販売店', '▲▲')}
                 {renderLabelField('三次店', 'A支店')}
                 {renderLabelField('一次店', '峠台A')}
@@ -1633,6 +1623,7 @@ export default function LocationContractFeeList() {
               id="location-contract-comment"
               value={commentInput}
               onChange={setCommentInput}
+              onOpenHistory={() => setShowCommentHistoryPane(true)}
             />
             {/* 差戻し（データ削除系・塗り赤） */}
             <button

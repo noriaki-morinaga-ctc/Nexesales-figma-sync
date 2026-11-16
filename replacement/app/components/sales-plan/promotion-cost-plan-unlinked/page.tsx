@@ -200,11 +200,6 @@ export default function PromotionCostPlanUnlinked() {
                 <SearchPane
                   targetYearMonth={targetYearMonth}
                   onChangeTargetYearMonth={setTargetYearMonth}
-                  onStatusClick={() =>
-                    togglePane(isCommentHistoryPaneShown, () =>
-                      setIsCommentHistoryPaneShown(true)
-                    )
-                  }
                 />
               </section>
 
@@ -295,6 +290,11 @@ export default function PromotionCostPlanUnlinked() {
                 id="sales-plan-no-link-comment"
                 value={commentInput}
                 onChange={setCommentInput}
+                onOpenHistory={() =>
+                  togglePane(isCommentHistoryPaneShown, () =>
+                    setIsCommentHistoryPaneShown(true)
+                  )
+                }
               />
               <button
                 type="button"
@@ -378,7 +378,7 @@ export default function PromotionCostPlanUnlinked() {
           const setOnlyNew = setIsAddExpenseOnlyNew;
           const onlyNewId = 'add-expense-only-new';
           return (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* サマリ商品名 */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">

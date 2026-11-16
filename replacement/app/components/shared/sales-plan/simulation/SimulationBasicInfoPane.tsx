@@ -53,7 +53,7 @@ export function SimulationBasicInfoPane({
       <div className="p-4">
         {/* 1行目: 取引制度・チャネル */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           {/* 取引制度 */}
           <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export function SimulationBasicInfoPane({
 
         {/* 2行目: 事業場・部署・作成者 */}
         <div
-          className={`${SEARCH_GRID_CLASS} mb-2 pb-3 border-b border-gray-300`}
+          className={`${SEARCH_GRID_CLASS} mb-2.5 pb-2.5 border-b border-gray-300`}
         >
           {/* 事業場 */}
           <div className="flex items-center gap-2">

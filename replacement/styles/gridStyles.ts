@@ -23,11 +23,16 @@ export const GRID_COLORS = {
   // どの明細が切り替わったのかを一覧上で見分けられるようにする。
   transferredBg: '#ede9fe',
   overText: '#b91c1c', // 100%超過：赤字（red-700。編集不可の灰のセルの上でもコントラスト 4.5:1 以上 → 06）
+  // 比率の 100%超過で、経費以外の項目（函数・売上高・利益など。超えるのが良いこと）の文字色：青字
+  // （blue-700。灰のセルの上でもコントラスト 4.5:1 以上 → 06。経費の項目は overText の赤。UX-096）
+  overTextGood: '#1d4ed8',
   // 増減（差分）列の文字色。増加分（プラス）＝青字／減少分（マイナス）＝赤字。
   // （販売計画表（自販機）経費計画の ＋青／▲・−赤 表現を標準とする）
   increaseText: '#2563eb', // 増減の増加分（プラス）：青字
   decreaseText: '#b91c1c', // 増減の減少分（マイナス）：赤字（red-700 → 06）
   neutralText: '#374151', // 増減なし（±0）・実数表示の文字：濃いグレー
+  // 入力できるプルダウンのセルの右端の印（▼）：グレー（gray-500。白地で約4.8:1・灰のセルでも 3:1 以上。UX-103）
+  pulldownMark: '#6b7280',
   // 計画詳細(自販機)の率の入力欄の枠（実績セルの印ではない）。
   existingFuncBorder: '#93c5fd', // 落ち着いた薄青
   // 実績セル（実績が反映された月のセル）の印。枠は付けず、セルの左上に小さな三角を出す
@@ -176,16 +181,31 @@ export function editableBg(editable: boolean, base: CellStyle = {}): CellStyle {
   };
 }
 
-// 率（％）セル用。100%（=100）超過なら文字色を赤にした cellStyle を返す。
-// value は％値（例: 105 で 105%）。base に背景色等を渡してマージできる。
-export function rateCellStyle(value: unknown, base: CellStyle = {}): CellStyle {
-  // '20.0%' のような％付き文字列・カンマ区切りも許容（parseFloat で数値化）
+// 比率（予算比・前年比など。％値）が 100%（=100）を超えたときの文字色（UI/UX UX-096）。
+// 経費の項目（量経追加口・拡売費・売上原価・変動費・売上値引）は赤（overText）、
+// それ以外の項目（函数・売上高・利益など）は青（overTextGood）。超えていなければ undefined（既定の黒）。
+// value は％値（例: 105 で 105%）。'20.0%' のような％付き文字列・カンマ区切りも許容（parseFloat で数値化）。
+export function rateOverTextColor(
+  value: unknown,
+  isExpense: boolean
+): string | undefined {
   const num =
     typeof value === 'number'
       ? value
       : parseFloat(String(value ?? '').replace(/,/g, ''));
-  const isOver = Number.isFinite(num) && num > 100;
-  return isOver ? { ...base, color: GRID_COLORS.overText } : { ...base };
+  if (!Number.isFinite(num) || num <= 100) return undefined;
+  return isExpense ? GRID_COLORS.overText : GRID_COLORS.overTextGood;
+}
+
+// 率（％）セル用。100%（=100）超過なら文字色を付けた cellStyle を返す（色は rateOverTextColor）。
+// isExpense：経費の項目の列か（既定 false＝青）。base に背景色等を渡してマージできる。
+export function rateCellStyle(
+  value: unknown,
+  base: CellStyle = {},
+  isExpense = false
+): CellStyle {
+  const color = rateOverTextColor(value, isExpense);
+  return color ? { ...base, color } : { ...base };
 }
 
 // 入力変更セルの強調スタイル（薄い黄の背景だけ。枠は付けない）。一覧上のみで使用。
