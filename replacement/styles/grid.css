@@ -561,12 +561,14 @@
 
 /* 入力できるプルダウンのセル（cellClassRules の cell-pulldown。GRID_DEFAULT_COL_DEF が付ける）：
    右端に小さな ▼（グレー GRID_COLORS.pulldownMark）を出し、プルダウンだと分かるようにする（UI/UX UX-103）。
-   文字が ▼ に重ならないよう右の余白を 1.25rem 取る。編集中（選択肢を開いている間）は出さない。 */
+   文字が ▼ に重ならないよう右の余白を 1.25rem 取る。編集中（選択肢を開いている間）は出さない。
+   content の ▼ は文字コード（\25BC）で書く。文字そのものを書くと、CSS を UTF-8 として読まない環境
+   （Figma Make など）で文字化けする（UI/UX UX-109 → 01 注意事項「CSS の content は ASCII で書く」） */
 .ag-cell.cell-pulldown {
   padding-right: 1.25rem;
 }
 .ag-cell.cell-pulldown::after {
-  content: '▼';
+  content: '\25BC';
   position: absolute;
   top: 50%;
   right: 0.5rem;
