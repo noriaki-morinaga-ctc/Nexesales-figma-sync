@@ -19,20 +19,17 @@
 //   計画に無い商品 … 計画NETを空欄にし、赤く表示する
 // 拡売費の「未承認NET」の明細は、追加口明細の拡売費金額（NET未承認）からサマリ商品ごとに作る
 // （createNetUnapprovedRows）。支払金額は追加口明細の値と一致させる。
-import type {
-  AdditionalEntryData,
-  ExpenseRow,
-} from '@/app/types/paymentDetail';
-import { BASIC_INFO } from '@/app/components/shared/payment/payment-detail/AdditionalPaymentBasicInfoPane';
-import { createBlankExpenseRow } from '@/app/utils/payment/payment-detail/nonProductExpenseRows';
+import type { AdditionalEntryData, ExpenseRow } from '@/types/paymentDetail';
+import { BASIC_INFO } from '@/features/payment/shared/payment-detail/AdditionalPaymentBasicInfoPane';
+import { createBlankExpenseRow } from '@/utils/payment/payment-detail/nonProductExpenseRows';
 import {
   applyAutoTransfer,
   recalcEntryRow,
   type PlanType,
-} from '@/app/utils/payment/payment-detail/additionalEntryRules';
-import type { BilledCenterFeeRow } from '@/app/utils/payment/payment-detail/paymentBreakdownItems';
-import type { SummaryFixedValues } from '@/app/utils/payment/payment-detail/paymentSummaryAggregate';
-import type { DataSource } from '@/app/constants/dataSource';
+} from '@/utils/payment/payment-detail/additionalEntryRules';
+import type { BilledCenterFeeRow } from '@/utils/payment/payment-detail/paymentBreakdownItems';
+import type { SummaryFixedValues } from '@/utils/payment/payment-detail/paymentSummaryAggregate';
+import type { DataSource } from '@/constants/dataSource';
 
 // 支払回数の選択肢（プルダウンの表示順）。
 export const WITH_INVOICE_PAYMENT_ROUNDS = ['1', '2', '3'];
@@ -93,8 +90,8 @@ export const ENTRY_PRODUCT_CODE_BY_NAME: Record<string, string> = {
   十六茶630mL24本: '45150110',
   '三ツ矢サイダー1.5L8本': '45130073',
 };
-import type { EntryPlan } from '@/app/types/paymentDetail';
-import { createNetUnapprovedRows } from '@/app/utils/payment/payment-detail/paymentWithInvoice';
+import type { EntryPlan } from '@/types/paymentDetail';
+import { createNetUnapprovedRows } from '@/utils/payment/payment-detail/paymentWithInvoice';
 
 const ENTRY_PLAN_BY_PRODUCT: Record<string, EntryPlan> = {
   ワンダ金の微糖185g30本: {

@@ -1,13 +1,13 @@
 // 支払詳細(請求書なし)：支払回数ごとの追加口・拡売費の明細、実販FACT のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/payment-detail-without-invoice/page.tsx。
+// 画面は src/features/payment/payment-detail-without-invoice/page.tsx。
 
 import type {
   ExpenseRow,
   WithoutInvoiceEntryRow as EntryRow,
-} from '@/app/types/paymentDetail';
-import { deriveWithoutInvoiceEntryRow } from '@/app/utils/payment/payment-detail/additionalEntryRules';
-import { createBlankExpenseRow } from '@/app/utils/payment/payment-detail/nonProductExpenseRows';
-import type { SummaryFixedValues } from '@/app/utils/payment/payment-detail/paymentSummaryAggregate';
+} from '@/types/paymentDetail';
+import { deriveWithoutInvoiceEntryRow } from '@/utils/payment/payment-detail/additionalEntryRules';
+import { createBlankExpenseRow } from '@/utils/payment/payment-detail/nonProductExpenseRows';
+import type { SummaryFixedValues } from '@/utils/payment/payment-detail/paymentSummaryAggregate';
 
 // 支払回数の選択肢（プルダウンの表示順）。
 export const WITHOUT_INVOICE_PAYMENT_ROUNDS = ['1', '2', '3'];

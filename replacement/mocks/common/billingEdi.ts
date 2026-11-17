@@ -13,11 +13,11 @@ import type {
   QtyUnitCode,
   RetailerAssignOption,
   RetailerConversion,
-} from '@/app/types/billingEdi';
+} from '@/types/billingEdi';
 import {
   resolveTargetMonth,
   retailerKey,
-} from '@/app/utils/payment/billing/billingEdi';
+} from '@/utils/payment/billing/billingEdi';
 import {
   CONTRACT_TYPE_CENTER_FEE,
   CONTRACT_TYPE_NORMAL,
@@ -25,8 +25,8 @@ import {
   PROMO_SUMMARY_NAMES,
   SUMMARY_PRODUCT_CROSS_BRAND_CODE,
   SUMMARY_PRODUCT_CROSS_BRAND_NAME,
-} from '@/app/constants/billingEdi';
-import type { AssignTarget, ExpenseRule } from '@/app/constants/billingEdi';
+} from '@/constants/billingEdi';
+import type { AssignTarget, ExpenseRule } from '@/constants/billingEdi';
 
 // 摘要コードから費目を判別する仮ロジック（摘要コード判別を適用する卸で使う）。
 // 未定義のコードは判別不可。エラーにはせず追加口として取り込む（決定19 2026-08-18）。

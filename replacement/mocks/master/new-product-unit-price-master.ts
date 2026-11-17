@@ -1,8 +1,8 @@
 // 新商品・新価格用単価マスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/new-product-unit-price-master.json）。画面の定義は src/app/components/master/new-product-unit-price-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/new-product-unit-price-master.json）。画面の定義は src/features/master/new-product-unit-price-master/constants.ts。
 
-import { PRIMARY_STORE_CODE_NAME } from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+import { PRIMARY_STORE_CODE_NAME } from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/02/10 10:00';
 

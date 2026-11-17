@@ -1,5 +1,5 @@
 // 計画詳細(自販機)：販売計画の前年の出荷稼働日・差分表示の基準データ・初期データ（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/plan-detail-vending/page.tsx。
+// 画面は src/features/sales-plan/plan-detail-vending/page.tsx。
 
 // 前年同月の出荷稼働日（日）。販売計画カードの表示欄と、出荷稼働日前年比
 // （出荷稼働日 ÷ 前年出荷稼働日）の計算で共用する。

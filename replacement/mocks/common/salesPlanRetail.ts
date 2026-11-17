@@ -1,5 +1,5 @@
 // 計画詳細(マージン率固定)の明細のモック。販売計画シミュレーションの構成比（aggregationSource）の元にも使う（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-import type { ProductData } from '@/app/types/salesPlanRetail';
+import type { ProductData } from '@/types/salesPlanRetail';
 
 // ── 削除確認用の「実績なし」明細行 ───────────────────────────
 // 前年実績がある行は削除できないため、削除操作を確認できるよう、実績データ

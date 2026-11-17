@@ -1,7 +1,7 @@
 // 計画詳細(自販機)：コメント履歴（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/plan-detail-vending/page.tsx。
+// 画面は src/features/sales-plan/plan-detail-vending/page.tsx。
 
-import type { CommentHistoryItem } from '@/app/components/shared/common/CommentHistoryPane';
+import type { CommentHistoryItem } from '@/components/shared/common/CommentHistoryPane';
 
 // 共通 CommentHistoryPane に渡す履歴（古い順。ペインが新しい順に並べ替えて表示する → UI/UX UX-075）。
 export const createCommentHistory = (): CommentHistoryItem[] => [

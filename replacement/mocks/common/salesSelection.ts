@@ -1,7 +1,7 @@
 // 支払詳細(紐づけなし)・拡売費計画(紐づき無し)：組織・担当者の選択肢のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 // 実システムでは組織マスタ・担当者マスタから取得する。
 
-import type { SelectionOption } from '@/app/types/planDetail';
+import type { SelectionOption } from '@/types/planDetail';
 
 // 末端組織（部署配下の営業所単位）。拡売費計画(商流販売店に紐づき無し)の基本情報で使用。
 export const TERMINAL_ORG_OPTIONS: SelectionOption[] = [

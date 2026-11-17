@@ -1,11 +1,11 @@
 // 容器容量グループマスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/container-capacity-group-master.json）。画面の定義は src/app/components/master/container-capacity-group-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/container-capacity-group-master.json）。画面の定義は src/features/master/container-capacity-group-master/constants.ts。
 
 import {
   CONTAINER_CAPACITY_CODE_NAME,
   CONTAINER_GROUP_CODE_NAME,
-} from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+} from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/02/10 10:00';
 

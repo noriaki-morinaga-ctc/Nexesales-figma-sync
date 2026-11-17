@@ -1,7 +1,7 @@
 // sim(マージン率固定)：明細の初期データ・作成者のダミー（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/sales-plan-simulation-margin-rate-fixed/page.tsx。
+// 画面は src/features/sales-plan/sales-plan-simulation-margin-rate-fixed/page.tsx。
 
-import type { ProductData } from '@/app/types/simulation';
+import type { ProductData } from '@/types/simulation';
 
 export const SIMULATION_CAMPAIGN_SUMMARY_ROWS: ProductData[] = [];
 

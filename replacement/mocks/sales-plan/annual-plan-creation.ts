@@ -1,8 +1,8 @@
 // 年間計画作成：初期の明細（新商品マスタ・月次の函数）のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/annual-plan-creation/page.tsx。
+// 画面は src/features/sales-plan/annual-plan-creation/page.tsx。
 
-import { CATEGORY_LABELS_ANNUAL } from '@/app/constants/promotionCategories';
-import { getPromotionLabels } from '@/app/utils/sales-plan/common/promotionCategories';
+import { CATEGORY_LABELS_ANNUAL } from '@/constants/promotionCategories';
+import { getPromotionLabels } from '@/utils/sales-plan/common/promotionCategories';
 
 export const NEW_PRODUCT_MASTER: {
   code: string;

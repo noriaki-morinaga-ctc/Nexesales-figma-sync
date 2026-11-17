@@ -8,11 +8,11 @@ import {
   GIFT_PRODUCTS_DATA,
 } from '@/mocks/common/salesPlanRetail';
 import { NON_PRODUCT_EXPENSE_ROWS } from '@/mocks/common/nonProductExpense';
-import { DEFAULT_TARGET_MONTH_IDX0 } from '@/app/constants/defaultAggregationSource';
-import { toAggregationProducts } from '@/app/utils/sales-plan/plan-detail/planGridToAggregation';
-import { toAggregationExpenses } from '@/app/utils/sales-plan/plan-detail/expenseGridToAggregation';
-import { simulationRatiosOf } from '@/app/utils/sales-plan/simulation/simulationDetailAggregate';
-import type { AggregationSource } from '@/app/types/aggregation';
+import { DEFAULT_TARGET_MONTH_IDX0 } from '@/constants/defaultAggregationSource';
+import { toAggregationProducts } from '@/utils/sales-plan/plan-detail/planGridToAggregation';
+import { toAggregationExpenses } from '@/utils/sales-plan/plan-detail/expenseGridToAggregation';
+import { simulationRatiosOf } from '@/utils/sales-plan/simulation/simulationDetailAggregate';
+import type { AggregationSource } from '@/types/aggregation';
 
 export const DEFAULT_AGGREGATION_SOURCE: AggregationSource = {
   products: toAggregationProducts(

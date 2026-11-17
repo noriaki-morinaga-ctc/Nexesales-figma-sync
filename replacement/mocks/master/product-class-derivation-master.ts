@@ -1,7 +1,7 @@
 // 商品分類導出マスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/product-class-derivation-master.json）。画面の定義は src/app/components/master/product-class-derivation-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/product-class-derivation-master.json）。画面の定義は src/features/master/product-class-derivation-master/constants.ts。
 
-import type { MasterRow } from '@/app/components/shared/master';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/02/10 10:00';
 

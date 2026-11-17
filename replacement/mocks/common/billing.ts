@@ -9,17 +9,17 @@ import type {
   BillingRow,
   BillingStoreField,
   BillingSummaryProduct,
-} from '@/app/types/billing';
-import type { SingleComboboxOption } from '@/app/components/ui/single-combobox';
+} from '@/types/billing';
+import type { SingleComboboxOption } from '@/components/ui/single-combobox';
 import {
   BILLING_UNSET_CUSTOMER_CODE,
   BILLING_UNSET_CUSTOMER_NAME,
   NEW_BILLING_ID,
-} from '@/app/constants/billing';
+} from '@/constants/billing';
 import {
   aggregateBillingDetailRows,
   roundBillingAmount,
-} from '@/app/utils/payment/billing/billing';
+} from '@/utils/payment/billing/billing';
 
 export const BILLING_SUMMARY_PRODUCTS: BillingSummaryProduct[] = [
   { name: 'ｶﾙﾋﾟｽ Lﾊﾟﾂｸ ｶﾐ 1L', code: '45120031', perCase: 6 },

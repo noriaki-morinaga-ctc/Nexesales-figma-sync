@@ -1,0 +1,199 @@
+// 集計表の「表示項目」ドリルダウン木 ─ 課題0623
+// 資料 XLSX「各項目_折りたたみ表示」シートに準拠した、集計系テーブル共通の階層構造。
+// すべての集計系テーブル（販売計画集計の詳細/年間、シミュレーション集計の詳細＋各卸版）は
+// この木を AG Grid の treeData（getDataPath）へ流し込み、chevron＋件数付きドリルダウンで描画する。
+//
+// 各ノードは可能な範囲で 30項目マスタ（aggregationDisplayItems.ts）の id に対応づけ、
+// 表示可否（〇/△/×）と数値の引き当てをその id 経由で行う。
+// 木にしか存在しない補助ノード（CF込金額 等）は itemId を持たず、visibility を明示する。
+
+import type { AggregationView, DisplayVisibility } from '@/types/aggregation';
+import { AGGREGATION_DISPLAY_ITEMS } from './aggregationDisplayItems';
+import type { AggTreeNode } from '@/types/aggregation';
+
+// 売上高単価の表示ラベル。量経追加口だけを控除した特殊な指標のため、項目名に括弧書きで計算式を出す
+//（10/16 手売りセッション 決定事項15・16）。年間計画集計（AnnualTotalTab）でも同じラベルを使う。
+// 納価が未入力の明細は納品金額を0として集計する（加算しない）ことの注記（課題1815・補足3-1 No.40）。
+// NET固定など納価の入力が任意の計画では一部の明細だけの合計になるため、マウスオーバーで表示する。
+export const NO_DELIVERY_PRICE_NOTE = '※納価未入力の行は計算されません';
+
+export const SALES_UNIT_PRICE_LABEL =
+  '売上高単価（(社外売上高−量経追加口)÷函数）';
+
+// 親項目配下の「金額」子ノードは親と同じ itemId＝同じ値を出す重複行のため、
+// 計画詳細の詳細タブ（monthlyDetail）とシミュレーション集計（simulation）では表示しない。
+// 年間集計（annual）は従来どおり表示する。
+const AMOUNT_NODE_VISIBILITY: Partial<
+  Record<AggregationView, DisplayVisibility>
+> = { monthlyDetail: 'hidden', simulation: 'hidden' };
+
+// 経費の項目（最上位のノードの key）。比率（予算比・前年比など）が 100% を超えたとき、
+// 経費の項目は赤、それ以外（函数・売上高・利益・納品金額など）は青で示す（UI/UX UX-096）。
+// 配下のノード（売上連動拡売費・センターフィ等）は最上位の key（hierarchyPath[0]）で判定する。
+export const EXPENSE_TOP_ITEM_KEYS: ReadonlySet<string> = new Set([
+  'volumeAdd', // 量経追加口
+  'promoTotal', // 拡売費（売上連動拡売費＋直接固定費）
+  'cost', // 売上原価
+  'variableCost', // 変動費（CF/ロケ補填）
+  'salesDiscount', // 売上値引
+]);
+
+// 資料「各項目_折りたたみ表示」の階層をそのまま定義。
+// 親（chevron＋件数）→子（＞なし）→孫（＞＞）の3階層まで。
+export const AGGREGATION_TREE: AggTreeNode[] = [
+  { key: 'func', label: '函数', itemId: 1 },
+  // 社外売上高は売上高の上に表示する（10/30 第5回 決定事項23）
+  { key: 'externalSales', label: '社外売上高', itemId: 3 },
+  {
+    key: 'sales',
+    label: '売上高',
+    itemId: 2,
+    children: [
+      { key: 'salesUnitPrice', label: SALES_UNIT_PRICE_LABEL, itemId: 6 },
+      { key: 'condition', label: '条件口', itemId: 15 },
+    ],
+  },
+  {
+    key: 'volumeAdd',
+    label: '量経追加口',
+    itemId: 10,
+    children: [
+      {
+        key: 'volumeAdd.amount',
+        label: '金額',
+        itemId: 10,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'volumeAdd.rate', label: '率', itemId: 11 },
+      // 資料の木にのみ存在する補助ノード（CF込）。CF込率(id12)に可視性を合わせる。
+      {
+        key: 'volumeAdd.cfAmount',
+        label: 'CF込金額',
+        visibility: { monthlyChart: 'hidden' },
+      },
+      { key: 'volumeAdd.cfRate', label: 'CF込率', itemId: 12 },
+    ],
+  },
+  {
+    key: 'promoTotal',
+    label: '拡売費（売上連動拡売費＋直接固定費）',
+    itemId: 30,
+    children: [
+      {
+        key: 'promoLinked',
+        label: '売上連動拡売費',
+        itemId: 13,
+        children: [
+          {
+            key: 'promoLinked.amount',
+            label: '金額',
+            itemId: 13,
+            visibility: AMOUNT_NODE_VISIBILITY,
+          },
+          { key: 'promoLinked.rate', label: '率', itemId: 14 },
+        ],
+      },
+      {
+        key: 'promoFixed',
+        label: '直接固定費',
+        itemId: 26,
+        children: [
+          { key: 'promoFixed.expense', label: '拡売費(固定費)', itemId: 27 },
+          { key: 'promoFixed.vending', label: '自販機関係費', itemId: 28 },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'cost',
+    label: '売上原価',
+    itemId: 16,
+    children: [
+      {
+        key: 'cost.amount',
+        label: '金額',
+        itemId: 16,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'cost.rate', label: '率', itemId: 17 },
+    ],
+  },
+  {
+    key: 'grossProfit',
+    label: '売上総利益',
+    itemId: 18,
+    children: [
+      {
+        key: 'grossProfit.amount',
+        label: '金額',
+        itemId: 18,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'grossProfit.rate', label: '率', itemId: 19 },
+    ],
+  },
+  {
+    key: 'variableCost',
+    label: '変動費（CF/ロケ補填）',
+    itemId: 20,
+    children: [
+      { key: 'variableCost.centerFee', label: 'センターフィ', itemId: 21 },
+      { key: 'variableCost.locationSupport', label: 'ロケ補填', itemId: 22 },
+    ],
+  },
+  {
+    key: 'tradeProfit',
+    label: '売買差益',
+    itemId: 23,
+    children: [
+      {
+        key: 'tradeProfit.amount',
+        label: '金額',
+        itemId: 23,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'tradeProfit.rate', label: '率', itemId: 24 },
+      { key: 'tradeProfit.unitPrice', label: '函単価', itemId: 25 },
+    ],
+  },
+  {
+    key: 'mgmtProfit',
+    label: '管理利益',
+    itemId: 4,
+    children: [
+      {
+        key: 'mgmtProfit.amount',
+        label: '金額',
+        itemId: 4,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'mgmtProfit.rate', label: '率', itemId: 5 },
+      { key: 'mgmtProfit.unitPrice', label: '函単価', itemId: 29 },
+    ],
+  },
+  {
+    key: 'salesDiscount',
+    label: '売上値引',
+    itemId: 8,
+    children: [
+      {
+        key: 'salesDiscount.amount',
+        label: '金額',
+        itemId: 8,
+        visibility: AMOUNT_NODE_VISIBILITY,
+      },
+      { key: 'salesDiscount.rate', label: '率', itemId: 9 },
+    ],
+  },
+  {
+    key: 'delivery',
+    label: '納品金額',
+    itemId: 7,
+    note: NO_DELIVERY_PRICE_NOTE,
+  },
+];
+
+// id 逆引き（default 可視性解決用）
+export const AGGREGATION_ITEMS_BY_ID = new Map(
+  AGGREGATION_DISPLAY_ITEMS.map((i) => [i.id, i])
+);

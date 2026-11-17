@@ -1,10 +1,10 @@
 // 支払詳細(自販機)：基本情報の値・支払明細の初期データ・支払根拠資料の初期ファイル・引用元のデータなど（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/payment-detail-vending/page.tsx。
+// 画面は src/features/payment/payment-detail-vending/page.tsx。
 import { format } from 'date-fns';
 import {
   type EvidenceFile,
   type EvidenceUserRole,
-} from '@/app/components/payment/payment-detail-vending/components/EvidenceViewerPane';
+} from '@/features/payment/payment-detail-vending/components/EvidenceViewerPane';
 import {
   INVOICE_LANDSCAPE_PAGES,
   INVOICE_PORTRAIT,
@@ -18,7 +18,7 @@ import type {
   ExpenseItemData,
   PaymentRoundData,
   QuoteSourceData,
-} from '@/app/components/payment/payment-detail-vending/paymentDetailVending.types';
+} from '@/features/payment/payment-detail-vending/paymentDetailVending.types';
 
 // ===== 基本情報カードの参照専用の項目値（モック）。他の支払詳細画面と表記・構成を揃える =====
 export const BASIC_INFO_APPLICATION_DATE = '2025/06/15'; // 申請日（対象年月の翌月）

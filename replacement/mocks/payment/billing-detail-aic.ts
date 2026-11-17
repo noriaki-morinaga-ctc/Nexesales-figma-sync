@@ -1,5 +1,5 @@
 // 請求詳細(AIC入力)：販売店→担当者の紐づけのモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/billing-detail-aic/page.tsx。
+// 画面は src/features/payment/billing-detail-aic/page.tsx。
 
 import {
   BILLING_CUSTOMER_LINKS,

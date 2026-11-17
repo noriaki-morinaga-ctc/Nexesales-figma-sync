@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 // routes.tsx / Header.tsx は画面コンポーネント一式を巻き込むため、
 // ここではモジュールを import せずソースを静的に読み取って不変条件を検証する。
 const APP_DIR = path.resolve(__dirname);
+// 画面は src/features/<カテゴリ>/<ルートID>/、共通部品は src/components/ にある
+const SRC_DIR = path.resolve(__dirname, '..');
 const ROUTES_SRC = readFileSync(path.join(APP_DIR, 'routes.tsx'), 'utf8');
 const HEADER_SRC = readFileSync(
-  path.join(APP_DIR, 'components', 'shared', 'layout', 'Header.tsx'),
+  path.join(SRC_DIR, 'components', 'layout', 'Header.tsx'),
   'utf8'
 );
 
@@ -79,11 +81,11 @@ const exceptions = parseExceptions();
 const externalIds = new Set(['bi-system', 'budget-sales-system']);
 
 describe('ROUTES', () => {
-  it('57 ルート（55 画面 ＋ 実績モード別名 2）が定義されている', () => {
-    expect(routes.length).toBe(57);
-    // 実体の画面ディレクトリは 55。plan-list-actual は plan-list、
+  it('58 ルート（56 画面 ＋ 実績モード別名 2）が定義されている', () => {
+    expect(routes.length).toBe(58);
+    // 実体の画面ディレクトリは 56。plan-list-actual は plan-list、
     // marketing-file-upload-actual は marketing-file-upload を再利用する。
-    expect(new Set(routes.map((r) => r.dir)).size).toBe(55);
+    expect(new Set(routes.map((r) => r.dir)).size).toBe(56);
   });
 
   it('ルート ID が重複していない', () => {
@@ -100,9 +102,49 @@ describe('ROUTES', () => {
 
   it('全ルートの page.tsx が実在する', () => {
     const missing = routes.filter(
-      (r) => !existsSync(path.join(APP_DIR, 'components', r.dir, 'page.tsx'))
+      (r) => !existsSync(path.join(SRC_DIR, 'features', r.dir, 'page.tsx'))
     );
     expect(missing).toEqual([]);
+  });
+});
+
+// フォルダーの置き方（→ 04 §画面ディレクトリ構成・08 D-10）。
+// src/app/ は Next.js へ移すときにルーティングのフォルダーになるため、画面の切り替え以外を置かない。
+describe('フォルダーの構成', () => {
+  const entriesOf = (dir: string) =>
+    readdirSync(path.join(SRC_DIR, dir), { withFileTypes: true });
+
+  it('src/app/ には画面の切り替えのファイルだけを置く', () => {
+    const allowed = new Set([
+      'App.tsx',
+      'routes.tsx',
+      'routes.test.ts',
+      'Attributions.md',
+    ]);
+    const extra = entriesOf('app')
+      .map((e) => e.name)
+      .filter((n) => !allowed.has(n));
+    expect(extra).toEqual([]);
+  });
+
+  it('src/components/ の直下はフォルダー（ui・grid・layout・shared）だけ', () => {
+    const names = entriesOf('components').map((e) =>
+      e.isDirectory() ? `${e.name}/` : e.name
+    );
+    expect(names.sort()).toEqual(['grid/', 'layout/', 'shared/', 'ui/']);
+  });
+
+  it('src/features/<カテゴリ>/ の直下に画面のファイルを置かない（画面ディレクトリと shared/ だけ）', () => {
+    // カテゴリのフォルダーがそのまま画面ディレクトリのもの（top）は除く
+    const routeDirs = new Set(parseRoutes().map((r) => r.dir));
+    const strays = entriesOf('features')
+      .filter((c) => c.isDirectory() && !routeDirs.has(c.name))
+      .flatMap((c) =>
+        entriesOf(`features/${c.name}`)
+          .filter((e) => e.isFile())
+          .map((e) => `${c.name}/${e.name}`)
+      );
+    expect(strays).toEqual([]);
   });
 });
 

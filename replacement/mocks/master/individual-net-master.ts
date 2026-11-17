@@ -1,13 +1,13 @@
 // 個別NETマスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/individual-net-master.json）。画面の定義は src/app/components/master/individual-net-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/individual-net-master.json）。画面の定義は src/features/master/individual-net-master/constants.ts。
 
-import { WHOLESALE_MESH_BY_VALUE } from '@/app/constants/productMasters';
-import { END_OF_TIME } from '@/app/components/shared/master';
+import { WHOLESALE_MESH_BY_VALUE } from '@/constants/productMasters';
+import { END_OF_TIME } from '@/features/master/shared';
 import {
   STORE_CHAIN_COMBOS,
   WHOLESALE_MESH_CODE_NAME,
-} from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+} from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/03/22 09:45';
 

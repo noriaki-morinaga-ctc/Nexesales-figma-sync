@@ -1,5 +1,5 @@
 // マーケティングファイルアップロード：テンプレートの仮の行・サンプルのエラー・アップロード履歴のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/marketing-file-upload/page.tsx。
+// 画面は src/features/sales-plan/marketing-file-upload/page.tsx。
 
 import type {
   SalesChannel,
@@ -7,7 +7,7 @@ import type {
   UploadErrorItem,
   UploadHistoryItem,
   UploadTargetType,
-} from '@/app/components/sales-plan/marketing-file-upload/marketingFileUpload.types';
+} from '@/features/sales-plan/marketing-file-upload/marketingFileUpload.types';
 
 // ───────────────────────────────────────────────
 // ダウンロード用の明細（モック：登録済みデータ）

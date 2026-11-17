@@ -1,10 +1,10 @@
 // 支払詳細(商流販売店紐づけなし)：拡売費一覧の明細のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/payment-detail-unlinked/page.tsx。
+// 画面は src/features/payment/payment-detail-unlinked/page.tsx。
 import {
   NET_MGMT_CLASS_NAME,
   BLANK,
-} from '@/app/utils/payment/payment-detail/nonProductExpenseRows';
-import type { ExpenseRow } from '@/app/types/paymentDetail';
+} from '@/utils/payment/payment-detail/nonProductExpenseRows';
+import type { ExpenseRow } from '@/types/paymentDetail';
 
 const EXPENSE_ROWS: ExpenseRow[] = [
   // ── 未承認NET拡売費合計（販売計画選択ボタン付き） ──────────────

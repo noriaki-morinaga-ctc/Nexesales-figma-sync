@@ -1,8 +1,8 @@
 // 役職承認者設定マスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/position-approver-setting-master.json）。画面の定義は src/app/components/master/position-approver-setting-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/position-approver-setting-master.json）。画面の定義は src/features/master/position-approver-setting-master/constants.ts。
 
-import { PROFIT_ORG_CODE_NAME } from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+import { PROFIT_ORG_CODE_NAME } from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/02/10 10:00';
 

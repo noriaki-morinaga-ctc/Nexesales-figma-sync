@@ -107,6 +107,19 @@ export const GRID_COLORS = {
   checkboxDisabledBorder: '#d1d5db', // 選べないチェックボックスの枠：薄いグレー
   selectionDisabledBg: '#f7f7f7', // 選べない行のチェックボックス列：ごく薄いグレー
   highlightBorderBg: '#eff6ff', // 強調枠を付けたセルの背景：ごく薄い青
+  // ── 実販EDI（実販FACT）の突合（計画詳細(マージン率固定)。補足8-7）──
+  // 未突合のEDI行の背景：薄い藍。合計行（total＝薄い青・太字・上に固定）と取り違えないよう色相を少しずらす。
+  ediUnmatchedRowBg: '#eef2ff',
+  // EDI行をドラッグ中に、突合できる計画行に付ける破線の枠：青
+  ediDropBorder: '#2563eb',
+  // 突合できていないEDI納価（EDI行・計画納価が空欄の追加行）のセル：赤の塗り＋白の太字
+  ediMismatchBg: '#dc2626',
+  ediMismatchText: '#ffffff',
+  // 計画行に反映済みのEDI納価のセル：薄い緑の背景＋緑の文字（green-800。コントラスト 4.5:1 以上 → 06）
+  ediReflectedBg: '#ecfdf5',
+  ediReflectedText: '#166534',
+  // 計画納価とEDI納価が違う（手動で突合した）行の計画納価のセル：黄みのオレンジの塗り（閾値のアラートと同じ見せ方）
+  ediPriceDiffBg: '#fcd34d',
 } as const;
 
 // ── コピー由来（行の追加経路）を示す左端カラーバー ──────────────

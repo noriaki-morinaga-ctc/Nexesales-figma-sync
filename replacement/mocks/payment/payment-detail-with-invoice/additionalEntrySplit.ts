@@ -1,11 +1,11 @@
 // 支払詳細(請求書あり)：追加口分割の分割先候補・前月の分割のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/payment-detail-with-invoice/page.tsx。
+// 画面は src/features/payment/payment-detail-with-invoice/page.tsx。
 
 import type {
   AdditionalEntrySplitState,
   SplitDestination,
-} from '@/app/types/paymentDetail';
-import type { SplitAllocation } from '@/app/utils/payment/payment-detail/additionalEntrySplit';
+} from '@/types/paymentDetail';
+import type { SplitAllocation } from '@/utils/payment/payment-detail/additionalEntrySplit';
 
 // 当該支払の販売店（基本情報の販売店と同じ）。
 const STORE_CODE = '21100677';

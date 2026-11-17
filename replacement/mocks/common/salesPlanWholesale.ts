@@ -1,12 +1,12 @@
 // 計画詳細(NET固定)・販売計画シミュレーション(NET固定)：明細のダミー値の補完（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 
-import type { ProductData } from '@/app/types/salesPlanWholesale';
+import type { ProductData } from '@/types/salesPlanWholesale';
 import {
   SUMMARY_PRODUCT_BY_VALUE,
   SUMMARY_PRODUCT_BY_WHOLESALE_MESH,
   SUMMARY_PRODUCT_VALUES,
   WHOLESALE_MESH_VALUES,
-} from '@/app/constants/productMasters';
+} from '@/constants/productMasters';
 
 // ============================================================================
 // 計画詳細(NET固定)・シミュレーション(NET固定) 共通のダミーデータ補完。

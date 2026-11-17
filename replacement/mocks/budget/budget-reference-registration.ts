@@ -1,11 +1,11 @@
 // 予算参照登録：ダウンロードの出力データ・サンプルのエラー・アップロード履歴のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/budget/budget-reference-registration/page.tsx。
+// 画面は src/features/budget/budget-reference-registration/page.tsx。
 
 import type {
   BudgetDownloadDataset,
   BudgetUploadHistoryItem,
-} from '@/app/components/budget/budget-reference-registration/budgetReference.types';
-import type { UploadErrorItem } from '@/app/components/shared/upload/uploadTypes';
+} from '@/features/budget/budget-reference-registration/budgetReference.types';
+import type { UploadErrorItem } from '@/components/shared/upload/uploadTypes';
 
 // ───────────────────────────────────────────────
 // ダウンロードテンプレート（Excel）の出力内容

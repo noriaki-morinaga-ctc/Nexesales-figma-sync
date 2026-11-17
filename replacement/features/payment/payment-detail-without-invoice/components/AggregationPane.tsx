@@ -1,0 +1,734 @@
+// Todo：朴：C追加口・拡売費支払モック修正中
+// 支払詳細(追加口請求書無)画面の「支払情報サマリ」カード。
+// 表は Excel「20260710_支払集計画面.xlsx」シート「★支払画面集計修正」に合わせ、
+// 表示項目を行、情報の種類（支払・実績情報／販売計画書／差／計画誤差率／前年実績／前年比）を
+// 列に置いた縦持ちの構成とする。行の並び順・項目名・計算式は同シートに準拠する。
+// 表示項目は支払詳細(追加口請求書有)を基本とするが、本画面は請求書を受領せず
+// 拡売費（NET未承認）が発生しないため、この項目を持たない。
+// これに伴い支払NET売上高・売上高の計算式からも拡売費（NET未承認）の項を除く。
+// またマージン率も本画面では持たない。
+// また本画面で扱う明細にセンターフィは発生しないため、センターフィ率・センターフィ額も持たない。
+import { useState, useMemo, type ReactNode } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, ColGroupDef, GetRowIdParams } from 'ag-grid-community';
+import { Minus, Plus } from 'lucide-react';
+import {
+  GRID_DEFAULT_COL_DEF,
+  GRID_BASE_PROPS,
+  gridFilterContextMenuItems,
+  useGridColumnState,
+  GRID_NUMBER_TEXT_FILTER,
+} from '@/components/grid';
+import {
+  formulaTooltip,
+  parseFormulaNumber,
+  type FormulaTemplate,
+} from '@/components/grid/gridCommon';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
+import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
+import {
+  fillSummaryRowValues,
+  summaryPayValuesOf,
+  type SummaryDetailTotals,
+  type SummaryRowKind,
+} from '@/utils/payment/payment-detail/paymentSummaryAggregate';
+import {
+  WITHOUT_INVOICE_ACTUAL_FUNC,
+  WITHOUT_INVOICE_SUMMARY_FIXED_VALUES,
+} from '@/mocks/payment/payment-detail-without-invoice';
+import { SegmentToggle } from '@/components/shared/common/SegmentToggle';
+import {
+  useResizableHeight,
+  ResizeHandle,
+} from '@/components/ui/resizable-panel';
+
+// 列（情報の種類）。差＝支払・実績情報−販売計画書、計画誤差率＝差／支払・実績情報、
+// 前年比＝支払・実績情報／前年実績。
+interface ColDefItem {
+  key: string;
+  name: string;
+  width: number;
+  // 金額行で表示単位（円／千円）の換算対象になる列。率の列（計画誤差率・前年比）は対象外。
+  convertible?: boolean;
+  // 列見出しの補足（Excelの吹き出しに対応）。
+  tooltip?: string;
+}
+
+const COLS: ColDefItem[] = [
+  {
+    key: 'pay',
+    name: '支払・実績情報',
+    width: 104,
+    convertible: true,
+    tooltip:
+      '同商流販売店で支払回数が増える場合は、加算していく（支払先が違う場合も）',
+  },
+  {
+    key: 'plan',
+    name: '販売計画書',
+    width: 104,
+    convertible: true,
+    tooltip:
+      '販売計画に複数商流がある場合は、支払対象の商流販売店分の計画数値を抽出する',
+  },
+  { key: 'diff', name: '差', width: 96, convertible: true },
+  { key: 'errRate', name: '計画誤差率', width: 88 },
+  { key: 'prev', name: '前年実績', width: 104, convertible: true },
+  { key: 'yoy', name: '前年比', width: 80 },
+];
+
+// 列キー → 列名（列方向の計算式ツールチップの置換に使う）。
+const COL_LABELS: Record<string, string> = Object.fromEntries(
+  COLS.map((c) => [c.key, c.name])
+);
+
+// 列方向の計算式（同じ行の別列を参照する）。→ ★支払画面集計修正 の G／H／J 列。
+const COL_FORMULAS: Record<string, FormulaTemplate> = {
+  diff: { template: '{pay} − {plan}' },
+  errRate: { template: '{diff} ÷ {pay}' },
+  yoy: { template: '{pay} ÷ {prev}' },
+};
+
+// 行（表示項目）。並び順・項目名は ★支払画面集計修正 の D4〜D18 に一致させる。
+//   kind        … amount＝金額（表示単位の換算対象）、rate＝率、count＝函数
+//   folded      … 「折り畳み」指定の内訳項目（既定では隠し、補助項目トグルで表示する）
+//   source      … 実績算出元（実販FACT／支払情報／実績+支払）
+//   payFormula  … 支払・実績情報 列の計算式（{key} は同じ列の別項目行を指す）
+//   planFormula … 販売計画書・前年実績 列の計算式（計画側は算出経路が異なる項目がある）
+//   note        … 空欄になる条件などの補足
+type RowKind = SummaryRowKind;
+interface RowDefItem {
+  key: string;
+  label: string;
+  kind: RowKind;
+  folded?: boolean;
+  source: string;
+  payFormula?: FormulaTemplate;
+  planFormula?: FormulaTemplate;
+  note?: string;
+  vals: Record<string, string>;
+}
+
+// 販売計画書・前年実績の列は固定値。全支払回数の明細から求めた支払・実績情報と並べて
+// 比率が自然になるよう、見本（★支払画面集計修正）の値を同じ比で縮めて置いた
+//（率の行は見本のまま。函数は函数の比、金額は追加口金額の比で縮めた）。
+// 支払・実績情報の列は、実販FACT の行（実販函数・納品金額・社外売上高）だけが固定値で、
+// それ以外は明細から求める（→ buildSummaryRows）。
+const formatCount = (value: number): string => value.toLocaleString();
+
+const ROWS: RowDefItem[] = [
+  {
+    key: 'actualFunc',
+    label: '実販函数',
+    kind: 'count',
+    source: '実販FACT',
+    // 実販FACT（固定値 → src/mocks/payment/payment-detail-without-invoice）。明細から求めた支払函数
+    //（初期表示 1,194）と並べて差が小さくなる値。
+    vals: {
+      pay: formatCount(WITHOUT_INVOICE_ACTUAL_FUNC),
+      plan: '1,200',
+      prev: '1,187',
+    },
+  },
+  {
+    key: 'payFunc',
+    label: '支払函数',
+    kind: 'count',
+    source: '支払情報',
+    // 支払・実績情報は追加口明細から集計する（→ summaryPayValuesOf）。
+    vals: {
+      pay: '',
+      plan: '1,200',
+      prev: '1,187',
+    },
+  },
+  {
+    key: 'deliveryAmount',
+    label: '納品金額',
+    kind: 'amount',
+    folded: true,
+    source: '実販FACT',
+    note: '納価未取得の場合は空欄',
+    vals: {
+      pay: formatCount(WITHOUT_INVOICE_SUMMARY_FIXED_VALUES.deliveryAmount),
+      plan: '2,754,000',
+      prev: '2,573,000',
+    },
+  },
+  {
+    key: 'payNetSales',
+    label: '支払NET売上高',
+    kind: 'amount',
+    folded: true,
+    source: '支払情報',
+    // ★支払画面集計修正 M8：社外売上高-追加口金額
+    //（本画面は拡売費（NET未承認）を持たないため減算しない）
+    payFormula: {
+      template: '{externalSales} − {addEntryAmount}',
+    },
+    vals: {
+      pay: '',
+      plan: '2,478,000',
+      prev: '2,316,000',
+    },
+  },
+  {
+    key: 'addEntryAmount',
+    label: '追加口金額',
+    kind: 'amount',
+    source: '支払情報',
+    // 計画・前年は 社外売上高−支払NET売上高 で算出する（★支払画面集計修正 F9／I9）。
+    planFormula: { template: '{externalSales} − {payNetSales}' },
+    // 支払・実績情報は追加口明細から集計する（→ summaryPayValuesOf）。
+    vals: {
+      pay: '',
+      plan: '1,805,000',
+      prev: '1,740,000',
+    },
+  },
+  {
+    key: 'addEntryRate',
+    label: '追加口率',
+    kind: 'rate',
+    source: '実績+支払',
+    // ★支払画面集計修正 E10：追加口金額/社外売上高
+    payFormula: { template: '{addEntryAmount} ÷ {externalSales}' },
+    planFormula: { template: '{addEntryAmount} ÷ {externalSales}' },
+    vals: {
+      pay: '',
+      plan: '42.1%',
+      prev: '42.9%',
+    },
+  },
+  {
+    key: 'sales',
+    label: '売上高',
+    kind: 'amount',
+    source: '実績+支払',
+    // ★支払画面集計修正 M12：社外売上高-追加口金額-拡売費（NET未承認以外）
+    //（本画面は拡売費（NET未承認）を持たないため減算しない）
+    payFormula: {
+      template: '{externalSales} − {addEntryAmount} − {promoLinked}',
+    },
+    // 計画・前年は 支払NET売上高−拡売費（NET未承認以外）で算出する（F13／I13）。
+    planFormula: { template: '{payNetSales} − {promoLinked}' },
+    vals: {
+      pay: '',
+      plan: '2,208,000',
+      prev: '2,046,000',
+    },
+  },
+  {
+    key: 'externalSales',
+    label: '社外売上高',
+    kind: 'amount',
+    folded: true,
+    source: '実販FACT',
+    // 実販FACT（固定値 → src/mocks/payment/payment-detail-without-invoice）。明細から求めた追加口金額で、
+    // 追加口率が見本と同じ 42% 前後になる値に置いた。
+    vals: {
+      pay: formatCount(WITHOUT_INVOICE_SUMMARY_FIXED_VALUES.externalSales),
+      plan: '4,283,000',
+      prev: '4,056,000',
+    },
+  },
+  {
+    key: 'mgmtProfitAmount',
+    label: '管理利益額',
+    kind: 'amount',
+    source: '実績+支払',
+    // 計画・前年は 管理利益率×売上高 で算出する（★支払画面集計修正 F15／I15）。
+    // 支払・実績側は管理利益額が与えられ、管理利益率をそこから求める。
+    planFormula: { template: '{mgmtProfitRate} × {sales}' },
+    vals: {
+      pay: '',
+      plan: '540,960',
+      prev: '493,086',
+    },
+  },
+  {
+    key: 'mgmtProfitRate',
+    label: '管理利益率',
+    kind: 'rate',
+    source: '実績+支払',
+    // ★支払画面集計修正 E16：管理利益額/売上高
+    payFormula: { template: '{mgmtProfitAmount} ÷ {sales}' },
+    vals: {
+      pay: '',
+      plan: '24.5%',
+      prev: '24.1%',
+    },
+  },
+  {
+    key: 'promoLinked',
+    label: '拡売費（NET未承認以外）',
+    kind: 'amount',
+    source: '支払情報',
+    note: '拡売費は計画時には商流情報を持たないが、支払時に入力するため、対象の商流販売店の支払画面に反映する',
+    // 支払・実績情報は拡売費明細から集計する（→ summaryPayValuesOf）。
+    vals: {
+      pay: '',
+      plan: '270,000',
+      prev: '270,000',
+    },
+  },
+];
+
+// 函数の切り出し表示（支払・実販・その差）。全員が最初に見る値のため、
+// 表とは別に上部へ抜き出して常に見えるようにする（支払詳細(追加口請求書有)と同じ）。
+// 差＝実販−支払（支払詳細(追加口請求書有)と同じ向き）。
+const fnHighlightOf = (
+  rows: RowDefItem[]
+): { label: string; value: string; emphasis?: boolean }[] => {
+  const payOf = (key: string) =>
+    parseFormulaNumber(rows.find((r) => r.key === key)?.vals.pay);
+  const pay = payOf('payFunc');
+  const actual = payOf('actualFunc');
+  const fmt = (n: number) => (Number.isFinite(n) ? n.toLocaleString() : '');
+  return [
+    { label: '支払', value: fmt(pay) },
+    { label: '実販', value: fmt(actual) },
+    { label: '差', value: fmt(actual - pay), emphasis: true },
+  ];
+};
+
+// ── 支払・実績情報の列（→ 補足3-2 支払情報サマリの集計） ──
+// 支払の行（支払函数・追加口金額・拡売費（NET未承認以外））は、全支払回数の追加口明細・拡売費明細から
+// 集計した値（detailTotals）を使う。請求書無は追加口分割と拡売費（NET未承認）を持たないため、
+// 支払NET売上高＝社外売上高－追加口金額、売上高＝支払NET売上高－拡売費（NET未承認以外）になる。
+// 追加口率・管理利益率は今の式で計算し直す。
+// 実販函数・納品金額・社外売上高（実販FACT）と、販売計画書・前年実績の列は行定義の固定値。
+// 差・計画誤差率・前年比は列方向の式で求める（→ fillSummaryRowValues）。
+
+// 支払・実績情報の列を求めるための固定値（実販FACT の値と、管理利益額の近似の基準）。
+// 管理利益額は式が定義されていないため、基準の管理利益額に売上高の基準からの増減を足して
+// 近似する（→ summaryPayValuesOf、src/mocks/payment/payment-detail-without-invoice）。
+const SUMMARY_FIXED_VALUES = WITHOUT_INVOICE_SUMMARY_FIXED_VALUES;
+
+// 明細から求めた値を支払・実績情報の列へ入れた行定義を返す。
+const buildSummaryRows = (detailTotals: SummaryDetailTotals): RowDefItem[] => {
+  const values = summaryPayValuesOf(detailTotals, SUMMARY_FIXED_VALUES);
+  return fillSummaryRowValues(ROWS, {
+    payFunc: values.payFunc,
+    payNetSales: values.payNetSales,
+    addEntryAmount: values.addEntryAmount,
+    addEntryRate: values.addEntryRate,
+    sales: values.sales,
+    mgmtProfitAmount: values.mgmtProfitAmount,
+    mgmtProfitRate: values.mgmtProfitRate,
+    promoLinked: values.promoLinked,
+  });
+};
+
+// 行ID（AG Grid 公式 getRowId）。行定義 ROWS の key（表示項目名は表示単位で変わるため使わない）。
+// モジュール直下に置いて参照を固定する（→ 02 §7.1）。
+const getSummaryRowId = (params: GetRowIdParams<{ rowKey: string }>): string =>
+  params.data.rowKey;
+
+// 行キー → 項目名（行方向の計算式ツールチップの置換に使う）。
+const ROW_LABELS: Record<string, string> = Object.fromEntries(
+  ROWS.map((r) => [r.key, r.label])
+);
+
+// 金額セルを表示単位（円／千円）に応じて整形する。
+//  ・金額行以外（函数・各種率）と、率の列（計画誤差率・前年比）は変換しない
+//  ・数値でない値（–等）はそのまま
+const convertCell = (
+  kind: RowKind,
+  convertible: boolean,
+  value: string,
+  unit: 'yen' | 'thousand'
+): string => {
+  if (unit === 'yen' || kind !== 'amount' || !convertible) return value;
+  const n = parseFloat(value.replace(/,/g, ''));
+  if (!Number.isFinite(n)) return value;
+  return Math.round(n / 1000).toLocaleString();
+};
+
+// 値セルの並べ替え比較。セル値は「1,234」「10.0%」等の整形済み文字列のため、
+// 数値へ戻して比較する。数値化できない値は常に末尾へ寄せる。
+const compareValueCells = (a: string, b: string): number => {
+  const na = parseFormulaNumber(a);
+  const nb = parseFormulaNumber(b);
+  const aNaN = !Number.isFinite(na);
+  const bNaN = !Number.isFinite(nb);
+  if (aNaN && bNaN) return 0;
+  if (aNaN) return 1;
+  if (bNaN) return -1;
+  return na - nb;
+};
+
+// 計算式テンプレートの `{key}` を項目名に置換した式（ツールチップ1行目相当）。
+const expressionOf = (tpl: FormulaTemplate): string =>
+  tpl.template.replace(
+    /\{([^}]+)\}/g,
+    (_, token) => ROW_LABELS[token] ?? token
+  );
+
+// 表示項目セルのツールチップ（実績算出元・計算式・補足）を組み立てる。
+const buildRowTooltip = (row: RowDefItem): string =>
+  [
+    `実績算出元：${row.source}`,
+    row.payFormula ? `計算式：${expressionOf(row.payFormula)}` : '',
+    row.note ? `※${row.note}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+// 値セルのツールチップ。列ごとに参照方向が変わる。
+//   支払・実績情報／販売計画書／前年実績 … 同じ列の別項目行を参照する行方向の式
+//   差／計画誤差率／前年比               … 同じ行の別列を参照する列方向の式
+// 計算式を持たない項目（実販FACT・支払情報からの取得値）は算出元を示す。
+const buildCellTooltip = (
+  row: RowDefItem,
+  colKey: string,
+  cellValue: string,
+  valueOfRow: (rowKey: string, colKey: string) => string | null
+): string => {
+  const colFormula = COL_FORMULAS[colKey];
+  if (colFormula) {
+    return formulaTooltip(
+      colFormula,
+      (token) => COL_LABELS[token] ?? token,
+      (token) => valueOfRow(row.key, token),
+      cellValue
+    );
+  }
+
+  const tpl = colKey === 'pay' ? row.payFormula : row.planFormula;
+  if (tpl) {
+    return formulaTooltip(
+      tpl,
+      (token) => ROW_LABELS[token] ?? token,
+      (token) => valueOfRow(token, colKey),
+      cellValue
+    );
+  }
+
+  // 計算式を持たない取得値。列ごとに取得元を示す。
+  if (colKey === 'pay') return `実績算出元：${row.source}`;
+  if (colKey === 'plan') return '販売計画書の値';
+  return '前年実績の値';
+};
+
+interface AggregationPaneProps {
+  // 支払情報サマリ右端のトグル（詳細／分割／振替）の選択値。
+  //   詳細＝支払No.（支払明細情報・追加口・拡売費）、分割・振替＝他部門から分割された経費明細。
+  summaryTab?: '詳細' | '分割' | '振替';
+  onSummaryTabChange?: (tab: '詳細' | '分割' | '振替') => void;
+  // 分割・振替 選択時にカード本体へ表示する「他部門から分割された経費明細」一覧。
+  // 計画詳細(マージン率固定・NET入力)の「年間集計」ボタンと同様に、カード内で表示を切り替える。
+  // リサイズハンドルで調整した本体の縦幅（gridHeight）を受け取り、一覧の高さに反映する。
+  // 分割・振替で別々のグリッドを表示するため、選択中のタブも渡す。
+  splitContent?: (gridHeight: number, tab: '分割' | '振替') => ReactNode;
+  // 支払情報サマリの支払の行（支払函数・追加口金額・拡売費（NET未承認以外））の、明細から集計した値。
+  // 全支払回数の追加口明細・拡売費明細の合計。明細の編集に合わせて親が求め直す。
+  detailTotals: SummaryDetailTotals;
+}
+
+// 規約例外（画面ごとの部品）：追加口の請求書の有無で表示する行と計算（追加口の分割・センターフィ等）が違うため、中身が似ていても今は画面ごとに持つ。後で共通化する可能性あり（→ 02 §12.2）
+export function AggregationPane({
+  summaryTab = '詳細',
+  onSummaryTabChange,
+  splitContent,
+  detailTotals,
+}: AggregationPaneProps) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  // 明細から求めた値を反映した行定義と、函数の切り出し表示。
+  // 親は描画のたびに新しいオブジェクトを渡すため、依存は数値で持つ。
+  const { payFunc, addEntryAmount, promoNetUnapproved, promoLinked } =
+    detailTotals;
+  const rows = useMemo(
+    () =>
+      buildSummaryRows({
+        payFunc,
+        addEntryAmount,
+        promoNetUnapproved,
+        promoLinked,
+      }),
+    [payFunc, addEntryAmount, promoNetUnapproved, promoLinked]
+  );
+  const fnHighlight = useMemo(() => fnHighlightOf(rows), [rows]);
+  // 表示単位（円／千円）。金額行のみ千円換算する。金額の桁が大きいため既定は千円。
+  const [displayUnit, setDisplayUnit] = useState<'yen' | 'thousand'>(
+    'thousand'
+  );
+  // 補助項目（Excelの「折り畳み」指定＝納品金額・支払NET売上高・社外売上高）の表示。
+  // 計画詳細(マージン率固定・NET入力)の販売計画(集計)詳細タブと同じトグルにそろえる。
+  const [isFoldedShown, setIsFoldedShown] = useState(false);
+
+  // カード本体（サマリ表）の縦幅。追加口一覧と同様にリサイズハンドルのドラッグで
+  // 手動調整可能。JS動的値のため inline style を許容する。
+  const GRID_MIN_HEIGHT = 200; // 縮めすぎ防止の下限
+  // 既定は「補助項目を隠した状態の8項目＋ヘッダー」が縦スクロールなしで収まる高さ。
+  const gridResize = useResizableHeight({
+    defaultHeight: 350,
+    minHeight: GRID_MIN_HEIGHT,
+    maxHeight: Infinity,
+  });
+  const gridHeight = gridResize.height;
+
+  // 列幅・並び順・ソートの永続化。
+  // v2→v3：表示項目を行・情報の種類を列に置く構成へ組み替えた（→ ★支払画面集計修正）。
+  // v3→v4：項目名「拡売費（NET未承認以外）」が収まるよう表示項目の列幅を広げた。
+  const gridColumnStateProps = useGridColumnState(
+    '支払詳細B.支払情報サマリ.columnState.v4'
+  );
+
+  // 表示単位を反映した全項目の値（補助項目を隠していても計算式の実値行に使うため全行分持つ）。
+  const valueByKey = useMemo(() => {
+    const map = new Map<string, Record<string, string>>();
+    for (const r of rows) {
+      const vals: Record<string, string> = {};
+      for (const c of COLS) {
+        vals[c.key] = convertCell(
+          r.kind,
+          !!c.convertible,
+          r.vals[c.key] ?? '',
+          displayUnit
+        );
+      }
+      map.set(r.key, vals);
+    }
+    return map;
+  }, [displayUnit, rows]);
+
+  // 行データ（実販函数 〜 拡売費（NET未承認以外））。値セルのツールチップ（計算式）も併せて持つ。
+  const rowData = useMemo(() => {
+    const valueOfRow = (rowKey: string, colKey: string): string | null =>
+      valueByKey.get(rowKey)?.[colKey] ?? null;
+
+    return rows
+      .filter((r) => isFoldedShown || !r.folded)
+      .map((r) => {
+        const vals = valueByKey.get(r.key) ?? {};
+        const tips: Record<string, string> = {};
+        for (const c of COLS) {
+          tips[`_tip_${c.key}`] = buildCellTooltip(
+            r,
+            c.key,
+            vals[c.key] ?? '',
+            valueOfRow
+          );
+        }
+        return {
+          rowKey: r.key,
+          // 金額の行は表示単位を項目名に付ける（例：納品金額 (千円)。切替に合わせて変わる → UI/UX UX-077）
+          label:
+            r.kind === 'amount'
+              ? `${r.label} (${displayUnit === 'thousand' ? '千円' : '円'})`
+              : r.label,
+          _tooltip: buildRowTooltip(r),
+          ...vals,
+          ...tips,
+        };
+      });
+  }, [valueByKey, isFoldedShown, rows, displayUnit]);
+
+  // 値セルのスタイル（データ行は右寄せ）
+  const valueCellStyle = () => ({ textAlign: 'right' as const });
+
+  const buildValueCol = (c: ColDefItem): ColDef => ({
+    headerName: c.name,
+    field: c.key,
+    headerTooltip: c.tooltip,
+    width: c.width,
+    // 見出しクリックでの並べ替え。整形済み文字列を数値へ戻して比較する。
+    sortable: true,
+    comparator: compareValueCells,
+    ...GRID_NUMBER_TEXT_FILTER,
+    cellStyle: valueCellStyle,
+    // 各セルの計算式をツールチップで示す（→ ★支払画面集計修正 の計算式列）。
+    tooltipValueGetter: (params) => params.data?.[`_tip_${c.key}`] ?? '',
+  });
+
+  const columnDefs: (ColDef | ColGroupDef)[] = useMemo(() => {
+    const defs: (ColDef | ColGroupDef)[] = [
+      {
+        headerName: '表示項目',
+        field: 'label',
+        width: 152,
+        sortable: true,
+        filter: true,
+        // 実績算出元・計算式・補足はツールチップで示す（Excelの右側の注記に対応）。
+        tooltipValueGetter: (params) => params.data?._tooltip ?? '',
+        // 中身は左寄せ（grid.css の ag-cell-left-pinned）。
+        // 先頭列に強制される中央寄せ・padding:0 を解除し、他セルと同じ左右余白に戻す。
+        cellClass: 'ag-cell-left-pinned',
+      },
+      ...COLS.map((c) => buildValueCol(c)),
+    ];
+    return defs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の列の定義（buildValueCol）は部品の値を読まない（列の一覧 COLS と比較・寄せの関数だけ）。列定義は最初の描画で1回だけ作る
+  }, []);
+
+  const defaultColDef: ColDef = useMemo(
+    () => ({
+      // 共通の既定列定義（grid/）。ヘッダーの…メニュー・フィルターボタン非表示、
+      // tooltip 等を内包（販売計画詳細と統一）。並べ替えは共通既定どおり有効。
+      ...GRID_DEFAULT_COL_DEF,
+      cellDataType: false,
+    }),
+    []
+  );
+
+  return (
+    <CollapsibleCard
+      title={<span className={CARD_TITLE_CLASS}>支払情報サマリ</span>}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="mb-4"
+      headerActions={
+        /* 詳細／分割（IN）／振替（IN） トグル。詳細＝支払No.、分割（IN）・振替（IN）＝他部門から
+           分割・振替を受けた経費明細（受領側であることが分かるよう表示名に「（IN）」を付す）。 */
+        <div className="flex shrink-0 overflow-hidden rounded-lg border-2 border-blue-600">
+          <button
+            onClick={() => onSummaryTabChange?.('詳細')}
+            className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors ${
+              summaryTab === '詳細'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-blue-600 hover:bg-blue-50'
+            }`}
+          >
+            詳細
+          </button>
+          <div className="w-px bg-blue-600" />
+          <button
+            onClick={() => onSummaryTabChange?.('分割')}
+            className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors ${
+              summaryTab === '分割'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-blue-600 hover:bg-blue-50'
+            }`}
+          >
+            分割（IN）
+          </button>
+          <div className="w-px bg-blue-600" />
+          <button
+            onClick={() => onSummaryTabChange?.('振替')}
+            className={`px-4 py-1 h-8 whitespace-nowrap text-sm font-medium transition-colors ${
+              summaryTab === '振替'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-blue-600 hover:bg-blue-50'
+            }`}
+          >
+            振替（IN）
+          </button>
+        </div>
+      }
+    >
+      <>
+        {summaryTab !== '詳細' ? (
+          // 分割・振替：カード本体に「他部門から分割された経費明細」一覧を表示する。
+          <div className="p-4">
+            {splitContent?.(
+              gridHeight,
+              summaryTab === '振替' ? '振替' : '分割'
+            )}
+          </div>
+        ) : (
+          <div className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              {/* 函数の切り出し表示。支払・実販とその差は全員が最初に見る値のため、
+                  表とは別に常に見える位置へ抜き出す（支払詳細(追加口請求書有)と同じ）。
+                  カードの体裁は分割（IN）・振替（IN）の「合計金額」サマリーバーと統一する。 */}
+              <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2">
+                <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
+                  函数
+                </span>
+                <div className="flex items-stretch divide-x divide-gray-200">
+                  {fnHighlight.map((f) => (
+                    <div
+                      key={f.label}
+                      className="flex flex-col items-end px-3 min-w-0"
+                    >
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {f.label}
+                      </span>
+                      <span
+                        className={`text-sm font-bold whitespace-nowrap ${
+                          f.emphasis ? 'text-blue-700' : 'text-gray-900'
+                        }`}
+                      >
+                        {f.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* 補助項目（納品金額・支払NET売上高・社外売上高）の表示切替。
+                    計画詳細(マージン率固定・NET入力)の販売計画(集計)詳細タブと同テーマ・同挙動。 */}
+                <button
+                  type="button"
+                  onClick={() => setIsFoldedShown((prev) => !prev)}
+                  aria-pressed={isFoldedShown}
+                  aria-label={
+                    isFoldedShown ? '補助項目を隠す' : '補助項目を表示'
+                  }
+                  className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm whitespace-nowrap text-gray-700 hover:bg-gray-50"
+                >
+                  {isFoldedShown ? (
+                    <Minus className="h-4 w-4" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {isFoldedShown ? '補助項目を隠す' : '補助項目を表示'}
+                </button>
+
+                {/* 表示単位トグル（円／千円）。金額行のみ千円換算する。 */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-blue-900 whitespace-nowrap font-bold">
+                    表示単位
+                  </label>
+                  <SegmentToggle
+                    ariaLabel="表示単位"
+                    options={[
+                      { value: 'yen', label: '円' },
+                      { value: 'thousand', label: '千円' },
+                    ]}
+                    value={displayUnit}
+                    onChange={setDisplayUnit}
+                  />
+                </div>
+              </div>
+            </div>
+            <div
+              className="jbr-actual-bill-grid"
+              style={{ height: gridHeight, width: '100%' }}
+            >
+              {/* 罫線・ヘッダ背景・行高は共通テーマ（GRID_THEME）、見出しの寄せは
+                    grid.css の共通指定（左寄せ）に委譲。
+                    項目名列の左寄せは共通クラス（ag-cell-left-pinned）に委譲する。 */}
+              {/* 規約例外（集計表）：表示項目（管理区分）ごとの行が決まっている集計表（支払情報サマリ）のため、件数表示（statusBar）は付けない */}
+              <AgGridReact
+                className="grid-summary-table"
+                rowData={rowData}
+                getRowId={getSummaryRowId}
+                columnDefs={columnDefs}
+                defaultColDef={defaultColDef}
+                // 計算式をツールチップで見せるため、省略されていないセルでも出す（グローバルは whenTruncated）
+                tooltipShowMode="standard"
+                getContextMenuItems={gridFilterContextMenuItems}
+                suppressMovableColumns={true}
+                ensureDomOrder={true}
+                {...GRID_BASE_PROPS}
+                {...gridColumnStateProps}
+              />
+            </div>
+          </div>
+        )}
+        {/* リサイズハンドル：上下ドラッグでカード本体の縦幅を手動調整する（追加口一覧と同様）。
+              詳細＝サマリ表／グラフ、分割・振替＝他部門一覧の各グリッドを可変にする。 */}
+        <div className="relative h-2">
+          <ResizeHandle
+            onMouseDown={gridResize.handleMouseDown}
+            ariaLabel="支払情報サマリの高さを変更"
+          />
+        </div>
+      </>
+    </CollapsibleCard>
+  );
+}

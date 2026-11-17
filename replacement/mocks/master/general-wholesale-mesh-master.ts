@@ -1,24 +1,24 @@
 // 一般卸メッシュマスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/general-wholesale-mesh-master.json）。画面の定義は src/app/components/master/general-wholesale-mesh-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/general-wholesale-mesh-master.json）。画面の定義は src/features/master/general-wholesale-mesh-master/constants.ts。
 
 import {
   CONTAINER_CAPACITY_MASTER,
   META_BRAND_MASTER,
   SUMMARY_PRODUCT_BY_WHOLESALE_MESH,
   WHOLESALE_MESH_BY_VALUE,
-} from '@/app/constants/productMasters';
+} from '@/constants/productMasters';
 import {
   containerCapacityCodeOf,
   metaBrandCodeOf,
   wholesaleMeshCodeOf,
-} from '@/app/utils/common/comboFieldOptions';
-import { END_OF_TIME } from '@/app/components/shared/master';
-import { SUMMARY_PRODUCT_CODE_NAME_NO_DUMMY } from '@/app/constants/masterCodeNameOptions';
+} from '@/utils/common/comboFieldOptions';
+import { END_OF_TIME } from '@/features/master/shared';
+import { SUMMARY_PRODUCT_CODE_NAME_NO_DUMMY } from '@/constants/masterCodeNameOptions';
 import {
   containerGroupCodeOf,
   summaryProductCodeOf,
-} from '@/app/utils/common/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+} from '@/utils/common/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 // 希望小売価格：メッシュ名の「〇〇円」から取り、無ければ代表サマリ商品の売価、それも無ければ 150円
 const retailPriceOf = (meshValue: string, fallback?: string): number => {

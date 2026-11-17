@@ -1,9 +1,9 @@
 // 販売店条件口率マスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/retailer-condition-rate-master.json）。画面の定義は src/app/components/master/retailer-condition-rate-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/retailer-condition-rate-master.json）。画面の定義は src/features/master/retailer-condition-rate-master/constants.ts。
 
-import { END_OF_MONTH } from '@/app/components/shared/master';
-import { RETAILER_CODE_NAME } from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+import { END_OF_MONTH } from '@/features/master/shared';
+import { RETAILER_CODE_NAME } from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/03/25 13:10';
 

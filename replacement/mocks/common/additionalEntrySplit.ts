@@ -1,6 +1,6 @@
 // 支払詳細(請求書あり)・支払詳細(請求書なし)：分割（IN）の追加口明細のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 
-import type { SplitInEntryRow } from '@/app/types/paymentDetail';
+import type { SplitInEntryRow } from '@/types/paymentDetail';
 
 // 分割（IN）の追加口明細の分割元（他部署の支払）。
 const SPLIT_IN_SOURCE = {

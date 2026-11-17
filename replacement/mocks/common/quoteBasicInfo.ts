@@ -7,7 +7,7 @@ import {
 import type {
   QuoteBasicInfo,
   QuoteStoreOptions,
-} from '@/app/utils/payment/quote/quoteBasicInfo';
+} from '@/utils/payment/quote/quoteBasicInfo';
 
 // 販売店・一次店・三次店の選択肢（拡売費計画(商流販売店に紐づき無し)と同じ共通マスタ）
 export const QUOTE_STORE_OPTIONS: QuoteStoreOptions = {

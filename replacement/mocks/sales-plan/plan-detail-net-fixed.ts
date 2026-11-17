@@ -1,9 +1,9 @@
 // 計画詳細(NET固定)：コメント履歴・販売店・マージン率・明細のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/plan-detail-net-fixed/page.tsx。
+// 画面は src/features/sales-plan/plan-detail-net-fixed/page.tsx。
 
-import type { CommentHistoryItem } from '@/app/components/shared/common/CommentHistoryPane';
-import type { MarginRate } from '@/app/types/planDetail';
-import type { ProductData } from '@/app/types/salesPlanWholesale';
+import type { CommentHistoryItem } from '@/components/shared/common/CommentHistoryPane';
+import type { MarginRate } from '@/types/planDetail';
+import type { ProductData } from '@/types/salesPlanWholesale';
 
 // コメント履歴ペイン（shared/common/CommentHistoryPane）のモックデータ。
 // 操作（申請・引戻し・承認・差戻し）と、その操作の後の計画ステータスで表す。

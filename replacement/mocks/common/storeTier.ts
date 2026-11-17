@@ -1,6 +1,6 @@
 // 販売店・一次店・三次店の一覧と選択肢のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 // 実システムでは販売店マスタ・商流販売店変換マスタから取得する。
-import type { StoreSelectOption, StoreTier } from '@/app/types/organization';
+import type { StoreSelectOption, StoreTier } from '@/types/organization';
 
 // 実名称ベース（販売計画表 NET固定／マージン率固定の販売計画条件）
 export const STORE_TIER_LIST: StoreTier[] = [

@@ -1,14 +1,14 @@
 // 戦略NETマスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/strategic-net-master.json）。画面の定義は src/app/components/master/strategic-net-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/strategic-net-master.json）。画面の定義は src/features/master/strategic-net-master/constants.ts。
 
-import { SUMMARY_PRODUCT_OPTIONS } from '@/app/constants/productMasters';
-import { END_OF_TIME } from '@/app/components/shared/master';
+import { SUMMARY_PRODUCT_OPTIONS } from '@/constants/productMasters';
+import { END_OF_TIME } from '@/features/master/shared';
 import {
   OFFICE_CODE_BY_DEPT_CODE,
   PROFIT_ORG_DEPT_CODE_NAME,
   SUMMARY_PRODUCT_CODE_NAME_NO_DUMMY,
-} from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+} from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/03/20 11:00';
 

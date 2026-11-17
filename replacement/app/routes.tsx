@@ -1,68 +1,69 @@
 import type { ReactNode } from 'react';
-import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
-import type { BillingRow } from '@/app/types/billing';
-import type { BillingEdiImportRow } from '@/app/types/billingEdi';
+import type { QuoteBasicInfo } from '@/utils/payment/quote/quoteBasicInfo';
+import type { BillingRow } from '@/types/billing';
+import type { BillingEdiImportRow } from '@/types/billingEdi';
 
-import TopDashboard from './components/top/page';
+import TopDashboard from '@/features/top/page';
 // 販売計画
-import PlanList from './components/sales-plan/plan-list/page';
-import ManagedProductPlanList from './components/sales-plan/managed-product-plan-list/page';
-import PlanDetailMarginRateFixed from './components/sales-plan/plan-detail-margin-rate-fixed/page';
-import PlanDetailNetFixed from './components/sales-plan/plan-detail-net-fixed/page';
-import PlanDetailVending from './components/sales-plan/plan-detail-vending/page';
-import PromotionCostPlanUnlinked from './components/sales-plan/promotion-cost-plan-unlinked/page';
-import AnnualPlanCreation from './components/sales-plan/annual-plan-creation/page';
-import SalesPlanSimulationMarginRateFixed from './components/sales-plan/sales-plan-simulation-margin-rate-fixed/page';
-import SalesPlanSimulationNetFixed from './components/sales-plan/sales-plan-simulation-net-fixed/page';
-import ManagedProductPlanDetail from './components/sales-plan/managed-product-plan-detail/page';
-import MarketingFileUpload from './components/sales-plan/marketing-file-upload/page';
+import PlanList from '@/features/sales-plan/plan-list/page';
+import ManagedProductPlanList from '@/features/sales-plan/managed-product-plan-list/page';
+import PlanDetailMarginRateFixed from '@/features/sales-plan/plan-detail-margin-rate-fixed/page';
+import PlanDetailNetFixed from '@/features/sales-plan/plan-detail-net-fixed/page';
+import PlanDetailVending from '@/features/sales-plan/plan-detail-vending/page';
+import PromotionCostPlanUnlinked from '@/features/sales-plan/promotion-cost-plan-unlinked/page';
+import AnnualPlanCreation from '@/features/sales-plan/annual-plan-creation/page';
+import SalesPlanSimulationMarginRateFixed from '@/features/sales-plan/sales-plan-simulation-margin-rate-fixed/page';
+import SalesPlanSimulationNetFixed from '@/features/sales-plan/sales-plan-simulation-net-fixed/page';
+import ManagedProductPlanDetail from '@/features/sales-plan/managed-product-plan-detail/page';
+import MarketingFileUpload from '@/features/sales-plan/marketing-file-upload/page';
 // 実績登録
-import SalesActualDetail from './components/actual/sales-actual-detail/page';
+import SalesActualDetail from '@/features/actual/sales-actual-detail/page';
 // 支払
-import PaymentList from './components/payment/payment-list/page';
-import PaymentDetailVending from './components/payment/payment-detail-vending/page';
-import PaymentDetailWithInvoice from './components/payment/payment-detail-with-invoice/page';
-import PaymentDetailWithoutInvoice from './components/payment/payment-detail-without-invoice/page';
-import PaymentDetailOther from './components/payment/payment-detail-other/page';
-import PaymentDetailUnlinked from './components/payment/payment-detail-unlinked/page';
-import PaymentDetailQuote from './components/payment/payment-detail-quote/page';
-import PaymentDetailQuoteEntry from './components/payment/payment-detail-quote-entry/page';
-import TransferDetail from './components/payment/transfer-detail/page';
-import QuoteList from './components/payment/quote-list/page';
-import LocationContractAmortizationList from './components/payment/location-contract-amortization-list/page';
-import LocationContractFeeList from './components/payment/location-contract-fee-list/page';
-import BillingEdiList from './components/payment/billing-edi-list/page';
-import BillingEdiDetail from './components/payment/billing-edi-detail/page';
-import BillingList from './components/payment/billing-list/page';
-import BillingDetailEdi from './components/payment/billing-detail-edi/page';
-import BillingDetailAic from './components/payment/billing-detail-aic/page';
-import UnamortizedProjectBillingList from './components/payment/unamortized-project-billing-list/page';
-import UnamortizedProjectBilling from './components/payment/unamortized-project-billing/page';
+import PaymentList from '@/features/payment/payment-list/page';
+import PaymentDetailVending from '@/features/payment/payment-detail-vending/page';
+import PaymentDetailWithInvoice from '@/features/payment/payment-detail-with-invoice/page';
+import PaymentDetailWithoutInvoice from '@/features/payment/payment-detail-without-invoice/page';
+import PaymentDetailOther from '@/features/payment/payment-detail-other/page';
+import PaymentDetailUnlinked from '@/features/payment/payment-detail-unlinked/page';
+import PaymentDetailQuote from '@/features/payment/payment-detail-quote/page';
+import PaymentDetailQuoteEntry from '@/features/payment/payment-detail-quote-entry/page';
+import TransferDetail from '@/features/payment/transfer-detail/page';
+import QuoteList from '@/features/payment/quote-list/page';
+import LocationContractAmortizationList from '@/features/payment/location-contract-amortization-list/page';
+import LocationContractFeeList from '@/features/payment/location-contract-fee-list/page';
+import BillingEdiList from '@/features/payment/billing-edi-list/page';
+import BillingEdiDetail from '@/features/payment/billing-edi-detail/page';
+import BillingList from '@/features/payment/billing-list/page';
+import BillingDetailEdi from '@/features/payment/billing-detail-edi/page';
+import BillingDetailAic from '@/features/payment/billing-detail-aic/page';
+import UnamortizedProjectBillingList from '@/features/payment/unamortized-project-billing-list/page';
+import UnamortizedProjectBilling from '@/features/payment/unamortized-project-billing/page';
 // 予算
-import BudgetReferenceRegistration from './components/budget/budget-reference-registration/page';
+import BudgetReferenceRegistration from '@/features/budget/budget-reference-registration/page';
 // マスタ
-import DistributionRetailerMaster from './components/master/distribution-retailer-master/page';
-import ManagedProductList from './components/master/managed-product-list/page';
-import MetadataMaintenance from './components/master/metadata-maintenance/page';
-import NoticeAdminScreen from './components/master/notice-admin/page';
-import GeneralWholesaleMeshMaster from './components/master/general-wholesale-mesh-master/page';
-import ManagedProductMaster from './components/master/managed-product-master/page';
-import ContainerCapacityGroupMaster from './components/master/container-capacity-group-master/page';
-import RetailerConditionRateMaster from './components/master/retailer-condition-rate-master/page';
-import IndividualNetMaster from './components/master/individual-net-master/page';
-import StrategicNetMaster from './components/master/strategic-net-master/page';
-import NotificationMaster from './components/master/notification-master/page';
-import SystemAdminSettingMaster from './components/master/system-admin-setting-master/page';
-import PositionApproverSettingMaster from './components/master/position-approver-setting-master/page';
-import DisplayManagementMaster from './components/master/display-management-master/page';
-import ProductClassDerivationMaster from './components/master/product-class-derivation-master/page';
-import SalesAreaMaster from './components/master/sales-area-master/page';
-import SummaryProductManagementMaster from './components/master/summary-product-management-master/page';
-import NewProductSummaryLinkMaster from './components/master/new-product-summary-link-master/page';
-import NewProductItemMaster from './components/master/new-product-item-master/page';
-import NewProductSubBrandMaster from './components/master/new-product-sub-brand-master/page';
-import NewProductUnitPriceMaster from './components/master/new-product-unit-price-master/page';
-import NewProductBulkChangeMaster from './components/master/new-product-bulk-change-master/page';
+import DistributionRetailerMaster from '@/features/master/distribution-retailer-master/page';
+import ManagedProductList from '@/features/master/managed-product-list/page';
+import MetadataMaintenance from '@/features/master/metadata-maintenance/page';
+import NoticeAdminScreen from '@/features/master/notice-admin/page';
+import GeneralWholesaleMeshMaster from '@/features/master/general-wholesale-mesh-master/page';
+import ManagedProductMaster from '@/features/master/managed-product-master/page';
+import ContainerCapacityGroupMaster from '@/features/master/container-capacity-group-master/page';
+import RetailerConditionRateMaster from '@/features/master/retailer-condition-rate-master/page';
+import IndividualNetMaster from '@/features/master/individual-net-master/page';
+import StrategicNetMaster from '@/features/master/strategic-net-master/page';
+import NotificationMaster from '@/features/master/notification-master/page';
+import SystemAdminSettingMaster from '@/features/master/system-admin-setting-master/page';
+import PositionApproverSettingMaster from '@/features/master/position-approver-setting-master/page';
+import DisplayManagementMaster from '@/features/master/display-management-master/page';
+import ProductClassDerivationMaster from '@/features/master/product-class-derivation-master/page';
+import SalesAreaMaster from '@/features/master/sales-area-master/page';
+import SummaryProductManagementMaster from '@/features/master/summary-product-management-master/page';
+import NewProductSummaryLinkMaster from '@/features/master/new-product-summary-link-master/page';
+import NewProductItemMaster from '@/features/master/new-product-item-master/page';
+import NewProductSubBrandMaster from '@/features/master/new-product-sub-brand-master/page';
+import NewProductUnitPriceMaster from '@/features/master/new-product-unit-price-master/page';
+import NewProductBulkChangeMaster from '@/features/master/new-product-bulk-change-master/page';
+import SummaryProductMaster from '@/features/master/summary-product-master/page';
 
 /** 画面へ渡す共有ハンドラ・状態。App.tsx が組み立てて render に渡す。
  * 画面の切り替え（遷移先のルート ID）は props で渡さず、ui/use-app-navigation の useAppNavigation で受け取る。 */
@@ -109,7 +110,7 @@ export interface RouteDef {
 /**
  * ルート ID → 画面定義。
  * ルート ID は `components/<category>/<ルートID>/page.tsx` のディレクトリ名と一致させること
- * （`top` のみ `components/top/page.tsx`）。ROUTE_DIR_EXCEPTIONS 以外はテストで検証する。
+ * （`top` のみ `features/top/page.tsx`）。ROUTE_DIR_EXCEPTIONS 以外はテストで検証する。
  */
 export const ROUTES: Record<string, RouteDef> = {
   top: {
@@ -386,6 +387,10 @@ export const ROUTES: Record<string, RouteDef> = {
   'new-product-bulk-change-master': {
     dir: 'master/new-product-bulk-change-master',
     render: () => <NewProductBulkChangeMaster />,
+  },
+  'summary-product-master': {
+    dir: 'master/summary-product-master',
+    render: () => <SummaryProductMaster />,
   },
 };
 

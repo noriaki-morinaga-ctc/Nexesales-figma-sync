@@ -6,8 +6,8 @@
 import {
   managementClassFromCode,
   campaignClassFromCode,
-} from '@/app/utils/common/expenseRelations';
-import type { NonProductExpenseData } from '@/app/types/nonProductExpense';
+} from '@/utils/common/expenseRelations';
+import type { NonProductExpenseData } from '@/types/nonProductExpense';
 
 // 管理区分・施策区分をコードから補完する
 type RawExpenseRow = Omit<

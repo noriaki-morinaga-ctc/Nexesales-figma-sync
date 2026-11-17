@@ -1,19 +1,19 @@
 import { useState, useRef, useCallback } from 'react';
 import { LicenseManager } from 'ag-grid-enterprise';
 
-import { useInitialFocus } from './components/ui/use-initial-focus';
-import { AppProviders } from './components/shared/layout/AppProviders';
+import { useInitialFocus } from '@/components/ui/use-initial-focus';
+import { AppProviders } from '@/components/layout/AppProviders';
 
-import { Header } from './components/shared/layout/Header';
+import { Header } from '@/components/layout/Header';
 import { ROUTES, DEFAULT_ROUTE, type RouteContext } from './routes';
-import type { MenuChangePayload } from './types/navigation';
-import type { QuoteBasicInfo } from './utils/payment/quote/quoteBasicInfo';
+import type { MenuChangePayload } from '@/types/navigation';
+import type { QuoteBasicInfo } from '@/utils/payment/quote/quoteBasicInfo';
 import { createEmptyBilling } from '@/mocks/common/billing';
-import type { BillingRow } from '@/app/types/billing';
+import type { BillingRow } from '@/types/billing';
 import {
   matchesErrorSummary,
   originalValueOf,
-} from './utils/payment/billing/billingEdiImport';
+} from '@/utils/payment/billing/billingEdiImport';
 import {
   ASSIGN_OPTIONS,
   BILLING_EDI_ROWS,
@@ -24,12 +24,12 @@ import {
 import {
   ASSIGN_TARGET_BY_FIELD,
   type AssignTarget,
-} from '@/app/constants/billingEdi';
+} from '@/constants/billingEdi';
 import type {
   BillingEdiDetailRow,
   BillingEdiImportRow,
-} from '@/app/types/billingEdi';
-import { setupAgGrid } from './components/grid';
+} from '@/types/billingEdi';
+import { setupAgGrid } from '@/components/grid';
 
 LicenseManager.setLicenseKey(
   'AG_GRID_LICENSE_KEY'
@@ -112,6 +112,7 @@ setupAgGrid();
  *   - `display-management-master` … 表示管理マスタ
  *   - `product-class-derivation-master` … 商品分類導出マスタ
  *   - `sales-area-master` … 担当エリアマスタ
+ *   - `summary-product-master` … サマリ商品マスタ
  *   - `summary-product-management-master` … サマリ商品管理マスタ
  *   - `new-product-summary-link-master` … 新商品・新価格用サマリ商品紐づけマスタ
  *   - `new-product-item-master` … 新商品・新価格用商品マスタ

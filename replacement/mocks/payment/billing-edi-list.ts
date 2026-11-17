@@ -1,7 +1,7 @@
 // 請求EDI取込一覧：検索条件の候補・初期値のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/billing-edi-list/page.tsx。
+// 画面は src/features/payment/billing-edi-list/page.tsx。
 
-import type { BillingEdiSearchCriteria } from '@/app/types/billingEdi';
+import type { BillingEdiSearchCriteria } from '@/types/billingEdi';
 
 // 受信日の初期値（決定11 2026-08-18）。業務仕様は「当月1日〜当月末日」だが、
 // モックの受信日時が2026年8月固定のため、システム日付から導出すると初期表示が0件になる。

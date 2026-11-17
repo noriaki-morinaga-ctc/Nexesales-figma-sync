@@ -1,11 +1,11 @@
 // 請求一覧：検索条件の選択肢のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/payment/billing-list/page.tsx。
+// 画面は src/features/payment/billing-list/page.tsx。
 
 import type {
   BillingCodeName,
   BillingCompanyOption,
   BillingOfficeOption,
-} from '@/app/types/billing';
+} from '@/types/billing';
 import { BILLING_LIST } from '@/mocks/common/billing';
 
 // ── 検索条件の選択肢（請求一覧） ────────────────────────

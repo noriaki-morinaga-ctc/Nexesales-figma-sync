@@ -1,35 +1,169 @@
-// 計画詳細(マージン率固定)：EDI反映の固定ダミー（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/plan-detail-margin-rate-fixed/page.tsx。
+// 計画詳細(マージン率固定)：実販EDI（実販FACT）・コメント履歴・一次店/三次店のモック
+// （バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
+// 画面は src/features/sales-plan/plan-detail-margin-rate-fixed/page.tsx。
 
 import {
   PLAN_DETAIL_DIGITS,
   roundPlanNumber,
-} from '@/app/utils/sales-plan/common/planDetailNumberFormat';
-import type { CommentHistoryItem } from '@/app/components/shared/common/CommentHistoryPane';
-import type { MarginRate } from '@/app/types/planDetail';
+} from '@/utils/sales-plan/common/planDetailNumberFormat';
+import type { CommentHistoryItem } from '@/components/shared/common/CommentHistoryPane';
+import type { MarginRate } from '@/types/planDetail';
+import type { EdiActual, ProductData } from '@/types/salesPlanRetail';
 
-// EDI反映の固定ダミー生成用。納価-計画（初期値）を基準にオフセットを与え、
-// 差異±1.00未満（強調なし）／±1.00以上（強調）が混在するようにする。一部は空欄（ー）。
-export const EDI_OFFSETS = [0.3, -0.5, 0.8, 1.5, -2.2, 3.1, -0.2, 2.6];
-
-export const hashStr = (s: string): number => {
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+const toNumber = (value: unknown): number => {
+  const num = parseFloat(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(num) ? num : 0;
 };
 
-// EDI反映の固定値。納価-計画を編集しても EDI反映 は固定のままなので、
-// 「納価-計画 と EDI反映 の差異が±1.00以上」で強調表示が動的に切り替わる。
-export const fixedEdi = (id: string, planPrice?: string): string => {
-  const s = hashStr(id);
-  if (s % 4 === 0) return ''; // 適度にデータなし（ー）
-  const plan = parseFloat(String(planPrice ?? '').replace(/,/g, ''));
-  if (!(plan > 0)) return '';
-  return roundPlanNumber(
-    plan + EDI_OFFSETS[s % EDI_OFFSETS.length],
-    PLAN_DETAIL_DIGITS.price
+// 当月実績がある計画行は、計画納価どおりの実販FACTが反映ルール②（同じサマリ商品・同じ計画納価の行に反映）で
+// 自動で反映済みとみなす（補足8-1・8-7）。
+const isAutoReflected = (row: ProductData): boolean =>
+  toNumber(row.actual) > 0 && toNumber(row.planPrice) > 0;
+
+const priceOf = (value: unknown): string =>
+  roundPlanNumber(toNumber(value), PLAN_DETAIL_DIGITS.price);
+
+// 計画行に、自動で反映済みの実販EDI（EDI納価・突合の状態「自動」）を付ける。
+// 反映していない行のEDI納価は空欄にする。
+export const withMockAutoEdi = (rows: ProductData[]): ProductData[] =>
+  rows.map((row) =>
+    isAutoReflected(row)
+      ? { ...row, ediPrice: priceOf(row.planPrice), ediMatchStatus: 'auto2' }
+      : { ...row, ediPrice: '', ediMatchStatus: undefined }
   );
-};
+
+// ── 補足8-7 2. の題材（東日本／マージン率固定、2026年8月、当月〆後に実販FACTが届いた時点） ──
+// 計画行 P1〜P3 と実販EDI E1〜E3 を図1-1・1-2 と同じ商品・値で持つ。
+// 共通モック（mocks/common/salesPlanRetail）は集計の元にも使うため触らず、この画面の明細の先頭に足す。
+const MITSUYA_PET500 = '三ツ矢サイダーＰＥＴ５００';
+const CALPIS_PET500 = 'カルピスウォーターＰＥＴ５００';
+
+const scenarioRow = (
+  row: Pick<
+    ProductData,
+    | 'section'
+    | 'productCategory'
+    | 'metaBrand'
+    | 'summaryProduct'
+    | 'promotion'
+    | 'plan'
+    | 'planPrice'
+    | 'price'
+  > &
+    Partial<ProductData>
+): ProductData => ({
+  containerCapacityG: 'PET500',
+  wholesaleMesh: '',
+  endSale: '',
+  period: '',
+  quantity: '24',
+  estimate: '',
+  actual: '',
+  prevYear: '',
+  ratio: '',
+  net: '',
+  ediPrice: '',
+  prevYearPrice: row.planPrice,
+  margin: '11.00%',
+  volumeAddRate: '',
+  externalSales: '',
+  delivery: '',
+  discount: '',
+  profit: '',
+  exp1PlannedAmount: '',
+  exp1PostingMonth: '',
+  exp1ManagementCode: '',
+  exp1AccountItem: '',
+  exp1ManagementClass: '',
+  exp1Description: '',
+  exp2PlannedAmount: '',
+  exp2PostingMonth: '',
+  exp2ManagementCode: '',
+  exp2AccountItem: '',
+  exp2ManagementClass: '',
+  exp2Description: '',
+  ...row,
+});
+
+// 定番の題材行：P1（E1 がルール②で自動反映済み）・P3（E3 と一致する納価が無い）
+export const EDI_SCENARIO_REGULAR_ROWS: ProductData[] = [
+  scenarioRow({
+    section: '定番商品',
+    productCategory: '定番商品',
+    metaBrand: '三ツ矢',
+    summaryProduct: MITSUYA_PET500,
+    promotion: '定番・EDLP',
+    plan: '2,300',
+    estimate: '2,200',
+    actual: '2,200',
+    prevYear: '3,000',
+    ratio: '76.67%',
+    planPrice: '80.00',
+    price: '98',
+  }),
+  scenarioRow({
+    section: '定番商品',
+    productCategory: '定番商品',
+    metaBrand: 'カルピス',
+    summaryProduct: CALPIS_PET500,
+    promotion: '定番・EDLP',
+    plan: '1,500',
+    prevYear: '1,400',
+    ratio: '107.14%',
+    planPrice: '85.00',
+    price: '105',
+  }),
+];
+
+// 特売の題材行：P2（E2 を手動で突合する先。計画78.00／EDI76.50）
+export const EDI_SCENARIO_PROMOTION_ROWS: ProductData[] = [
+  scenarioRow({
+    section: '特売',
+    productCategory: '特売',
+    metaBrand: '三ツ矢',
+    summaryProduct: MITSUYA_PET500,
+    promotion: 'アプリ販促',
+    plan: '1,200',
+    planPrice: '78.00',
+    price: '98',
+  }),
+];
+
+// 未突合の実販EDI：当月〆後に届いた実販FACTのうち、一致する計画納価が無かったもの（題材の E2・E3）。
+// E1 は P1 に自動で反映済みのため、mockEdiActualsOf で P1 から作る。
+export const UNMATCHED_EDI_ACTUALS: EdiActual[] = [
+  // 担当者が「特売（計画78.00）で商談した分」と判断できる実績（手動で突合する想定）
+  {
+    id: 'E2',
+    summaryProduct: MITSUYA_PET500,
+    ediPrice: '76.50',
+    count: '900',
+    status: 'unmatched',
+  },
+  // 計画外の値引きの実績（突合せずに保存し、計画納価が空欄の明細として追加する想定）
+  {
+    id: 'E3',
+    summaryProduct: CALPIS_PET500,
+    ediPrice: '84.00',
+    count: '600',
+    status: 'unmatched',
+  },
+];
+
+// 実販EDIの一覧：自動で反映済みの分（当月実績がある計画行）と未突合の分。
+export const mockEdiActualsOf = (allRows: ProductData[]): EdiActual[] => [
+  ...allRows.filter(isAutoReflected).map(
+    (row): EdiActual => ({
+      id: `A-${row.id}`,
+      summaryProduct: row.summaryProduct,
+      ediPrice: priceOf(row.planPrice),
+      count: String(toNumber(row.actual)),
+      status: 'auto2',
+      planRowId: row.id,
+    })
+  ),
+  ...UNMATCHED_EDI_ACTUALS,
+];
 
 // コメント履歴ペイン（shared/common/CommentHistoryPane）のモックデータ。
 // 操作（申請・引戻し・承認・差戻し）と、その操作の後の計画ステータスで表す。

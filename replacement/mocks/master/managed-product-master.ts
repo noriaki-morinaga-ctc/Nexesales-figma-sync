@@ -1,12 +1,12 @@
 // 管理対象商品マスタ：一覧のモック行（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/managed-product-master.json）。画面の定義は src/app/components/master/managed-product-master/constants.ts。
+// tools/master-gen/new-master.mjs が生成（定義: tools/master-gen/defs/managed-product-master.json）。画面の定義は src/features/master/managed-product-master/constants.ts。
 
 import {
   OFFICE_CODE_NAME,
   PRODUCT_HANDLING_KBN,
   SUMMARY_PRODUCT_CODE_NAME,
-} from '@/app/constants/masterCodeNameOptions';
-import type { MasterRow } from '@/app/components/shared/master';
+} from '@/constants/masterCodeNameOptions';
+import type { MasterRow } from '@/features/master/shared';
 
 const CREATED_AT = '2026/03/05 10:30';
 

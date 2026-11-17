@@ -1,7 +1,7 @@
 // 拡売費計画(紐づき無し)：コメント履歴のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/promotion-cost-plan-unlinked/page.tsx。
+// 画面は src/features/sales-plan/promotion-cost-plan-unlinked/page.tsx。
 
-import type { CommentHistoryItem } from '@/app/components/shared/common/CommentHistoryPane';
+import type { CommentHistoryItem } from '@/components/shared/common/CommentHistoryPane';
 
 // コメント履歴ペインのモックデータ（共通 CommentHistoryPane に渡す。古い順に並べる）。
 // 販売計画の実際の流れ（未申請 → 承認待ち → 差戻し → 承認待ち → 承認済み → 確定）を、

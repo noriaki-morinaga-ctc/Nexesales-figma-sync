@@ -1,7 +1,7 @@
 // 計画詳細・販売計画シミュレーション・年間計画作成ほか：計画の基本情報（チャネル・組織・作成者・販売店など）、ログインユーザー、
 // 確定済みの月・取引制度の変更月、単価取得区分のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 
-import type { NameCodeValue, PlanBasicInfo } from '@/app/types/planDetail';
+import type { NameCodeValue, PlanBasicInfo } from '@/types/planDetail';
 import {
   STORE_TIER_LIST,
   firstStoreCode,

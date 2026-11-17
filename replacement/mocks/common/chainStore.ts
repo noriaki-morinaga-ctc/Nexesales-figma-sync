@@ -1,6 +1,6 @@
 // 計画詳細(マージン率固定)・計画詳細(NET固定)：本部計画コピーの販売店（チェーン）の候補のモック（バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
 // 実システムでは販売店マスタから取得する。
-import type { ChainStore } from '@/app/types/organization';
+import type { ChainStore } from '@/types/organization';
 
 // 先頭は自社チェーン（isOwn）。以降は画像の並び順を踏襲。
 export const CHAIN_STORES: ChainStore[] = [

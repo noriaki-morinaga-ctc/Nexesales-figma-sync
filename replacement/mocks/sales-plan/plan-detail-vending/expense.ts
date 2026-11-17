@@ -1,5 +1,5 @@
 // 計画詳細(自販機)：経費計画の差分表示の基準データ・初期データ（モック。バックエンドをつないだら消す → 04 §画面ディレクトリ構成「モックデータ」）。
-// 画面は src/app/components/sales-plan/plan-detail-vending/page.tsx。
+// 画面は src/features/sales-plan/plan-detail-vending/page.tsx。
 
 // 経費計画の差分表示の基準データ（読むだけ）。行番号（経費項目）→ 列（catPlan=計画金額 など）の値
 export const EXPENSE_BASELINE: Record<number, Record<string, any>> = {
