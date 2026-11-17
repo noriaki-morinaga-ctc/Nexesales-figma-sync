@@ -480,27 +480,32 @@ export function PlanCopyPane({
                   <div className="flex gap-2">
                     <dt className="w-24 shrink-0 text-gray-500">商品区分</dt>
                     <dd className="flex flex-wrap gap-1">
-                      {selectedCategories.length === 0 && !isExpenseSelected ? (
+                      {selectedCategories.length === 0 ? (
                         <span className="text-gray-900">未選択</span>
                       ) : (
-                        <>
-                          {selectedCategories.map((category) => (
-                            <span
-                              key={category}
-                              className="rounded bg-white px-2 py-0.5 text-gray-900 ring-1 ring-blue-200"
-                            >
-                              {category}
-                            </span>
-                          ))}
-                          {includeExpense && isExpenseSelected && (
-                            <span className="rounded bg-white px-2 py-0.5 text-gray-900 ring-1 ring-amber-300">
-                              {EXPENSE_LABEL}
-                            </span>
-                          )}
-                        </>
+                        selectedCategories.map((category) => (
+                          <span
+                            key={category}
+                            className="rounded bg-white px-2 py-0.5 text-gray-900 ring-1 ring-blue-200"
+                          >
+                            {category}
+                          </span>
+                        ))
                       )}
                     </dd>
                   </div>
+                  {/* 拡売費は商品区分と分けて別の行に出し、コピーするかどうかを示す
+                      （ステップ1の「商品区分」「拡売費」の枠と同じ区分け → UI/UX UX-115） */}
+                  {includeExpense && (
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 text-gray-500">
+                        {EXPENSE_LABEL}
+                      </dt>
+                      <dd className="text-gray-900">
+                        {isExpenseSelected ? 'コピーする' : 'コピーしない'}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </div>
 
