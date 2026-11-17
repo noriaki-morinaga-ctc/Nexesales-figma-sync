@@ -36,7 +36,12 @@ import {
   useChangedCells,
   useLinkedCellUndo,
   asRowStyle,
+  useRevealNewRows,
 } from '@/app/components/grid';
+import {
+  orderAddedRows,
+  productRowBlockKey,
+} from '@/app/utils/common/addedRowOrder';
 
 import { planDetailTotalRatesOf } from '@/app/utils/sales-plan/plan-detail/planDetailTotalRates';
 
@@ -90,7 +95,7 @@ import { SegmentToggle } from '@/app/components/shared/common/SegmentToggle';
 
 export interface DetailTableHandle {
   addCopiedRow: (data: ProductData) => void;
-  // 明細追加：フォーム値から新規行を生成し、合計行直下（先頭）へ追加
+  // 明細追加：フォーム値から新規行を生成し、最下行へ追加
   addNewRow: (overrides: Partial<ProductData> & { section: string }) => void;
   // 明細削除：一意な id で対象行を表から除去
   deleteRow: (target: ProductData | string) => void;
@@ -191,6 +196,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
     // セル編集による未保存状態を保持（画面遷移時のアラート判定に使用）
     const hasUnsavedRef = useRef(false);
+
+    // 追加・コピーした行へなめらかに移り、左端の帯の色を薄くした色で1秒強調する（→ 02 §8「行の追加位置」・UX-112）
+    const reveal = useRevealNewRows({ scrollPosition: 'nearest' });
 
     // 編集セルの変更ハイライト（黄＋オレンジ枠）の追跡・判定（共通フック → 02 §7.2）。
     // 元値に戻したら強調を解除し、計画保存時に resetChangedCells でクリアする。
@@ -333,12 +341,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           ...data,
           // コピー行には一意なIDを再採番（getRowId 衝突・編集時の源行巻き込みを防止）
           id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-          // 挿入順を採番。商品区分によらず表示時は合計行直下（先頭）へ並ぶ
+          // 挿入順を採番。商品区分によらず表示時は最下行（行コピーはコピー元の行のすぐ下）へ並ぶ
           _addedSeq: Date.now(),
+          // 行コピーはコピー元の行のすぐ下に並べる（orderAddedRows → 02 §8・UX-112）
+          _copyOf:
+            data._copySource === 'detail'
+              ? productRowBlockKey(data)
+              : undefined,
         } as ProductData;
 
+        // 追加・コピーした行へ移って強調する（行が反映された後に強調される）
+        reveal.markRows([String(copiedData.id)]);
+
         // 編集ルーティング維持のため行は商品区分ごとの配列へ格納する（表示順は
-        // rowData 側で _addedSeq により合計行直下へ並べ替える）。
+        // rowData 側で orderAddedRows により並べ替える）。
         if (data.section === '定番商品') {
           setRegularProductsData((prev) => [...prev, copiedData]);
         } else if (data.section === '新商品') {
@@ -350,7 +366,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         }
         bumpGridRebuild();
       },
-      [bumpGridRebuild]
+      [bumpGridRebuild, reveal]
     );
 
     // ギフトのセットの追加・コピー・更新・取得と、商品区分ごとの行の更新（計画詳細の2画面で共通）
@@ -370,6 +386,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       setPromotionProductsData,
       setGiftProductsData,
       bumpGridRebuild,
+      onRowsAdded: reveal.markRows,
     });
 
     // Expose 行操作（追加・コピー・削除）to parent via ref
@@ -377,7 +394,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       addCopiedRow: (data: ProductData) => {
         handleCopyRow({ ...data, _copySource: 'detail' });
       },
-      // 明細追加：完全な空テンプレートにフォーム値を上書きし、合計行直下（先頭）へ追加。
+      // 明細追加：完全な空テンプレートにフォーム値を上書きし、最下行へ追加。
       // id・_addedSeq の採番と商品区分配列への振り分けは handleCopyRow が行う。
       addNewRow: (overrides: Partial<ProductData> & { section: string }) => {
         const base = makeEmptyProduct(overrides.section);
@@ -444,7 +461,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         if (data.section === 'ギフト' && data.giftSetId) {
           const set = getGiftSet(data.giftSetId);
           if (set) {
-            handleAddCopiedGiftSet(set.base, set.plans);
+            handleAddCopiedGiftSet(set.base, set.plans, data.giftSetId);
             toast.success('明細をコピーしました。');
             return;
           }
@@ -789,11 +806,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // （商品区分を変更して保留中の行は、別タブへ切り替えるまで表示中のタブに残す）
     const rowData = useMemo(() => {
       const byTab = allData.filter(isRowInActiveTab);
-      // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず
-      // 合計行直下（先頭）へ新しい順で並べる。既存行は元の順序を維持（安定ソート）。
-      const sorted = [...byTab].sort(
-        (a, b) => (b._addedSeq ?? 0) - (a._addedSeq ?? 0)
-      );
+      // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず並べ直す。
+      // 新規・下ペインのコピーは最下行へ追加した順、行コピーはコピー元の行のすぐ下
+      // （ギフトは3行1セットで動かす）。既存行は元の順序を維持（→ 02 §8・UX-112）。
+      const sorted = orderAddedRows(byTab, productRowBlockKey);
       // ギフトの3行1セットをセル結合するため、セット単位で
       // 先頭行(_giftFirst＋行数_giftSpan)・中央行(_giftMiddle：操作アイコン表示)・
       // 最終行(_giftLast：操作列の下罫線)を付与する。
@@ -1036,6 +1052,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               statusBar={GRID_STATUS_BAR}
               pinnedTopRowData={[totals]}
               onFilterChanged={handleFilterChanged}
+              // 追加・コピーした行へ移って強調する（共通フック useRevealNewRows）
+              onRowDataUpdated={reveal.onRowDataUpdated}
               getRowStyle={getRowStyle}
               onCellMouseOver={formulaHL.onCellMouseOver}
               onCellMouseOut={formulaHL.onCellMouseOut}

@@ -11,6 +11,7 @@ import {
   Upload,
   Undo2,
   CornerUpLeft,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { CustomCellEditorProps } from 'ag-grid-react';
@@ -82,6 +83,7 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import { ScreenTitle } from '@/app/components/ui/screen-title';
 import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { insertRowsAfter } from '@/app/utils/common/addedRowOrder';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 支払確認ダイアログで扱うアクション種別
@@ -704,7 +706,7 @@ export default function PaymentDetailOther() {
   // ペインの保存処理
   const handlePaneSubmit = useCallback(() => {
     if (paneMode === 'add' || paneMode === 'copy') {
-      // 追加・コピーは拡売費明細の最上部に追加する
+      // 追加は拡売費明細の最下行、コピーはコピー元の行（formData.id）のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）
       const newItem: ExpansionExpenseData = {
         ...createEmptyForm(),
         ...formData,
@@ -712,7 +714,12 @@ export default function PaymentDetailOther() {
       } as ExpansionExpenseData;
       // 構造変更なのでグリッド行データも差し替える（最新の expenseData を基点にして
       // セル編集値も引き継ぐ）。
-      const next = [newItem, ...expenseData];
+      const sourceId = paneMode === 'copy' ? formData.id : undefined;
+      const next = insertRowsAfter(
+        expenseData,
+        [newItem],
+        sourceId == null ? undefined : (r) => r.id === sourceId
+      );
       setExpenseData(next);
       setGridRowData(next);
       toast.success(
@@ -740,7 +747,8 @@ export default function PaymentDetailOther() {
       id: generateId(),
     } as ExpansionExpenseData;
     // 構造変更なのでグリッド行データも差し替える。
-    const next = [newItem, ...expenseData];
+    // 明細の最下行に追加する（→ 02 §8「行の追加位置」・UX-112）
+    const next = [...expenseData, newItem];
     setExpenseData(next);
     setGridRowData(next);
     toast.success('明細を追加しました。続けて入力できます。');
@@ -1825,7 +1833,7 @@ export default function PaymentDetailOther() {
               onClick={() => setIsBackDialogOpen(true)}
               aria-label="一覧へ戻る"
             >
-              <Undo2 className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               一覧へ戻る
             </button>
           </div>
@@ -1843,7 +1851,7 @@ export default function PaymentDetailOther() {
               onClick={() => setConfirmAction('reject')}
               aria-label="差戻し"
             >
-              <CornerUpLeft className="h-4 w-4" />
+              <Undo2 className="h-4 w-4" />
               差戻し
             </button>
             <button

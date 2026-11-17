@@ -18,8 +18,7 @@ import {
   Megaphone,
   CornerUpLeft,
   Stamp,
-  Plus,
-  Copy,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
@@ -166,24 +165,23 @@ import {
   managementCodeName,
 } from '@/app/utils/payment/payment-detail/paymentComboFieldOptions';
 import { campaignClassFromCode } from '@/app/utils/common/expenseRelations';
-import { swapNameCode } from '@/app/utils/common/nameCode';
 import { ScreenTitle } from '@/app/components/ui/screen-title';
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
+import { PaymentRoundBar } from '@/app/components/shared/payment/payment-detail/PaymentRoundBar';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // ── モックデータ ────────────────────────────────────────────
 
 // 拡売費一覧の商流・組織列（販売店〜担当者）に表示する基本情報の値。
-// 基本情報は「コード:名称」で保持するが、分割の枝番行で選択できる候補
-//（商流／組織マスタ）は「名称:コード」のため、表記を揃えて渡す。
+// 基本情報も分割の枝番行で選択できる候補（商流／組織マスタ）も「コード:名称」（→ 02 §9-1・UX-114）。
 const EXPENSE_BASIC_INFO: ExpenseBasicInfo = {
-  primaryStore: swapNameCode(BASIC_INFO.primaryStore),
-  tertiaryStore: swapNameCode(BASIC_INFO.tertiaryStore),
-  store: swapNameCode(BASIC_INFO.store),
+  primaryStore: BASIC_INFO.primaryStore,
+  tertiaryStore: BASIC_INFO.tertiaryStore,
+  store: BASIC_INFO.store,
   // 費用負担部署＝基本情報の「部署」
-  dept: swapNameCode(BASIC_INFO.dept),
+  dept: BASIC_INFO.dept,
   // 担当者＝基本情報の「営業担当者」（複数はカンマ区切りのまま表示する）
-  staff: BASIC_INFO.staff.split(',').map(swapNameCode).join(','),
+  staff: BASIC_INFO.staff,
 };
 
 // 支払No.（タブ見出し用。支払詳細(自販機)のタブ1タイトルと同形式）。
@@ -272,8 +270,8 @@ const SPLIT_FROM_OTHER_EXPENSE_EXTRAS: Pick<
     srcPaymentNo: 'C2400NTO1',
     srcPaymentCount: 1,
     srcDetailNo: 3,
-    srcDept: '首都圏営業第一部:10002985',
-    srcStaff: 'アサヒ　花子:5172734',
+    srcDept: '10002985:首都圏営業第一部',
+    srcStaff: '5172734:アサヒ　花子',
   },
   {
     measureClass: '30',
@@ -283,8 +281,8 @@ const SPLIT_FROM_OTHER_EXPENSE_EXTRAS: Pick<
     srcPaymentNo: 'C2400NTO2',
     srcPaymentCount: 2,
     srcDetailNo: 1,
-    srcDept: '中部営業部:10003002',
-    srcStaff: 'アサヒ　次郎:5172735',
+    srcDept: '10003002:中部営業部',
+    srcStaff: '5172735:アサヒ　次郎',
   },
 ];
 
@@ -318,8 +316,8 @@ const SPLIT_FROM_OTHER_EXPENSE_ROWS: SplitFromOtherRow[] = [
     srcPaymentNo: 'C2400NTO5',
     srcPaymentCount: 1,
     srcDetailNo: 2,
-    srcDept: '関西第1営業部:10003001',
-    srcStaff: 'アサヒ　美咲:5172736',
+    srcDept: '10003001:関西第1営業部',
+    srcStaff: '5172736:アサヒ　美咲',
   },
   {
     no: 4,
@@ -342,8 +340,8 @@ const SPLIT_FROM_OTHER_EXPENSE_ROWS: SplitFromOtherRow[] = [
     srcPaymentNo: 'C2400NTO6',
     srcPaymentCount: 2,
     srcDetailNo: 4,
-    srcDept: '中部営業部:10003002',
-    srcStaff: 'アサヒ　次郎:5172735',
+    srcDept: '10003002:中部営業部',
+    srcStaff: '5172735:アサヒ　次郎',
   },
 ];
 
@@ -990,7 +988,7 @@ export default function PaymentDetailWithInvoice() {
         // 拡売費の消費税は課税10%を初期値とする（追加口は課税8%）。
         // 消費税コード・名称はPRIMEのものを使い、拡売費はS始まり・追加口はF始まりとする
         //（→ 20260724_第23回_共通 決定事項10。コードの採番はPRIMEマスタのため基本設計で定める）。
-        taxClass: '課税10%:1',
+        taxClass: '1:課税10%',
         // 照合支払区分・請求書情報は追加口明細の値を引き継ぐ。
         // 請求書番号は追加口明細・拡売費明細で同じ項目（保持するフィールド名のみ異なる）。
         matchType: row.matchType,
@@ -1383,51 +1381,15 @@ export default function PaymentDetailWithInvoice() {
                   分割・振替 選択時の「他部門から分割された経費明細」一覧は
                   支払情報サマリカード内（splitContent）へ移設した。 */}
               <div className="w-full mt-2 space-y-0">
-                {/* 支払回数（支払詳細(自販機)と同様、タブバーと支払明細情報の間に配置） */}
-                <div className="mb-2 flex items-center gap-2">
-                  <label
-                    htmlFor="invoice-count"
-                    className="w-36 text-right text-sm font-bold whitespace-nowrap text-blue-900"
-                  >
-                    支払回数
-                  </label>
-                  {/* 回を選ぶと、その回に紐づくデータセット（支払情報・追加口・拡売費）へ表示を切り替える */}
-                  <SingleCombobox
-                    id="invoice-count"
-                    className="w-20"
-                    options={[
-                      ...rounds.options.map((round) => ({
-                        value: round,
-                        label: round,
-                      })),
-                    ]}
-                    value={invoiceCount}
-                    onChange={rounds.selectRound}
-                    placeholder="選択"
-                    searchable={false}
+                {/* 支払回数（共通部品。項目名は下のカードの支払先に縦にそろえる → UX-113） */}
+                <div className="mb-2">
+                  <PaymentRoundBar
+                    roundOptions={rounds.options}
+                    invoiceCount={invoiceCount}
+                    onSelectRound={rounds.selectRound}
+                    onAddRound={rounds.requestAddRound}
+                    onQuotePaymentInfo={handleQuote}
                   />
-                  {/* 支払回数追加（支払回数プルダウンの右・左に全角2文字程度の空白） */}
-                  <button
-                    type="button"
-                    className="btn-toolbar-outline ml-8"
-                    onClick={rounds.requestAddRound}
-                    aria-label="支払回数追加"
-                  >
-                    <Plus className="h-4 w-4" />
-                    支払回数追加
-                  </button>
-                  {/* 支払情報引用（支払回数追加ボタンの右に配置）。
-                      押下で引用明細選択ペイン（下ペイン）のみを開く。
-                      支払回数の追加は同ペインの「引用」で行う。 */}
-                  <button
-                    type="button"
-                    className="btn-toolbar-outline"
-                    onClick={handleQuote}
-                    aria-label="支払情報引用"
-                  >
-                    <Copy className="h-4 w-4" />
-                    支払情報引用
-                  </button>
                 </div>
 
                 {/* 支払明細情報エリア（PaymentDetailWithInvoiceから直接表示） */}
@@ -1479,8 +1441,7 @@ export default function PaymentDetailWithInvoice() {
                     netUnapproved={netUnapproved}
                     round={invoiceCount}
                     // 明細行（親行）の商流・組織列に表示する基本情報の値。
-                    // 分割の枝番行で選択できる候補（商流／組織マスタ）と表記を
-                    // 揃えるため「名称:コード」へ変換して渡す。
+                    // 分割の枝番行で選択できる候補（商流／組織マスタ）と同じ「コード:名称」。
                     basicInfo={EXPENSE_BASIC_INFO}
                     onOpenAddExpense={() => handleOpenAddDetail('expense')}
                     // 明細を編集したら未保存とし、引用ボタン押下時に保存を促す。
@@ -1855,7 +1816,7 @@ export default function PaymentDetailWithInvoice() {
                 className="btn-action-base btn-action-outline"
                 aria-label="一覧へ戻る"
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
               {/* 次の伝票へ：一覧の次の支払伝票へ送るためのボタン（支払詳細(自販機)と同じ）。
@@ -1903,7 +1864,7 @@ export default function PaymentDetailWithInvoice() {
                 aria-label="差戻し"
                 disabled={!footerActions.sendBack}
               >
-                <CornerUpLeft className="h-4 w-4" />
+                <Undo2 className="h-4 w-4" />
                 差戻し
               </button>
               <button

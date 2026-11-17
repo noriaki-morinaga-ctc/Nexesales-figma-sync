@@ -50,8 +50,11 @@ export interface ProductData {
   exp1PlannedAmountAfter?: string;
   exp2PlannedAmountAfter?: string;
   _isHeader?: boolean;
-  // 明細追加・コピーで採番する挿入順。値が大きいほど新しく、表示時は合計行直下（先頭）へ並べる
+  // 明細追加・コピーで採番する挿入順（値が大きいほど新しい）。表示時は新規・下ペインのコピーを
+  // 最下行へ追加した順に、行コピーをコピー元の行のすぐ下へ並べる（orderAddedRows → 02 §8・UX-112）
   _addedSeq?: number;
+  // 行コピーで作った行の、コピー元のまとまりのキー（ギフトは giftSetId、ほかは行の id）
+  _copyOf?: string;
   // 計画キー（コピー元グループ単位）。同一計画の明細はこのキーを共有し、確定の排他判定に使う
   _planKey?: string;
   // 行の追加経路（カラーバー表示用）: reference=コピー元ペイン / detail=グリッドの行コピー / new=明細追加

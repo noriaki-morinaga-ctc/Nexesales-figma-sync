@@ -1,4 +1,4 @@
-import { Save, Undo2 } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
@@ -1624,7 +1624,7 @@ export default function SalesActualDetail() {
               className="btn-action-base btn-action-outline"
               aria-label="一覧へ戻る"
             >
-              <Undo2 className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               一覧へ戻る
             </button>
           </div>

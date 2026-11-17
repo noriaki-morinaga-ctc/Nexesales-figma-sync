@@ -40,9 +40,9 @@ export interface OrgOption {
 // 「対象年月 × 販売店 × 費用負担部署 × 担当者」の1組合せ。
 export interface PaymentOrgCombo {
   targetMonth: string; // 対象年月（'YYYY/MM'）
-  store: string; // 販売店（名称:コード）
-  dept: string; // 費用負担部署（名称:コード）
-  staff: string; // 担当者（名称:コード）
+  store: string; // 販売店（コード:名称）
+  dept: string; // 費用負担部署（コード:名称）
+  staff: string; // 担当者（コード:名称）
 }
 
 // ============================================================================

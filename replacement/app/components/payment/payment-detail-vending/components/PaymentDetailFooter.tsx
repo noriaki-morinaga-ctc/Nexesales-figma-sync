@@ -10,6 +10,7 @@ import {
   Undo2,
   Stamp,
   CornerUpLeft,
+  ArrowLeft,
 } from 'lucide-react';
 
 import type { ConfirmAction } from '@/app/components/payment/payment-detail-vending/paymentDetailVending.types';
@@ -63,7 +64,7 @@ export function PaymentDetailFooter({
             onClick={onBack}
             aria-label="一覧へ戻る"
           >
-            <Undo2 className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
             一覧へ戻る
           </button>
           {/* 次の伝票へ：一覧の次の支払伝票へ送るためのボタン。
@@ -109,7 +110,7 @@ export function PaymentDetailFooter({
             disabled={!actions.sendBack}
             aria-label="差戻し"
           >
-            <CornerUpLeft className="h-4 w-4" />
+            <Undo2 className="h-4 w-4" />
             差戻し
           </button>
           <button

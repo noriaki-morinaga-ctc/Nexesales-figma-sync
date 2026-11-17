@@ -171,7 +171,8 @@ export const RETAILER_ASSIGN_OPTIONS: RetailerAssignOption[] = Object.values(
       tertiaryStoreCode: tertiary.code,
       tertiaryStoreName: tertiary.name,
       value: `${primary.code}-${tertiary.code}-${store.code}`,
-      label: `${primary.name} / ${tertiary.name} / ${store.name}:${store.code}`,
+      // 一次店 / 三次店 / 販売店（販売店は「コード:名称」→ 02 §9-1・UX-114）
+      label: `${primary.name} / ${tertiary.name} / ${store.code}:${store.name}`,
     };
   })
 );
@@ -188,9 +189,9 @@ export const ASSIGN_OPTIONS: Record<
     label,
   })),
   オンライン商品: [
-    { value: 'S2001', label: '三ツ矢サイダー ペット 500ml:S2001' },
-    { value: 'S2002', label: 'ウィルキンソン タンサン 500ml:S2002' },
-    { value: 'S2003', label: 'カルピスウォーター 500ml:S2003' },
+    { value: 'S2001', label: 'S2001:三ツ矢サイダー ペット 500ml' },
+    { value: 'S2002', label: 'S2002:ウィルキンソン タンサン 500ml' },
+    { value: 'S2003', label: 'S2003:カルピスウォーター 500ml' },
   ],
 };
 

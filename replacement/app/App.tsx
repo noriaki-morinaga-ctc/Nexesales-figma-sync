@@ -136,8 +136,10 @@ const applyAssignedValue = (
 ): BillingEdiDetailRow => {
   const option = ASSIGN_OPTIONS[target].find((o) => o.value === value);
   const label = option?.label ?? value;
-  // 選択肢のラベルは「名称:コード」形式。名称部分だけを表示値に使う
-  const name = label.includes(':') ? label.slice(0, label.indexOf(':')) : label;
+  // 選択肢のラベルは「コード:名称」形式（→ 02 §9-1・UX-114）。名称部分だけを表示値に使う
+  const name = label.includes(':')
+    ? label.slice(label.indexOf(':') + 1)
+    : label;
   const correction = {
     kind: '変換値指定' as const,
     field: target,

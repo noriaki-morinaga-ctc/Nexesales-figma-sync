@@ -12,7 +12,7 @@ import {
   Search,
   SquarePen,
   Trash2,
-  Undo2,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   GRID_BASE_PROPS,
@@ -738,7 +738,7 @@ export default function NoticeAdminScreen() {
                   onClick={handleBack}
                   className="btn-action-base btn-action-outline"
                 >
-                  <Undo2 className="w-4 h-4" aria-hidden="true" />
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   一覧へ戻る
                 </button>
 

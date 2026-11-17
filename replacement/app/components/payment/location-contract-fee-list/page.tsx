@@ -12,6 +12,7 @@ import {
   CornerUpLeft,
   Undo2,
   ReceiptText,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { CustomCellEditorProps } from 'ag-grid-react';
@@ -68,6 +69,7 @@ import {
 import { toast } from 'sonner';
 import { ScreenTitle } from '@/app/components/ui/screen-title';
 import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
+import { insertRowsAfter } from '@/app/utils/common/addedRowOrder';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 確認ダイアログで扱うアクション種別（支払申請承認に準拠）
@@ -592,14 +594,21 @@ export default function LocationContractFeeList() {
   // ペインの保存処理
   const handlePaneSubmit = useCallback(() => {
     if (paneMode === 'add' || paneMode === 'copy') {
-      // 追加・コピーは明細の最上部に追加する
+      // 追加は明細の最下行、コピーはコピー元の行（formData.id）のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）
       const newItem: LocationContractItem = {
         ...createEmptyForm(),
         ...formData,
         id: generateId(),
         splitStatus: '',
       } as LocationContractItem;
-      setContractData((prev) => [newItem, ...prev]);
+      const sourceId = paneMode === 'copy' ? formData.id : undefined;
+      setContractData((prev) =>
+        insertRowsAfter(
+          prev,
+          [newItem],
+          sourceId == null ? undefined : (r) => r.id === sourceId
+        )
+      );
       toast.success(
         paneMode === 'add' ? '明細を追加しました。' : '明細をコピーしました。'
       );
@@ -633,7 +642,8 @@ export default function LocationContractFeeList() {
       id: generateId(),
       splitStatus: '',
     } as LocationContractItem;
-    setContractData((prev) => [newItem, ...prev]);
+    // 明細の最下行に追加する（→ 02 §8「行の追加位置」・UX-112）
+    setContractData((prev) => [...prev, newItem]);
     toast.success('明細を追加しました。続けて入力できます。');
     setFormData(createEmptyForm());
   }, [formData, createEmptyForm, generateId]);
@@ -1614,7 +1624,7 @@ export default function LocationContractFeeList() {
               onClick={() => setIsBackDialogOpen(true)}
               aria-label="一覧へ戻る"
             >
-              <Undo2 className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               一覧へ戻る
             </button>
           </div>
@@ -1631,7 +1641,7 @@ export default function LocationContractFeeList() {
               onClick={() => setConfirmAction('reject')}
               aria-label="差戻し"
             >
-              <CornerUpLeft className="h-4 w-4" />
+              <Undo2 className="h-4 w-4" />
               差戻し
             </button>
             {/* 承認（承認ワークフロー系・塗り緑） */}

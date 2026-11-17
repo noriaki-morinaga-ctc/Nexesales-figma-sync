@@ -122,9 +122,17 @@ export const COPY_SOURCE_COLORS = {
 
 export type CopySource = keyof typeof COPY_SOURCE_COLORS;
 
-// GRID_COLORS・COPY_SOURCE_COLORS を CSS 変数として :root に登録する（grid.css が参照する）。
+// 追加・コピーした行を1秒強調する色（左端の帯の色を薄くした色 → 02 §8「行の追加位置」・UX-112）。
+// 共通フック useRevealNewRows が行に付ける data-reveal-source と grid.css で使う。
+export const COPY_SOURCE_FLASH_COLORS = {
+  reference: '#dbeafe', // 青（blue-100）
+  detail: '#dcfce7', // 緑（green-100）
+  new: '#ffedd5', // オレンジ（orange-100）
+} as const satisfies Record<CopySource, string>;
+
+// GRID_COLORS・COPY_SOURCE_COLORS・COPY_SOURCE_FLASH_COLORS を CSS 変数として :root に登録する（grid.css が参照する）。
 // 変数名はキーをケバブケースにしたもの（例：changedBg → --grid-changed-bg、
-// COPY_SOURCE_COLORS.new → --grid-copy-new）。main.tsx で描画前に1回呼ぶ。
+// COPY_SOURCE_COLORS.new → --grid-copy-new、COPY_SOURCE_FLASH_COLORS.new → --grid-copy-flash-new）。main.tsx で描画前に1回呼ぶ。
 const GRID_COLOR_STYLE_ID = 'grid-color-variables';
 export function applyGridColorVariables(): void {
   if (document.getElementById(GRID_COLOR_STYLE_ID)) return;
@@ -136,6 +144,9 @@ export function applyGridColorVariables(): void {
     ),
     ...Object.entries(COPY_SOURCE_COLORS).map(
       ([key, color]) => `--grid-copy-${toKebab(key)}: ${color};`
+    ),
+    ...Object.entries(COPY_SOURCE_FLASH_COLORS).map(
+      ([key, color]) => `--grid-copy-flash-${toKebab(key)}: ${color};`
     ),
   ];
   const style = document.createElement('style');

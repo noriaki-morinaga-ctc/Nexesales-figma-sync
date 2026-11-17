@@ -13,12 +13,7 @@ import { STORE_HIERARCHY } from './storeHierarchy';
 import type { CodeNameOption } from '@/app/types/master';
 import { isDummySummaryProductCode } from '@/app/utils/common/masterCodeNameOptions';
 
-// 「名称:コード」（storeHierarchy の表記）→ { code, name }
-const fromNameCode = (value: string): CodeNameOption => {
-  const at = value.lastIndexOf(':');
-  return { code: value.slice(at + 1), name: value.slice(0, at) };
-};
-// 「コード:名称」（draftingOrgCascade の表記）→ { code, name }
+// 「コード:名称」（storeHierarchy・draftingOrgCascade の表記）→ { code, name }
 const fromCodeName = (value: string): CodeNameOption => {
   const at = value.indexOf(':');
   return { code: value.slice(0, at), name: value.slice(at + 1) };
@@ -92,9 +87,9 @@ export const STORE_CHAIN_COMBOS: {
 }[] = STORE_HIERARCHY.flatMap((p) =>
   p.tertiaries.flatMap((t) =>
     t.stores.map((s) => ({
-      primary: fromNameCode(p.primary),
-      tertiary: fromNameCode(t.tertiary),
-      retailer: fromNameCode(s),
+      primary: fromCodeName(p.primary),
+      tertiary: fromCodeName(t.tertiary),
+      retailer: fromCodeName(s),
     }))
   )
 );

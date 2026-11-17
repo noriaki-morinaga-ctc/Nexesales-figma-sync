@@ -1,7 +1,7 @@
 // 年間計画（補助機能）。量販/卸を統一した1画面。
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Save, SlidersHorizontal, Undo2 } from 'lucide-react';
+import { Save, SlidersHorizontal, ArrowLeft } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
   ColDef,
@@ -1292,7 +1292,7 @@ export default function AnnualPlanCreation({
                   onClick={() => setIsBackConfirmShown(true)}
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
                 >
-                  <Undo2 className="h-4 w-4 mr-2" />
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   計画詳細へ戻る
                 </Button>
               </div>

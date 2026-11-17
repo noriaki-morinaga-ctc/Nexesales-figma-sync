@@ -83,10 +83,10 @@ import { createManualExpenseRow } from '@/app/utils/payment/payment-detail/nonPr
 
 const TAX_COLUMNS = ['10%', '8%', 'その他(5%)', 'その他(非課税)'];
 const TAX_COLUMN_OF: Record<string, string> = {
-  '課税10%:1': '10%',
-  '課税8%:2': '8%',
-  'その他(5%):3': 'その他(5%)',
-  'その他(非課税):4': 'その他(非課税)',
+  '1:課税10%': '10%',
+  '2:課税8%': '8%',
+  '3:その他(5%)': 'その他(5%)',
+  '4:その他(非課税)': 'その他(非課税)',
 };
 const NET_MGMT_CLASS = '値引き（売上連動）';
 
@@ -1457,7 +1457,7 @@ describe('支払詳細(追加口請求書有)：手入力の明細の請求情�
       measureCode: '',
       summary1: '',
       summary2: '',
-      taxClass: '課税10%:1',
+      taxClass: '1:課税10%',
       ...fields,
     });
 

@@ -130,7 +130,7 @@ import {
 import { buildSummaryData, buildSummaryColumnDefs } from './utilsSummary';
 import { LabelField } from './components/LabelField';
 import { BasicInfoCard } from './components/BasicInfoCard';
-import { PaymentRoundBar } from './components/PaymentRoundBar';
+import { PaymentRoundBar } from '@/app/components/shared/payment/payment-detail/PaymentRoundBar';
 import { QuoteSourcePane } from './components/QuoteSourcePane';
 import { DeleteDetailDialog } from './components/DeleteDetailDialog';
 import { PaymentDetailFooter } from './components/PaymentDetailFooter';
@@ -593,13 +593,13 @@ export default function PaymentDetailVending() {
     applyRound(roundStore.current[target.count] ?? createEmptyRound());
   }, [rounds, applyRound]);
 
-  // 明細追加ボタン：表示中グリッドの最上部に空行を追加する（グリッド上で直接入力する。画面設計標準 4.4）。
+  // 明細追加ボタン：表示中グリッドの最下行に空行を追加する（グリッド上で直接入力する。→ 02 §8「行の追加位置」・UX-112）。
   const handleAddClick = useCallback(() => {
     const newItem: ExpenseItemData = {
       ...createEmptyForm(),
       id: generateId(),
     } as ExpenseItemData;
-    setActiveDetailData((prev) => [newItem, ...prev]);
+    setActiveDetailData((prev) => [...prev, newItem]);
     toast.success('明細を追加しました。');
   }, [createEmptyForm, generateId, setActiveDetailData]);
 
@@ -772,7 +772,20 @@ export default function PaymentDetailVending() {
           splitRole: undefined,
           splitGroupId: undefined,
         };
-        return [...prev, newItem];
+        // コピー元の行のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）。
+        // 分割元の行のコピーは、コピー元の分割先の行の下に入れる（分割のまとまりを崩さない）
+        const sourceIndex = prev.findIndex((item) => item.id === row.id);
+        if (sourceIndex < 0) return [...prev, newItem];
+        let insertAt = sourceIndex + 1;
+        while (
+          row.splitGroupId &&
+          insertAt < prev.length &&
+          prev[insertAt].splitGroupId === row.splitGroupId
+        )
+          insertAt += 1;
+        const next = [...prev];
+        next.splice(insertAt, 0, newItem);
+        return next;
       });
       // 分割先行のコピーは、折り畳み中でも追加行が見えるよう対象グループを開く。
       if (isSplitDestRow(row) && row.splitGroupId) {

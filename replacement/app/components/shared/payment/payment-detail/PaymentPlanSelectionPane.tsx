@@ -36,10 +36,10 @@ import type { PlanFieldValues } from '@/app/types/paymentDetail';
 // 基本情報の部署（首都圏営業第二部）配下のエリアを想定する。
 // 計画明細の「担当エリア」「担当者」列と、ペインヘッダーの担当エリア選択で共通に使う。
 const PLAN_AREAS = [
-  { code: 'AR11', name: '東京東', staff: 'アサヒ　太郎:5172733' },
-  { code: 'AR12', name: '東京西', staff: 'アサヒ　花子:5172734' },
-  { code: 'AR13', name: '神奈川', staff: 'アサヒ　大輔:5172741' },
-  { code: 'AR14', name: '千葉', staff: 'アサヒ　結衣:5172740' },
+  { code: 'AR11', name: '東京東', staff: '5172733:アサヒ　太郎' },
+  { code: 'AR12', name: '東京西', staff: '5172734:アサヒ　花子' },
+  { code: 'AR13', name: '神奈川', staff: '5172741:アサヒ　大輔' },
+  { code: 'AR14', name: '千葉', staff: '5172740:アサヒ　結衣' },
 ] as const;
 
 // 担当エリア選択（複数選択コンボボックス）の選択肢。
@@ -77,7 +77,7 @@ interface PlanDetailRow {
   measureCodeName: string; // 施策コード名称
   summary1: string; // 摘要1（社内用）
   summary2: string; // 摘要2（社外用）
-  // 担当エリア・担当者：計画を作成した担当エリアとその営業担当者（名称:コード）。
+  // 担当エリア・担当者：計画を作成した担当エリアとその営業担当者（コード:名称）。
   // 販売店×部署(第5階層)で取得すると別担当エリアの計画も含まれるため、
   // 一覧で判別できるよう表示する。
   areaCode: string; // 担当エリア（コード）。担当エリア選択での絞り込みに使う

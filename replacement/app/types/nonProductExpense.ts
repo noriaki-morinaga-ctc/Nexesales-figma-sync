@@ -40,8 +40,9 @@ export interface ChangedCellsClearer {
 
 // グリッドの行操作（親の追加/コピー/削除ペインから呼び出す）
 export interface NonProductExpenseGridHandle {
-  /** 合計行の直下（先頭）に行を追加 */
-  addRow: (row: NonProductExpenseData) => void;
+  /** 行を追加（新規・下ペインは最下行、行コピーは afterNo の行のすぐ下） */
+  // afterNo：行コピーのとき、コピー元の行の no（その行のすぐ下に入れる。省略時は最下行 → 02 §8・UX-112）
+  addRow: (row: NonProductExpenseData, afterNo?: number) => void;
   /** no 一致行を更新 */
   updateRow: (row: NonProductExpenseData) => void;
   /** no 一致行を削除 */

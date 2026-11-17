@@ -504,7 +504,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // 親（PaymentDetailWithInvoice）へ公開するハンドル。
     useImperativeHandle(ref, () => ({
       // 拡売費一覧の「追加口処理」から呼ばれ、「拡売費処理／に移動」で外した明細を
-      // そのまま追加口一覧の最上部へ戻す（画面設計標準 4.4）。No. は明細行の最大 No.＋1 で採番し直す。
+      // そのまま追加口一覧の最下行へ戻す（→ 02 §8「行の追加位置」・UX-112）。No. は明細行の最大 No.＋1 で採番し直す。
       restoreEntry: (row: AdditionalEntryData) => {
         const api = gridApiRef.current;
         if (!api) return;
@@ -514,14 +514,14 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 拡売費一覧から戻ってきた明細であることを示す（入力セルの背景を変える）。
           fromExpense: true,
         };
-        entryRows.unshift(restored);
-        api.applyTransaction({ add: [restored], addIndex: 0 });
+        entryRows.push(restored);
+        api.applyTransaction({ add: [restored] });
         setTotalRow(computeEntryTotal(entryRows));
         onNetUnapprovedChange?.(computeNetUnapproved(entryRows));
         reveal.markRows([restored]);
         reveal.onRowDataUpdated({ api });
       },
-      // 拡売費一覧の「追加口処理」で外した明細を、追加口明細の最上部へ足す（画面設計標準 4.4）。
+      // 拡売費一覧の「追加口処理」で外した明細を、追加口明細の最下行へ足す（→ 02 §8「行の追加位置」・UX-112）。
       // No. は既存の明細行の最大 No.＋1。
       // 金額は請求金額・支払金額を引き継ぎ、追加口として支払う明細のため
       // 追加口金額へ同じ値を入れる。入数・NET・社外売上高単価はサマリ商品名で
@@ -536,16 +536,16 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           item,
           nextEntryLineNo(entryRows)
         );
-        entryRows.unshift(newRow);
-        api.applyTransaction({ add: [newRow], addIndex: 0 });
+        entryRows.push(newRow);
+        api.applyTransaction({ add: [newRow] });
         setTotalRow(computeEntryTotal(entryRows));
         onNetUnapprovedChange?.(computeNetUnapproved(entryRows));
-        // 追加した行がすぐ確認できるよう先頭行まで送り、行全体をフラッシュして
+        // 追加した行がすぐ確認できるよう最下行まで送り、行全体をフラッシュして
         // 一覧が切り替わったことを分かるようにする。
         reveal.markRows([newRow]);
         reveal.onRowDataUpdated({ api });
       },
-      // 「明細追加」ペインの入力値から明細を最上部に1行足す（画面設計標準 4.4）。
+      // 「明細追加」ペインの入力値から明細を最下行に1行足す（→ 02 §8「行の追加位置」・UX-112）。
       // 入数・各NET・社外売上高単価はサマリ商品名で商品マスタを引いて埋め、
       // 請求情報（請求NET・ケース・バラ・バラ単価・金額）と請求書情報（請求書ページ・
       // 請求明細番号・販売店名）はペインの入力値を使う（→ createManualEntryRow）。
@@ -554,8 +554,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         const api = gridApiRef.current;
         if (!api) return;
         const newRow = createManualEntryRow(values, nextEntryLineNo(entryRows));
-        entryRows.unshift(newRow);
-        api.applyTransaction({ add: [newRow], addIndex: 0 });
+        entryRows.push(newRow);
+        api.applyTransaction({ add: [newRow] });
         setTotalRow(computeEntryTotal(entryRows));
         onNetUnapprovedChange?.(computeNetUnapproved(entryRows));
         reveal.markRows([newRow]);

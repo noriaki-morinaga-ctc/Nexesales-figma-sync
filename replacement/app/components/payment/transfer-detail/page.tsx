@@ -1,6 +1,15 @@
 // Todo：朴：C追加口・拡売費支払モック修正中
 import React, { useState, useRef } from 'react';
-import { Save, Send, Check, Undo2, X, CornerUpLeft, Stamp } from 'lucide-react';
+import {
+  Save,
+  Send,
+  Check,
+  Undo2,
+  X,
+  CornerUpLeft,
+  Stamp,
+  ArrowLeft,
+} from 'lucide-react';
 import {
   TransferDetailSearch,
   type TransferDetailBasicInfoValues,
@@ -275,7 +284,7 @@ export default function TransferDetail() {
                 className="btn-action-base btn-action-outline"
                 aria-label="一覧へ戻る"
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
             </div>
@@ -302,7 +311,7 @@ export default function TransferDetail() {
                 className="btn-action-base btn-action-red"
                 aria-label="差戻し"
               >
-                <CornerUpLeft className="h-4 w-4" />
+                <Undo2 className="h-4 w-4" />
                 差戻し
               </button>
               <button

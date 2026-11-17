@@ -15,8 +15,7 @@ import {
   ArrowRight,
   CornerUpLeft,
   Stamp,
-  Plus,
-  Copy,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ColGroupDef } from 'ag-grid-community';
@@ -96,6 +95,7 @@ import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
 import { useAppNavigation } from '@/app/components/ui/use-app-navigation';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 import { PAYMENT_DETAIL_STATUS } from './constants';
+import { PaymentRoundBar } from '@/app/components/shared/payment/payment-detail/PaymentRoundBar';
 import {
   paymentFooterActionStateOf,
   NO_PAYMENT_TITLE,
@@ -108,8 +108,8 @@ const EXPENSE_BASIC_INFO: ExpenseBasicInfo = {
   tertiaryStore: DUMMY_STORE_LABEL,
   store: DUMMY_STORE_LABEL,
   // 費用負担部署＝基本情報の「部署」、担当者＝基本情報の「営業担当者」。
-  dept: '首都圏営業第二部:10002990',
-  staff: '山田　太郎:5172733',
+  dept: '10002990:首都圏営業第二部',
+  staff: '5172733:山田　太郎',
 };
 
 // 明細追加で足す空の明細（各項目は追加後にグリッド上で入力する）。
@@ -187,8 +187,8 @@ const SPLIT_FROM_OTHER_ROWS: SplitFromOtherRow[] = [
     srcPaymentNo: 'C2400NTO1',
     srcPaymentCount: 1,
     srcDetailNo: 1,
-    srcDept: '首都圏営業第二部:10002990',
-    srcStaff: 'アサヒ　太郎:5172733',
+    srcDept: '10002990:首都圏営業第二部',
+    srcStaff: '5172733:アサヒ　太郎',
   },
   {
     no: 2,
@@ -207,8 +207,8 @@ const SPLIT_FROM_OTHER_ROWS: SplitFromOtherRow[] = [
     srcPaymentNo: 'C2400NTO2',
     srcPaymentCount: 1,
     srcDetailNo: 2,
-    srcDept: '中部第1営業部:10003002',
-    srcStaff: 'アサヒ　次郎:5172735',
+    srcDept: '10003002:中部第1営業部',
+    srcStaff: '5172735:アサヒ　次郎',
   },
 ];
 
@@ -682,47 +682,15 @@ export default function PaymentDetailUnlinked() {
 
               {/* 支払回数・支払情報・拡売費（タブは持たず直接表示する） */}
               <div className="w-full space-y-0">
-                {/* 支払回数（PaymentDetailWithInvoice と同様、支払情報カードの上に配置） */}
-                <div className="mb-2 flex items-center gap-2">
-                  <label
-                    htmlFor="invoice-count"
-                    className="w-36 text-right text-sm font-bold whitespace-nowrap text-blue-900"
-                  >
-                    支払回数
-                  </label>
-                  <SingleCombobox
-                    id="invoice-count"
-                    className="w-20"
-                    options={[
-                      ...rounds.options.map((n) => ({ value: n, label: n })),
-                    ]}
-                    value={invoiceCount}
-                    onChange={rounds.selectRound}
-                    placeholder="選択"
-                    searchable={false}
+                {/* 支払回数（共通部品。項目名は下のカードの支払先に縦にそろえる → UX-113） */}
+                <div className="mb-2">
+                  <PaymentRoundBar
+                    roundOptions={rounds.options}
+                    invoiceCount={invoiceCount}
+                    onSelectRound={rounds.selectRound}
+                    onAddRound={rounds.requestAddRound}
+                    onQuotePaymentInfo={handleQuote}
                   />
-                  {/* 支払回数追加（支払回数プルダウンの右・左に全角2文字程度の空白） */}
-                  <button
-                    type="button"
-                    className="btn-toolbar-outline ml-8"
-                    aria-label="支払回数追加"
-                    onClick={rounds.requestAddRound}
-                  >
-                    <Plus className="h-4 w-4" />
-                    支払回数追加
-                  </button>
-                  {/* 支払情報引用（支払回数追加ボタンの右に配置）。
-                      押下で引用明細選択ペイン（下ペイン）のみを開く。
-                      支払回数の追加は同ペインの「引用」で行う。 */}
-                  <button
-                    type="button"
-                    className="btn-toolbar-outline"
-                    onClick={handleQuote}
-                    aria-label="支払情報引用"
-                  >
-                    <Copy className="h-4 w-4" />
-                    支払情報引用
-                  </button>
                 </div>
 
                 {/* 支払情報エリア（PaymentDetailUnlinkedから直接表示） */}
@@ -783,7 +751,7 @@ export default function PaymentDetailUnlinked() {
                 aria-label="一覧へ戻る"
                 onClick={() => setIsBackDialogOpen(true)}
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
               {/* 次の伝票へ：一覧の次の支払伝票へ送るためのボタン（支払詳細(自販機)と同じ）。
@@ -831,7 +799,7 @@ export default function PaymentDetailUnlinked() {
                 onClick={() => setConfirmAction('reject')}
                 disabled={!footerActions.sendBack}
               >
-                <CornerUpLeft className="h-4 w-4" />
+                <Undo2 className="h-4 w-4" />
                 差戻し
               </button>
               <button

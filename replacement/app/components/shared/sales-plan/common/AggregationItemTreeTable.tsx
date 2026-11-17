@@ -58,8 +58,8 @@ import { EXPENSE_TOP_ITEM_KEYS } from '@/app/constants/aggregationTree';
 const PERIOD_TAB_ICONS = [Calendar, TrendingUp, CalendarRange];
 
 // treeData 表示に必要な共通 props（getDataPath は行の hierarchyPath を参照）。
-// 行クリックでも開閉できるようにする。autoGroupColumn は隠し、項目名は通常列＋
-// AggregationTreeCell で描画する。
+// autoGroupColumn は隠し、項目名は通常列＋AggregationTreeCell で描画する。
+// 行の開閉は項目の列のセルのクリックだけで行う（数値のセルのクリックでは開閉しない → 02 §7・UX-111）。
 const AGGREGATION_TREE_GRID_PROPS: Partial<AgGridReactProps> = {
   treeData: true,
   getDataPath: (row: any) => row.hierarchyPath,
@@ -74,12 +74,6 @@ const AGGREGATION_TREE_GRID_PROPS: Partial<AgGridReactProps> = {
     minWidth: 0,
   },
   suppressAggFuncInHeader: true,
-  onRowClicked: (e: any) => {
-    if (!e.node || e.node.rowPinned) return;
-    if ((e.node.allChildrenCount ?? 0) > 0) {
-      e.node.setExpanded(!e.node.expanded);
-    }
-  },
 };
 
 // △（optional）項目の表示ON/OFFを管理するフック。
@@ -642,7 +636,6 @@ ${note}`
           {...GRID_BASE_PROPS}
           // ツリー表示に必要な設定は共通設定の後ろに置いて優先する
           {...AGGREGATION_TREE_GRID_PROPS}
-          onRowClicked={undefined}
           rowData={rows}
           getRowId={getTreeRowId}
           columnDefs={columnDefs}
@@ -666,17 +659,10 @@ ${note}`
           tooltipShowDelay={300}
           tooltipHideDelay={5000}
           onCellClicked={(e) => {
-            // 予算/前年セルのクリックで列グループ（比/差）を開閉
-            const colId = e.column?.getColId();
-            if (colId === 'budget' || colId === 'prevYear') {
-              const groupId = colId === 'budget' ? 'budgetGroup' : 'prevGroup';
-              const st = e.api
-                .getColumnGroupState()
-                .find((g) => g.groupId === groupId);
-              e.api.setColumnGroupOpened(groupId, !(st?.open ?? false));
-              return;
-            }
-            // それ以外のセルのクリックで行ドリルダウンを開閉
+            // 項目の列のセル（chevron を含む）のクリックだけで行ドリルダウンを開閉する。
+            // 数値のセルのクリックでは行も列グループ（予算・前年の比／差）も開閉しない
+            // （列グループは見出しの開閉ボタンで開閉する → 02 §7・UX-111）
+            if (e.column?.getColId() !== 'label') return;
             if (!e.node || e.node.rowPinned) return;
             if ((e.node.allChildrenCount ?? 0) > 0) {
               e.node.setExpanded(!e.node.expanded);

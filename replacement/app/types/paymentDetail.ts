@@ -27,7 +27,7 @@ export interface SplitDetailItem {
 }
 
 // 明細行（親行）の商流・組織列（一次店〜担当者）に表示する、画面の基本情報の値。
-// 値は商流／組織マスタと同じ「名称:コード」表記で渡す
+// 値は商流／組織マスタと同じ「コード:名称」表記で渡す
 //（分割の枝番行で選択できる候補と表記を揃えるため）。
 export interface ExpenseBasicInfo {
   primaryStore: string; // 一次店
@@ -278,9 +278,13 @@ export interface ExpenseRow {
   // 重複し、受け取る明細データにも行ごとに一意な項目が無いため、グリッド内部の識別子として持つ。
   // 一覧に入った時点で振り（assignExpenseRowIds）、セル編集・行の更新では変えない。
   _rowId?: string;
-  // 明細追加・追加口からの転記で足した順（大きいほど新しい）。一覧の最上部に新しい順で並べるために使う
-  //（画面設計標準 4.4。列には表示しない）。受け取った明細・コピー・分割の枝番行は持たない。
+  // 明細追加・追加口からの転記・行コピーで足した順（大きいほど新しい。列には表示しない）。
+  // 行コピーの行をコピー元のすぐ下へ並べるときの順番に使う（→ 02 §8「行の追加位置」・UX-112）。
+  // 受け取った明細・分割の枝番行は持たない。
   _addedSeq?: number;
+  // 行コピーで作った行の、コピー元の親行のキー（branchParentKeyOf の値。一覧:No.）。
+  // 表示でコピー元の行のすぐ下に置くために使う（sortRowsForDisplay。列には表示しない）。
+  _copyOf?: string;
 }
 
 // 引用（引用明細選択の「引用」ボタン）で追加する明細1件。
@@ -435,8 +439,8 @@ export interface AdditionalEntrySplitState {
 // 分割（IN）タブの追加口明細（他部署から分割された明細・全項目参照専用）。
 export interface SplitInEntryRow {
   lineNo: number; // No.
-  srcDept: string; // 分割元部署（名称:コード。分割（IN）の拡売費一覧の表記にそろえる）
-  srcStaff: string; // 分割元担当者（名称:コード）
+  srcDept: string; // 分割元部署（コード:名称。分割（IN）の拡売費一覧の表記にそろえる）
+  srcStaff: string; // 分割元担当者（コード:名称）
   srcPaymentNo: string; // 分割元支払No
   srcPaymentCount: number; // 分割元支払回数
   srcLineNo: number; // 分割元明細No

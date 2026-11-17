@@ -1056,6 +1056,19 @@ export function AnnualTotalTab({
             lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: GroupCellRenderer,
+            // 項目のセルのクリックで項目階層を開閉する（chevron 以外でも開閉可）。
+            // 数値のセルのクリックでは開閉しない（算出元の強調表示だけにする → 02 §7・UX-111）
+            onCellClicked: (e) => {
+              const d = e.data as AnnualTotalData | undefined;
+              // chevron（ボタン）由来のクリックはボタン側の onClick で開閉済みのため無視する。
+              // AG Grid はセルDOMへネイティブの click リスナーを張り、React は #root で受けるため
+              // 実行順が「セルのクリック→ボタンの onClick」となり、ボタン側の stopPropagation では
+              // ここを止められない。除外しないと1クリックで2回トグルして開閉が打ち消される。
+              if ((e.event?.target as HTMLElement | null)?.closest?.('button'))
+                return;
+              if (d?.isFirstInGroup && d.itemHasChildren && d.groupName)
+                toggleItem(d.groupName);
+            },
             rowSpan: (params) => {
               return params.data?.isFirstInGroup
                 ? params.data?.groupRowSpan || 1
@@ -1083,6 +1096,16 @@ export function AnnualTotalTab({
             lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: SubItemCellRenderer,
+            // 予算／前年実績のサブ項目のセルのクリックで、差・比の行を開閉する（数値のセルでは開閉しない → UX-111）
+            onCellClicked: (e) => {
+              const d = e.data as AnnualTotalData | undefined;
+              if (
+                d?.isDrillParent &&
+                d.groupName != null &&
+                d.expandKey != null
+              )
+                toggleDrillRow(d.groupName, d.expandKey);
+            },
             // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）
             cellClass: 'cell-left',
             cellStyle: (params) => {
@@ -1832,29 +1855,7 @@ ${note}`
             context={gridContext}
             {...gridColumnStateProps}
             onBodyScroll={handleGridClick}
-            onRowClicked={(params: any) => {
-              const d = params.data as AnnualTotalData;
-              if (!d) return;
-              // chevron（ボタン）由来のクリックはボタン側の onClick で開閉済みのため無視する。
-              // AG Grid は行DOMへネイティブの click リスナーを張り、React は #root で受けるため
-              // 実行順が「行クリック→ボタンの onClick」となり、ボタン側の stopPropagation では
-              // ここを止められない。除外しないと1クリックで2回トグルして開閉が打ち消される。
-              if ((params.event?.target as HTMLElement)?.closest?.('button'))
-                return;
-              // 項目の先頭行（計画/実績）クリックで項目階層の開閉（chevron以外でも開閉可）
-              if (d.isFirstInGroup && d.itemHasChildren && d.groupName) {
-                toggleItem(d.groupName);
-                return;
-              }
-              // 予算/前年実績の行クリックでサブ項目（率）の開閉
-              if (
-                d.isDrillParent &&
-                d.groupName != null &&
-                d.expandKey != null
-              ) {
-                toggleDrillRow(d.groupName, d.expandKey);
-              }
-            }}
+            // 開閉は項目・サブ項目の列の onCellClicked だけで行う（行のクリックでは開閉しない → UX-111）
           />
         </div>
       </div>

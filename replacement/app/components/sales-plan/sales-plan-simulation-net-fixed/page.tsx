@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Save, Undo2 } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/app/components/ui/button';
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
@@ -480,7 +480,7 @@ export default function SalesPlanSimulationNetFixed() {
                 className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 rounded-lg"
                 onClick={() => setIsBackConfirmShown(true)}
               >
-                <Undo2 className="h-4 w-4 mr-2" />
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 計画詳細へ戻る
               </Button>
             </div>

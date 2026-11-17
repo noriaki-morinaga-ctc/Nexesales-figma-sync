@@ -6,7 +6,15 @@ import React, {
   useMemo,
 } from 'react';
 import { toast } from 'sonner';
-import { Save, Send, Check, Undo2, Copy, CornerUpLeft } from 'lucide-react';
+import {
+  Save,
+  Send,
+  Check,
+  Undo2,
+  Copy,
+  CornerUpLeft,
+  ArrowLeft,
+} from 'lucide-react';
 
 import { Button } from '@/app/components/ui/button';
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
@@ -331,7 +339,7 @@ export default function PlanDetailNetFixed() {
     }, 350);
     return () => window.clearTimeout(id);
   }, [isReferencePaneShown]);
-  // 参照表のコピーボタンで取り込む行（拡売費計画の合計行直下へ挿入）
+  // 参照表のコピーボタンで取り込む行（拡売費計画の最下行へ入れる）
   const [pendingReferenceCopyRows, setPendingReferenceCopyRows] = useState<
     NonProductExpenseData[] | null
   >(null);
@@ -540,7 +548,7 @@ export default function PlanDetailNetFixed() {
       toast.error(requiredMsg(missing));
       return;
     }
-    // 合計行の直下に追加
+    // 最下行に追加（→ 02 §8「行の追加位置」・UX-112）
     expenseGridRef.current?.addRow(
       fromExpenseForm(addExpenseForm, CURRENT_USER_NAME)
     );
@@ -550,13 +558,17 @@ export default function PlanDetailNetFixed() {
     toast.success('拡売費を追加しました。');
   };
 
-  // 拡売費コピー：ペインを開かず、拡売費計画グリッドの合計行直下へ直接行を複製する。
+  // 拡売費コピー：ペインを開かず、拡売費計画グリッドのコピー元の行のすぐ下へ直接行を複製する。
   // 前年実績は引き継がず（削除可）、作成者はログインユーザーになる（fromExpenseForm）。
   const handleCopyExpenseRow = (data: NonProductExpenseData) => {
-    expenseGridRef.current?.addRow({
-      ...fromExpenseForm(toExpenseForm(data), CURRENT_USER_NAME),
-      _copySource: 'detail',
-    });
+    // コピー元の行（data.no）のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）
+    expenseGridRef.current?.addRow(
+      {
+        ...fromExpenseForm(toExpenseForm(data), CURRENT_USER_NAME),
+        _copySource: 'detail',
+      },
+      data.no
+    );
     toast.success('拡売費計画へコピーしました。');
   };
 
@@ -799,7 +811,7 @@ export default function PlanDetailNetFixed() {
                   requestDiscardConfirm(() => navigate('plan-list'))
                 }
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
             </div>
@@ -821,7 +833,7 @@ export default function PlanDetailNetFixed() {
                 className="btn-action-base btn-action-red"
                 onClick={() => toast.success('差し戻しました。')}
               >
-                <CornerUpLeft className="h-4 w-4" />
+                <Undo2 className="h-4 w-4" />
                 差戻し
               </button>
               <button

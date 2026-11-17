@@ -1,4 +1,4 @@
-import { Save, Send, Check, X, CornerUpLeft } from 'lucide-react';
+import { Save, Send, Check, X, CornerUpLeft, Undo2 } from 'lucide-react';
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
@@ -437,13 +437,9 @@ export default function UnamortizedProjectBillingList() {
     } else {
       journalRowSeqRef.current += 1;
       const id = `journal-${journalRowSeqRef.current}`;
-      // 新規の明細は最上部に追加する（画面設計標準 4.4）。行の左の選択（行番号で保持）も1行ずらす
-      setRows((prev) => [{ ...newRow, id }, ...prev]);
-      const setSelectedIndex =
-        detailTarget === 'debit'
-          ? setDebitSelectedIndex
-          : setCreditSelectedIndex;
-      setSelectedIndex((i) => (i === null ? i : i + 1));
+      // 新規の明細は最下行に追加する（→ 02 §8「行の追加位置」・UX-112）。
+      // 既存の行の位置は変わらないため、行の左の選択（行番号で保持）はずらさない
+      setRows((prev) => [...prev, { ...newRow, id }]);
     }
     setIsDetailPaneShown(false);
     setDetailForm({});
@@ -773,7 +769,7 @@ export default function UnamortizedProjectBillingList() {
               className="btn-action-base btn-action-red"
               aria-label="差戻し"
             >
-              <CornerUpLeft className="h-4 w-4" />
+              <Undo2 className="h-4 w-4" />
               差戻し
             </button>
             <button

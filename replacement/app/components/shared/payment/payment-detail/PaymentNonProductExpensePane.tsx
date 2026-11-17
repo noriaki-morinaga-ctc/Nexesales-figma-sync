@@ -290,7 +290,7 @@ export const PaymentNonProductExpensePane = forwardRef<
   basicInfoRef.current = basicInfo;
 
   // 親（PaymentDetailWithInvoice）へ公開するハンドル。
-  //   addFromAddition: 追加口で「拡売費処理」を選択した行を、その他一覧の最上部に追加。
+  //   addFromAddition: 追加口で「拡売費処理」を選択した行を、その他一覧の最下行に追加。
   //   removeBySource : 指定の追加口行番に紐づく行を削除（追加口側で「-」に戻された時）。
 
   // コピー・追加口からの転記で増えた行を見つけやすくする
@@ -320,7 +320,7 @@ export const PaymentNonProductExpensePane = forwardRef<
           billAmount: item.billAmount ?? '',
           payAmount: item.payAmount,
           planAmount: 0,
-          taxClass: item.taxClass ?? '課税10%:1',
+          taxClass: item.taxClass ?? '1:課税10%',
           // 照合支払区分・請求書情報は追加口明細の値をそのまま引き継ぐ
           //（照合支払区分は選択済み、請求書番号・請求書ページは入力済みの状態にする）。
           matchType: item.matchType ?? '',
@@ -333,13 +333,13 @@ export const PaymentNonProductExpensePane = forwardRef<
             : {}),
           summary1: item.summary1 ?? '',
           summary2: item.summary2 ?? '',
-          // その他一覧の最上部に表示する（画面設計標準 4.4。並びは sortRowsForDisplay）
+          // その他一覧の最下行に表示する（最大 No.＋1 のため。並びは sortRowsForDisplay → 02 §8・UX-112）
           _addedSeq: nextAddedRowSeq(),
         };
         // 追加した明細は行全体をフラッシュして、切り替わったことを分かるようにする。
         reveal.markRows([newRow]);
-        // その他一覧の最上部に追加する（rows 配列も先頭に置く）。
-        return [newRow, ...prev];
+        // その他一覧の最下行に追加する（rows 配列も末尾に置く）。
+        return [...prev, newRow];
       });
     },
     // 「明細追加」ペインの入力値から、その他拡売費の明細を1行足す。
@@ -352,7 +352,7 @@ export const PaymentNonProductExpensePane = forwardRef<
           nextDetailLineNo(prev, 'other')
         );
         // 明細追加した行は左端の帯（新規追加）で示す（帯を付ける画面のみ）。
-        // 一覧の最上部に表示する（画面設計標準 4.4。並びは sortRowsForDisplay）。
+        // 一覧の最下行に表示する（最大 No.＋1 のため。並びは sortRowsForDisplay → 02 §8・UX-112）。
         const newRow = markCopySource(
           { ...baseRow, _addedSeq: nextAddedRowSeq() },
           'new',
@@ -360,7 +360,7 @@ export const PaymentNonProductExpensePane = forwardRef<
         );
         // 追加した明細は行全体をフラッシュして、どこに増えたかが分かるようにする。
         reveal.markRows([newRow]);
-        return [newRow, ...prev];
+        return [...prev, newRow];
       });
       toast.success('拡売費明細を追加しました。');
     },
@@ -429,7 +429,7 @@ export const PaymentNonProductExpensePane = forwardRef<
           .filter((r, i) => targets.has(prev[i]))
           .forEach((r) => {
             markExpenseManualEdit(next, r);
-            // 計画の管理区分に紐づく税区分（1B3＝課税8%:2）があれば入れる（→ C79）。
+            // 計画の管理区分に紐づく税区分（1B3＝2:課税8%）があれば入れる（→ C79）。
             applyLinkedTaxClass(r);
           });
         return next;
@@ -861,7 +861,7 @@ export const PaymentNonProductExpensePane = forwardRef<
     }),
   });
 
-  // 管理区分に紐づく税区分（1B3＝課税8%:2）があれば、税区分をその値にする（→ C79）。
+  // 管理区分に紐づく税区分（1B3＝2:課税8%）があれば、税区分をその値にする（→ C79）。
   const linkedTaxClassDeps = (row: ExpenseRow) => {
     const next = { mgmtClass: row.mgmtClass, taxClass: row.taxClass };
     applyLinkedTaxClass(next);
@@ -1782,7 +1782,7 @@ export const PaymentNonProductExpensePane = forwardRef<
         field: 'taxClass',
         width: 104,
         valueGetter: branchParentValueGetter('taxClass'),
-        // 管理区分に紐づく税区分がある明細（1B3＝課税8%:2）は非活性（灰）にする（→ C79）。
+        // 管理区分に紐づく税区分がある明細（1B3＝2:課税8%）は非活性（灰）にする（→ C79）。
         cellStyle: withInheritedText(taxClassCellStyle),
         editable: (params: any) =>
           editableExceptSummary(params) &&
@@ -1911,6 +1911,9 @@ export const PaymentNonProductExpensePane = forwardRef<
             _rowId: newExpenseRowId(),
             sourceLineNo: undefined,
             lineNo: nextDetailLineNo(prev, listKeyOf(data)),
+            // 表示でコピー元の行のすぐ下に置く（sortRowsForDisplay → 02 §8・UX-112）
+            _addedSeq: nextAddedRowSeq(),
+            _copyOf: branchParentKeyOf(data),
             dataSource: DEFAULT_DATA_SOURCE,
             // コピーした明細は画面で作った明細のため、活性も手入力として扱う。
             originDataSource: undefined,

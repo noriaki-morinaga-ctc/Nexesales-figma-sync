@@ -10,7 +10,7 @@ import type {
   ValueParserParams,
   NewValueParams,
 } from 'ag-grid-community';
-import { Save, Undo2 } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
@@ -633,7 +633,7 @@ export default function ManagedProductPlanDetail() {
                 className="btn-action-base btn-action-outline"
                 onClick={handleBack}
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
             </div>

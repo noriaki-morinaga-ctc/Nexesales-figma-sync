@@ -13,6 +13,7 @@ import {
   CornerUpLeft,
   Stamp,
   Undo2,
+  ArrowLeft,
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef } from 'ag-grid-community';
@@ -74,6 +75,7 @@ import {
   DEFAULT_QUOTE_BASIC_INFO,
   QUOTE_STORE_OPTIONS,
 } from '@/mocks/common/quoteBasicInfo';
+import { PaymentRoundBar } from '@/app/components/shared/payment/payment-detail/PaymentRoundBar';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 // 照合支払区分の選択肢（右ペイン用）。
@@ -591,37 +593,14 @@ export default function PaymentDetailQuote() {
                 </TabsList>
 
                 <TabsContent value="payment-detail" className="space-y-0">
-                  {/* 支払回数（PaymentDetailWithInvoice と同様、支払明細情報カードの上に配置） */}
-                  <div className="mb-2 flex items-center gap-2">
-                    <label
-                      htmlFor="invoice-count"
-                      className="w-36 text-right text-sm font-bold whitespace-nowrap text-blue-900"
-                    >
-                      支払回数
-                    </label>
-                    <SingleCombobox
-                      id="invoice-count"
-                      className="w-20"
-                      options={[
-                        ...invoiceCountOptions.map((n) => ({
-                          value: n,
-                          label: n,
-                        })),
-                      ]}
-                      value={invoiceCount}
-                      onChange={setInvoiceCount}
-                      placeholder="選択"
-                      searchable={false}
+                  {/* 支払回数（共通部品。項目名は下のカードの支払先に縦にそろえる。見積は支払情報引用なし → UX-113） */}
+                  <div className="mb-2">
+                    <PaymentRoundBar
+                      roundOptions={invoiceCountOptions}
+                      invoiceCount={invoiceCount}
+                      onSelectRound={setInvoiceCount}
+                      onAddRound={handleAddInvoiceCount}
                     />
-                    {/* 支払回数追加（支払回数プルダウンの右・左に全角2文字程度の空白） */}
-                    <button
-                      type="button"
-                      className="btn-toolbar-outline ml-8"
-                      aria-label="支払回数追加"
-                      onClick={handleAddInvoiceCount}
-                    >
-                      ＋支払回数追加
-                    </button>
                   </div>
 
                   {/* 支払明細情報エリア（PaymentDetailQuoteから直接表示） */}
@@ -748,7 +727,7 @@ export default function PaymentDetailQuote() {
                 aria-label="一覧へ戻る"
                 onClick={() => setIsBackDialogOpen(true)}
               >
-                <Undo2 className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
                 一覧へ戻る
               </button>
             </div>
@@ -770,7 +749,7 @@ export default function PaymentDetailQuote() {
                 aria-label="差戻し"
                 onClick={() => setConfirmAction('reject')}
               >
-                <CornerUpLeft className="h-4 w-4" />
+                <Undo2 className="h-4 w-4" />
                 差戻し
               </button>
               <button

@@ -18,6 +18,7 @@ import {
   type DataSource,
 } from '@/app/constants/dataSource';
 import { NET_UNAPPROVED_MGMT_CLASS_NAME } from './paymentSummaryAggregate';
+import { orderAddedRows } from '@/app/utils/common/addedRowOrder';
 import { computeExpenseBreakdown } from './paymentBreakdownItems';
 import {
   linkNetUnapprovedRows,
@@ -191,55 +192,75 @@ export const parentLineNoOfRow = (row: ExpenseRow): string | null => {
 export const listKeyOf = (row?: ExpenseRow): 'net' | 'other' =>
   row?.isNetUnapproved ? 'net' : 'other';
 
-// 一覧の並び替えキー：［一覧, 追加順, 親行の No., 枝番］。
-// コピー・追加口からの転記で最大 No.＋1 の明細が途中に入っても、画面上は
-// No. の昇順（1・2・3…）で並ぶようにするために使う。
-// ただし明細追加・追加口からの転記で足した行（_addedSeq あり）は、一覧の最上部に
-// 新しい順で並べる（画面設計標準 4.4：新規の行は明細の最上部に追加）。追加順は第2キーにし、
-// 枝番行は親行の追加順（addedSeqByParent）を引き継いで親行の直下に置く。
-// 分割の枝番行は親行の直下に置きたいため、親の No. を第3キー、枝番を第4キーにする。
-// No. を数値にできない行（合計行など）は一覧の末尾へ寄せる。
-export const displayOrderKeyOf = (
-  row: ExpenseRow,
-  addedSeqByParent: Map<string, number>
-): [number, number, number, number] => {
-  const listRank = listKeyOf(row) === 'net' ? 0 : 1;
-  // グループ合計行・総合計行は外部フィルタで非表示のため、並びの端に寄せる。
-  if (row.isGroup) return [listRank, Number.NEGATIVE_INFINITY, 0, 0];
-  if (row.isTotal) return [listRank, Number.POSITIVE_INFINITY, 0, 0];
-  const lineNo = String(row.lineNo ?? '');
-  const parentLineNo = parentLineNoOfRow(row);
-  const parentNo = Number(parentLineNo ?? lineNo);
-  const branchNo =
-    parentLineNo === null ? 0 : Number(lineNo.slice(parentLineNo.length + 1));
-  // 追加した行は負の値（新しいほど小さい）で先頭へ。それ以外は 0（No. の昇順）
-  const addedSeq = addedSeqByParent.get(
-    branchParentKeyOfBranch(row) ?? branchParentKeyOf(row)
-  );
-  return [
-    listRank,
-    addedSeq === undefined ? 0 : -addedSeq,
-    Number.isFinite(parentNo) ? parentNo : Number.POSITIVE_INFINITY,
-    Number.isFinite(branchNo) ? branchNo : 0,
-  ];
+// 数値にした No.（数値にできない No. は一覧の末尾へ寄せるため +∞）
+const numericNo = (lineNo: unknown): number => {
+  const n = Number(String(lineNo ?? ''));
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 };
 
-// 明細行を No. の昇順（枝番行は親行の直下）に並べ替えた配列を返す。
-// 明細追加・追加口からの転記で足した行は、一覧の最上部に新しい順で並べる。
-// 行データの実体は入れ替えずに並び順だけを整えるため、元の配列は変更しない。
+// 明細行の表示の並びを返す（元の配列は変更しない。行データの実体も入れ替えない）。
+// 一覧（未承認NET → その他）ごとに次の順で並べる（→ 02 §8「行の追加位置」・UI/UX UX-112）。
+// - グループ合計行（外部フィルタで非表示）は一覧の先頭、総合計行は一覧の末尾。
+// - 明細行は No. の昇順。コピー・追加口からの転記で最大 No.＋1 の明細が途中に入っても、
+//   画面上は No. の昇順（1・2・3…）で並ぶ。明細追加・追加口からの転記で足した行
+//   （_addedSeq あり）は最大 No.＋1 のため、一覧の最下行に追加した順で並ぶ。
+// - 行コピーで作った行（_copyOf＝コピー元の親行のキー）は、コピー元の行（とその枝番行）のすぐ下。
+// - 分割の枝番行は親行の直下に枝番の順で置く（親行と一緒に動く）。
 export const sortRowsForDisplay = (rows: ExpenseRow[]): ExpenseRow[] => {
-  // 追加した親行のキー（一覧:No.）→ 追加順
-  const addedSeqByParent = new Map<string, number>();
-  rows.forEach((r) => {
-    if (r._addedSeq !== undefined && parentLineNoOfRow(r) === null) {
-      addedSeqByParent.set(branchParentKeyOf(r), r._addedSeq);
-    }
+  const out: ExpenseRow[] = [];
+  (['net', 'other'] as const).forEach((list) => {
+    const inList = rows.filter((r) => listKeyOf(r) === list);
+    const details = inList.filter((r) => !r.isGroup && !r.isTotal);
+    const parents = details
+      .filter((r) => parentLineNoOfRow(r) === null)
+      .sort((a, b) => numericNo(a.lineNo) - numericNo(b.lineNo));
+    // 枝番行を親行のキーごとにまとめる（枝番の昇順）
+    const branchesByParent = new Map<string, ExpenseRow[]>();
+    details
+      .filter((r) => parentLineNoOfRow(r) !== null)
+      .forEach((r) => {
+        const key = branchParentKeyOfBranch(r) as string;
+        const group = branchesByParent.get(key);
+        if (group) group.push(r);
+        else branchesByParent.set(key, [r]);
+      });
+    const branchNoOf = (r: ExpenseRow) => {
+      const lineNo = String(r.lineNo ?? '');
+      const parent = parentLineNoOfRow(r) ?? '';
+      return numericNo(lineNo.slice(parent.length + 1));
+    };
+    // 親行の並び：No. の昇順を土台に、行コピーをコピー元のすぐ下へ入れる。
+    // 追加した行の順番を決める _addedSeq はコピーした行だけに意味を持たせ、
+    // 明細追加・転記の行（_copyOf なし）は No. の昇順（＝最下行）のままにする。
+    const ordered = orderAddedRows(
+      parents.map((r) =>
+        r._copyOf == null && r._addedSeq != null
+          ? { ...r, _addedSeq: undefined }
+          : r
+      ),
+      branchParentKeyOf
+    );
+    // orderAddedRows に渡すため複製した行を、元の行データへ戻す
+    const original = new Map(parents.map((r) => [branchParentKeyOf(r), r]));
+    out.push(...inList.filter((r) => r.isGroup));
+    ordered.forEach((p) => {
+      const key = branchParentKeyOf(p);
+      out.push(original.get(key) ?? p);
+      const branches = branchesByParent.get(key);
+      if (branches) {
+        out.push(
+          ...[...branches].sort((a, b) => branchNoOf(a) - branchNoOf(b))
+        );
+        branchesByParent.delete(key);
+      }
+    });
+    // 親行が無い枝番行は一覧の明細の末尾へ
+    branchesByParent.forEach((branches) =>
+      out.push(...[...branches].sort((a, b) => branchNoOf(a) - branchNoOf(b)))
+    );
+    out.push(...inList.filter((r) => r.isTotal));
   });
-  return [...rows].sort((a, b) => {
-    const ka = displayOrderKeyOf(a, addedSeqByParent);
-    const kb = displayOrderKeyOf(b, addedSeqByParent);
-    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2] || ka[3] - kb[3];
-  });
+  return out;
 };
 
 // 親行のキー。No. は未承認NET／その他の一覧で重複するため、No. だけでは
@@ -353,7 +374,7 @@ export const createNetUnapprovedRow = (item: {
   product: item.product,
   payAmount: item.payAmount,
   planAmount: 0,
-  taxClass: '課税8%:2',
+  taxClass: '2:課税8%',
   mgmtClass: NET_MGMT_CLASS_NAME,
   mgmtCode: 'RA001',
   measureClass: '販売促進',

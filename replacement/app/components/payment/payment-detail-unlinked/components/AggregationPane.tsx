@@ -46,7 +46,7 @@ import {
 
 // 自部門の費用負担部署（基本情報カードの申請部署＝SearchPane の APPLICANT_DEPT と同じ）。
 // 分割先の費用負担部署がこれと異なる行を「他部門へ」に計上する。
-const OWN_COST_BEARING_DEPT = '首都圏営業第二部:10002990';
+const OWN_COST_BEARING_DEPT = '10002990:首都圏営業第二部';
 
 // 計画差異がこの割合を超える行を強調（赤背景）し、その行だけ差異理由を入力可能にする。
 const PLAN_DIFFERENCE_ALERT_RATE = 0.1;

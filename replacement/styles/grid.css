@@ -223,6 +223,29 @@
   background-color: var(--grid-changed-bg) !important;
 }
 
+/* 追加・コピーした行の1秒の強調（→ 02 §8「行の追加位置」・UX-112）。
+   共通フック useRevealNewRows が AG Grid 公式の flashCells で行を光らせ、そのあいだ行に
+   data-reveal-source（行の _copySource）を付ける。色は左端の帯の色を薄くした色
+   （--grid-copy-flash-*＝COPY_SOURCE_FLASH_COLORS）。帯の無い行は AG Grid 標準の色のまま。
+   光っている1秒間は行ホバー（共通の .ag-row-hover … .ag-cell と、画面の <style> の
+   .〇〇-grid .ag-row-hover:not(…):not(…) .ag-cell[style*=…]〈詳細度はクラス・属性6つ〉）より優先させるため、
+   クラスを重ねて詳細度を上げる（クラス・属性8つ）。 */
+.ag-root-wrapper
+  .ag-row.ag-row.ag-row[data-reveal-source='new']
+  .ag-cell.ag-cell.ag-cell-data-changed {
+  background-color: var(--grid-copy-flash-new) !important;
+}
+.ag-root-wrapper
+  .ag-row.ag-row.ag-row[data-reveal-source='detail']
+  .ag-cell.ag-cell.ag-cell-data-changed {
+  background-color: var(--grid-copy-flash-detail) !important;
+}
+.ag-root-wrapper
+  .ag-row.ag-row.ag-row[data-reveal-source='reference']
+  .ag-cell.ag-cell.ag-cell-data-changed {
+  background-color: var(--grid-copy-flash-reference) !important;
+}
+
 /* 計算式ツールチップは「式」と「実値」の2行構成のため、改行を保持する。
    各行は長くても折り返さず1行で見せる（幅は中身に合わせ、画面の幅を超えるときだけ折り返す。UX-051）。
    AG Grid は画面の右端に近いとツールチップの幅を縮めて折り返すため、幅を中身に合わせて固定する。 */

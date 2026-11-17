@@ -157,7 +157,7 @@ export const AddExpensePane = forwardRef<
   };
 
   // 管理コードを選んだら、対応する管理区分を自動で入れる（グリッドの列間連動と同じ）。
-  // 管理区分に紐づく税区分（1B3＝課税8%:2）があれば、税区分も入れる（→ C79）。
+  // 管理区分に紐づく税区分（1B3＝2:課税8%）があれば、税区分も入れる（→ C79）。
   const handleMgmtCodeChange = (value: string) =>
     setForm((prev) => {
       // コードをクリアした場合は管理区分をそのまま残す。
@@ -171,7 +171,7 @@ export const AddExpensePane = forwardRef<
     });
 
   // 管理区分を変えたら、その区分に属さない管理コードはクリアする。
-  // 管理区分に紐づく税区分（1B3＝課税8%:2）があれば、税区分も入れる（→ C79）。
+  // 管理区分に紐づく税区分（1B3＝2:課税8%）があれば、税区分も入れる（→ C79）。
   const handleMgmtClassChange = (value: string) =>
     setForm((prev) => ({
       ...prev,
@@ -394,7 +394,7 @@ export const AddExpensePane = forwardRef<
           value={form.summary2}
           onChange={(v) => set('summary2', v)}
         />
-        {/* 管理区分に紐づく税区分がある明細（1B3＝課税8%:2）は、税区分を非活性にする
+        {/* 管理区分に紐づく税区分がある明細（1B3＝2:課税8%）は、税区分を非活性にする
             （グリッドの税区分列と同じ → C79）。 */}
         {linkedTaxClassOf(form.mgmtClass) ? (
           <ReadOnlyField

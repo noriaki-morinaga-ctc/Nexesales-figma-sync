@@ -4,8 +4,8 @@ import type { SplitInEntryRow } from '@/app/types/paymentDetail';
 
 // 分割（IN）の追加口明細の分割元（他部署の支払）。
 const SPLIT_IN_SOURCE = {
-  srcDept: '首都圏本部営業三部:10003325',
-  srcStaff: '◯藤　△一:5510361',
+  srcDept: '10003325:首都圏本部営業三部',
+  srcStaff: '5510361:◯藤　△一',
   srcPaymentNo: 'C2400NTO7',
   srcPaymentCount: 1,
   dataSource: '請求EDI',

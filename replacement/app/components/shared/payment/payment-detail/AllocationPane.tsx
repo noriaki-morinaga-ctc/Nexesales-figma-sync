@@ -18,7 +18,7 @@ import type {
 } from 'ag-grid-community';
 import { Trash2, AlertTriangle, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { joinNameCode } from '@/app/utils/common/nameCode';
+import { joinCodeName } from '@/app/utils/common/nameCode';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
 import { SingleComboboxCellEditor } from '@/app/components/ui/single-combobox-cell-editor';
 import {
@@ -206,7 +206,7 @@ const DEFAULT_SOURCE: Required<AllocationPaneSource> = {
   tertiaryStore: '0045 ○○流通センター',
   primaryStore: '01 ○○支店',
   office: '大阪事業所',
-  dept: '関西第1営業部:10003001',
+  dept: '10003001:関西第1営業部',
   staff: '山田 翔一郎',
   mgmtClass: '1B6',
   mgmtClassName: 'チャネル対策条件（売上連動）',
@@ -322,11 +322,11 @@ export function AllocationPaneSourceInfo({
           <ReadonlyField label="費用負担部署" value={src.dept} />
           <ReadonlyField
             label="管理区分"
-            value={joinNameCode(src.mgmtClassName, src.mgmtClass)}
+            value={joinCodeName(src.mgmtClass, src.mgmtClassName)}
           />
           <ReadonlyField
             label="管理コード"
-            value={joinNameCode(src.mgmtCodeName, src.mgmtCode)}
+            value={joinCodeName(src.mgmtCode, src.mgmtCodeName)}
           />
         </div>
         {/* 3行目：支払金額・施策区分・施策コード */}
@@ -334,11 +334,11 @@ export function AllocationPaneSourceInfo({
           <ReadonlyField label="支払金額" value={formatInt(src.payAmount)} />
           <ReadonlyField
             label="施策区分"
-            value={joinNameCode(src.measureClassName, src.measureClass)}
+            value={joinCodeName(src.measureClass, src.measureClassName)}
           />
           <ReadonlyField
             label="施策コード"
-            value={joinNameCode(src.measureCodeName, src.measureCode)}
+            value={joinCodeName(src.measureCode, src.measureCodeName)}
           />
         </div>
         {/* 4行目：支払No・支払回数・明細No（振替明細で「振替」を押下した行の値） */}

@@ -39,6 +39,10 @@ import {
   useRevealNewRows,
   asRowStyle,
 } from '@/app/components/grid';
+import {
+  orderAddedRows,
+  productRowBlockKey,
+} from '@/app/utils/common/addedRowOrder';
 
 import { formatPlanRate } from '@/app/utils/sales-plan/common/planDetailNumberFormat';
 import { BottomPane } from '@/app/components/ui/bottom-pane';
@@ -108,7 +112,7 @@ export interface DetailTableHandle {
     campaign: string,
     campaignName: string
   ) => void;
-  /** 既存行をテンプレートに新規行を合計行直下へ追加（明細追加用） */
+  /** 既存行をテンプレートに新規行を最下行へ追加（明細追加用） */
   addNewRow: (overrides: Partial<ProductData> & { section: string }) => void;
   /** id 一致行を更新（明細編集用） */
   updateRow: (data: ProductData) => void;
@@ -514,8 +518,13 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           ...data,
           // コピー行には一意な id を再採番（getRowId 衝突・編集時の源行巻き込みを防止）
           id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-          // 挿入順を採番。商品区分によらず表示時は合計行直下（先頭）へ並ぶ
+          // 挿入順を採番。商品区分によらず表示時は最下行へ並ぶ
           _addedSeq: Date.now(),
+          // 行コピーはコピー元の行のすぐ下に並べる（orderAddedRows → 02 §8・UX-112）
+          _copyOf:
+            data._copySource === 'detail'
+              ? productRowBlockKey(data)
+              : undefined,
           // 計画キーはコピー元から引き継ぐ（同一計画の明細として確定排他の対象になる）。
           // 元行（_planKey 無し）からのコピーは元行 id を計画キーとして共有する。
           _planKey:
@@ -551,7 +560,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         reveal.markRows([String(copiedData.id)]);
 
         // 編集ルーティング維持のため行は商品区分ごとの配列へ格納する（表示順は
-        // rowData 側で _addedSeq により合計行直下へ並べ替える）。
+        // rowData 側で orderAddedRows により並べ替える）。
         if (data.section === '定番商品') {
           setRegularProductsData((prev) => [copiedData, ...prev]);
         } else if (data.section === '新商品') {
@@ -626,14 +635,21 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             _copySource: 'new' as const,
           })
         );
+        // 追加した3行へ移って強調する（→ 02 §8「行の追加位置」・UX-112）
+        reveal.markRows(rows.map((r) => String(r.id)));
         setGiftProductsData((prev) => [...rows, ...prev]);
       },
-      []
+      [reveal]
     );
 
     // ギフト：セットをまるごと複製して新規セット（3行）を追加（コピー由来）。
+    // sourceSetId（コピー元のセットの giftSetId）を渡すと、表示でコピー元のセットのすぐ下に並ぶ（orderAddedRows）。
     const handleAddCopiedGiftSet = useCallback(
-      (base: Partial<ProductData>, plans: [string, string, string]) => {
+      (
+        base: Partial<ProductData>,
+        plans: [string, string, string],
+        sourceSetId?: string
+      ) => {
         const seq = Date.now();
         const newId = newGiftSetId();
         const planKey = `plan-copy-${seq}-${Math.floor(Math.random() * 1e6)}`;
@@ -654,6 +670,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             _addedSeq: seq,
             _planKey: planKey,
             _copySource: 'detail' as const,
+            _copyOf: sourceSetId,
           })
         );
         // コピーした3行（上旬/中旬/下旬）すべてを強調対象にする
@@ -741,7 +758,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         handleCopyRow({
           ...base,
           // 新規行は確度・企画を空にする（テンプレ行が反映済/不採用でも
-          // 「反映済/不採用を除く」フィルタで消えず、合計行直下に表示されるように）
+          // 「反映済/不採用を除く」フィルタで消えず、表に表示されるように）
           probability: '',
           campaign: '',
           campaignName: '',
@@ -816,7 +833,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         if (data.section === 'ギフト' && data.giftSetId) {
           const set = getGiftSet(data.giftSetId);
           if (set) {
-            handleAddCopiedGiftSet(set.base, set.plans);
+            handleAddCopiedGiftSet(set.base, set.plans, data.giftSetId);
             toast.success('明細をコピーしました。');
             return;
           }
@@ -1026,11 +1043,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           return false;
         return true;
       });
-      // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず
-      // 合計行直下（先頭）へ新しい順で並べる。既存行は元の順序を維持（安定ソート）。
-      const sorted = [...filtered].sort(
-        (a, b) => (b._addedSeq ?? 0) - (a._addedSeq ?? 0)
-      );
+      // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず並べ直す。
+      // 新規・下ペインのコピーは最下行へ追加した順、行コピーはコピー元の行のすぐ下
+      // （ギフトは3行1セットで動かす）。既存行は元の順序を維持（→ 02 §8・UX-112）。
+      const sorted = orderAddedRows(filtered, productRowBlockKey);
       return sorted;
     }, [
       periodData,

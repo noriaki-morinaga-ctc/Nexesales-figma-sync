@@ -22,6 +22,8 @@ interface UsePlanDetailRowHandlersArgs {
   setGiftProductsData: RowsSetter;
   // 行データを作り直してグリッドへ反映する（明細表の再構築トークンを進める）
   bumpGridRebuild: () => void;
+  // 追加・コピーした行の id を受け取り、その行へ移って強調する（useRevealNewRows の markRows → 02 §8・UX-112）
+  onRowsAdded?: (ids: string[]) => void;
 }
 
 export function usePlanDetailRowHandlers({
@@ -31,6 +33,7 @@ export function usePlanDetailRowHandlers({
   setPromotionProductsData,
   setGiftProductsData,
   bumpGridRebuild,
+  onRowsAdded,
 }: UsePlanDetailRowHandlersArgs) {
   // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）。
   const handleAddGiftSet = useCallback(
@@ -50,15 +53,22 @@ export function usePlanDetailRowHandlers({
         _addedSeq: seq,
         _copySource: 'new' as const,
       }));
+      // 最下行に追加し、追加した行へ移って強調する（→ 02 §8「行の追加位置」・UX-112）
+      onRowsAdded?.(rows.map((r) => String(r.id)));
       setGiftProductsData((prev) => [...prev, ...rows]);
       bumpGridRebuild();
     },
-    [bumpGridRebuild, setGiftProductsData]
+    [bumpGridRebuild, onRowsAdded, setGiftProductsData]
   );
   // ギフト：セットをまるごと複製して新規セット（上旬/中旬/下旬の3行）を追加。
   // handleAddGiftSet と同様だが、行の追加経路をコピー由来（_copySource:'detail'・id=copy-...）とする。
+  // sourceSetId（コピー元のセットの giftSetId）を渡すと、表示でコピー元のセットのすぐ下に並ぶ（orderAddedRows）。
   const handleAddCopiedGiftSet = useCallback(
-    (base: Partial<ProductData>, plans: [string, string, string]) => {
+    (
+      base: Partial<ProductData>,
+      plans: [string, string, string],
+      sourceSetId?: string
+    ) => {
       const seq = Date.now();
       const newId = newGiftSetId();
       const rows: ProductData[] = GIFT_PERIODS.map((period, i) => ({
@@ -73,11 +83,13 @@ export function usePlanDetailRowHandlers({
         id: `copy-${seq}-${i}`,
         _addedSeq: seq,
         _copySource: 'detail' as const,
+        _copyOf: sourceSetId,
       }));
+      onRowsAdded?.(rows.map((r) => String(r.id)));
       setGiftProductsData((prev) => [...prev, ...rows]);
       bumpGridRebuild();
     },
-    [bumpGridRebuild, setGiftProductsData]
+    [bumpGridRebuild, onRowsAdded, setGiftProductsData]
   );
   // ギフト：セットの共通項目・各期間の計画(箱数)を更新。
   const handleUpdateGiftSet = useCallback(

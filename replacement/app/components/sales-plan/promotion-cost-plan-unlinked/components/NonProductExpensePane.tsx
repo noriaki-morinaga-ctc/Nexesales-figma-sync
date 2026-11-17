@@ -83,6 +83,7 @@ import type {
   NonProductExpenseData,
   NonProductExpenseGridHandle,
 } from '@/app/types/nonProductExpense';
+import { insertRowsAfter } from '@/app/utils/common/addedRowOrder';
 import {
   hasPriorYearActual,
   hasSummaryProduct,
@@ -216,7 +217,7 @@ export const NonProductExpensePane = forwardRef<
 
   // 親（追加/コピー/編集/削除ペイン）からの行操作を公開
   useImperativeHandle(ref, () => ({
-    addRow: (row: NonProductExpenseData) => {
+    addRow: (row: NonProductExpenseData, afterNo?: number) => {
       // 拡売費追加=new。行コピーから呼ぶ場合は row._copySource='detail' を渡して上書きできる
       const copySource = row._copySource ?? 'new';
       const added = {
@@ -225,9 +226,16 @@ export const NonProductExpensePane = forwardRef<
         isTotal: false,
         _copySource: copySource,
       };
-      // 強調はコピー経路のみ（拡売費追加ペインからの追加は対象外）
-      if (copySource !== 'new') reveal.markRows([added]);
-      setExpenseRows((prev) => [added, ...prev]);
+      // 追加した行へ移って強調する（行反映後にフックが拾う）
+      reveal.markRows([added]);
+      // 新規は最下行、行コピーはコピー元の行のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）
+      setExpenseRows((prev) =>
+        insertRowsAfter(
+          prev,
+          [added],
+          afterNo == null ? undefined : (r) => r.no === afterNo
+        )
+      );
     },
     // セル編集を経由しない値更新のため、rowData を再構築してグリッドへ反映する
     updateRow: (row: NonProductExpenseData) => {
@@ -440,15 +448,16 @@ export const NonProductExpensePane = forwardRef<
       };
       // 追加した行を強調対象にする（行反映後にフックが拾う）
       reveal.markRows([added]);
-      // 新規の行は明細の最上部に追加する（→ 02 §8「行の追加位置」）
-      setExpenseRows((prev) => [added, ...prev]);
+      // コピー元の行（同じ no）のすぐ下に入れる（→ 02 §8「行の追加位置」・UX-112）
+      setExpenseRows((prev) =>
+        insertRowsAfter(prev, [added], (r) => r.no === pendingCopyRow.no)
+      );
       onCopyComplete?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）
   }, [pendingCopyRow]);
 
-  // 参照ペインのコピーボタンで取り込んだ行を合計行の直下（先頭）へ挿入。
-  // dataWithTotal は [合計, ...expenseRows] のため、先頭に積めば合計行の直下に並ぶ。
+  // 参照ペイン（下ペイン）のコピーボタンで取り込んだ行を最下行へ入れる（→ 02 §8・UX-112）。
   useEffect(() => {
     if (pendingReferenceRows && pendingReferenceRows.length > 0) {
       const added = pendingReferenceRows.map((row) => ({
@@ -459,7 +468,8 @@ export const NonProductExpensePane = forwardRef<
       }));
       // 追加した行を強調対象にする（行反映後にフックが拾う）
       reveal.markRows(added);
-      setExpenseRows((prev) => [...added, ...prev]);
+      // 下ペインからのコピーは最下行に入れる（→ 02 §8「行の追加位置」・UX-112）
+      setExpenseRows((prev) => [...prev, ...added]);
       onReferenceConsumed?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 意図的に依存を限定（列定義/ヘルパーの安定化・再実行抑止のため）

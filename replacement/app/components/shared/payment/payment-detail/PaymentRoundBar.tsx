@@ -1,4 +1,6 @@
-// 支払詳細(自販機)：支払回数の選択・支払回数追加・支払情報引用の行
+// 支払詳細の「支払回数」の行（支払回数の選択・支払回数追加・支払情報引用）。
+// 手売り（追加口請求書有・追加口請求書無・商流販売店紐づけなし）と自販機で共通（UI/UX UX-113 → 02 §10.4）。
+// 「支払回数」の項目名は、下の支払情報カードの項目名（支払先）と縦にそろえる（px-4＝カードの本文の余白）。
 
 import { Plus, Copy } from 'lucide-react';
 import { FORM_LABEL_CLASS } from '@/styles/commonStyles';
@@ -14,8 +16,8 @@ interface PaymentRoundBarProps {
   onSelectRound: (round: string) => void;
   // 支払回数追加
   onAddRound: () => void;
-  // 支払情報引用（引用明細選択ペインを開く）
-  onQuotePaymentInfo: () => void;
+  // 支払情報引用（引用明細選択ペインを開く）。渡さない画面（見積など）はボタンを出さない
+  onQuotePaymentInfo?: () => void;
 }
 
 export function PaymentRoundBar({
@@ -54,15 +56,17 @@ export function PaymentRoundBar({
         支払回数追加
       </button>
       {/* 支払情報引用（支払回数追加の右・間隔は全角1文字分＝1rem） */}
-      <button
-        type="button"
-        className="btn-toolbar-outline ml-4"
-        onClick={onQuotePaymentInfo}
-        aria-label="支払情報引用"
-      >
-        <Copy className="h-4 w-4" />
-        支払情報引用
-      </button>
+      {onQuotePaymentInfo && (
+        <button
+          type="button"
+          className="btn-toolbar-outline ml-4"
+          onClick={onQuotePaymentInfo}
+          aria-label="支払情報引用"
+        >
+          <Copy className="h-4 w-4" />
+          支払情報引用
+        </button>
+      )}
     </div>
   );
 }

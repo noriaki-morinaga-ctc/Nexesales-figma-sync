@@ -15,9 +15,19 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { GridApi, IRowNode } from 'ag-grid-community';
 
-// 行フラッシュの既定時間（ms）。AG Grid 既定（0.5秒）では見落とすため長めにする。
-const DEFAULT_FLASH_DURATION_MS = 1500;
-const DEFAULT_FADE_DURATION_MS = 800;
+// 行フラッシュの既定時間（ms）。追加・コピーした行は1秒強調する（→ 02 §8「行の追加位置」・UX-112）。
+const DEFAULT_FLASH_DURATION_MS = 1000;
+const DEFAULT_FADE_DURATION_MS = 300;
+// 強調のあいだ行に付ける属性。値は行の _copySource（new／detail／reference）で、
+// grid.css がその色（左端の帯の色を薄くした色）で光らせる。
+const REVEAL_SOURCE_ATTR = 'data-reveal-source';
+
+// 行の追加経路（左端の帯）。帯の無い行は null（AG Grid 標準の色で光る）。
+const copySourceOf = (node: IRowNode): string | null => {
+  const source = (node.data as { _copySource?: unknown } | undefined)
+    ?._copySource;
+  return typeof source === 'string' ? source : null;
+};
 // 可視域へ寄せるときに上端へ残す余白（px）。
 const TOP_GAP_PX = 8;
 // なめらかなスクロールにかける時間（ms）。
@@ -219,6 +229,49 @@ export function useRevealNewRows(
         const finish = () => {
           // 行全体をフラッシュし、指定があれば先頭セルへフォーカスを移す
           if (focusColumn) api.setFocusedCell(headIndex, focusColumn);
+          // 光らせるあいだ、行（左右の固定列を含む同じ行IDの要素）に追加経路を付け、
+          // 左端の帯の色を薄くした色で光らせる（grid.css）。同じ行IDの別グリッドに付けないよう、
+          // 先頭行の要素が属するグリッドの中だけで探す。
+          // 光っているあいだに AG Grid が行の要素を描き直すと属性が消えるため、
+          // 光り終わるまで毎フレーム付け直し、終わったら外す。
+          const sources = nodes
+            .map((node) => ({ id: node.id, source: copySourceOf(node) }))
+            .filter(
+              (x): x is { id: string; source: string } =>
+                x.id != null && x.source != null
+            );
+          const gridOf = (): HTMLElement | null =>
+            head.id
+              ? (rowElementOf(head.id)?.closest<HTMLElement>(
+                  '.ag-root-wrapper'
+                ) ?? null)
+              : null;
+          const markRowsOnPage = () => {
+            const gridEl = gridOf();
+            if (!gridEl) return;
+            gridEl.querySelectorAll<HTMLElement>('.ag-row').forEach((el) => {
+              const hit = sources.find(
+                (x) => x.id === el.getAttribute('row-id')
+              );
+              if (hit && el.getAttribute(REVEAL_SOURCE_ATTR) !== hit.source)
+                el.setAttribute(REVEAL_SOURCE_ATTR, hit.source);
+            });
+          };
+          if (sources.length > 0) {
+            markRowsOnPage();
+            const until = performance.now() + flashDuration + fadeDuration;
+            const keepMarked = (now: number) => {
+              if (now < until) {
+                markRowsOnPage();
+                window.requestAnimationFrame(keepMarked);
+                return;
+              }
+              document
+                .querySelectorAll<HTMLElement>(`[${REVEAL_SOURCE_ATTR}]`)
+                .forEach((el) => el.removeAttribute(REVEAL_SOURCE_ATTR));
+            };
+            window.requestAnimationFrame(keepMarked);
+          }
           api.flashCells({ rowNodes: nodes, flashDuration, fadeDuration });
         };
         const revealOnPage = () => {

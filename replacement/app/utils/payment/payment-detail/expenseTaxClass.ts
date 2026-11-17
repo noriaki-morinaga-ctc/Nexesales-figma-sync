@@ -6,7 +6,7 @@ import { NET_UNAPPROVED_MGMT_CLASS_NAME } from './paymentSummaryAggregate';
 // 税率をマスタから引く（マスタの構成は課題No.1916、変更できる人は課題No.1850）。
 // モックはその対応表を定数で持つ。
 const TAX_CLASS_BY_MGMT_CLASS: Readonly<Record<string, string>> = {
-  [NET_UNAPPROVED_MGMT_CLASS_NAME]: '課税8%:2',
+  [NET_UNAPPROVED_MGMT_CLASS_NAME]: '2:課税8%',
 };
 
 // 管理区分に紐づく税区分（紐づく税区分が無い管理区分は undefined）。

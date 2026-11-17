@@ -1,11 +1,11 @@
-# Figma Make 取り込み用（main c680637c 時点の src 一式）
+# Figma Make 取り込み用（main 9b4a1a3d 時点の src 一式）
 
 Figma Make への指示：
 
 GitHub の Nexesales-figma-sync リポジトリ（main ブランチ）にある
 replacement/app/ を src/app/ に、
 replacement/styles/ を src/styles/ に、
-replacement/mocks/ を src/mocks/ に配置し（src/mocks/ は新しいフォルダ）、
+replacement/mocks/ を src/mocks/ に、
 replacement/main.tsx を src/main.tsx に置き換えてください。
 対象フォルダは完全置換し、作業途中のエラーは無視してください。
 

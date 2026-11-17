@@ -401,13 +401,10 @@ export const COST_BEARING_DEPT_MASTER: string[] = [
   '20000204:本社マーケティング本部（共通）',
 ];
 
-// 「名称:コード」表記の選択肢。基本情報（BASIC_INFO.dept）や分割情報の表示表記に合わせる。
+// 「コード:名称」表記の選択肢（基本情報 BASIC_INFO.dept や分割情報の値と同じ）。
 // 追加口の分割情報（費用負担部署）や、費用負担部署の編集ペインで使用する。
 export const COST_BEARING_DEPT_OPTIONS: { value: string; label: string }[] =
   COST_BEARING_DEPT_MASTER.map((entry) => {
-    const separator = entry.indexOf(':');
-    const code = entry.slice(0, separator);
-    const name = entry.slice(separator + 1);
-    const value = `${name}:${code}`;
-    return { value, label: value };
+    // 値・表示名とも「コード:名称」（→ 02 §9-1・UX-114）
+    return { value: entry, label: entry };
   });

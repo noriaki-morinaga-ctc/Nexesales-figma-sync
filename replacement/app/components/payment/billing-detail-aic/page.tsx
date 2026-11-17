@@ -5,7 +5,7 @@
 // 構成は支払詳細(追加口請求書有)（PaymentDetailWithInvoice）に準拠し、基本情報 → 確定（検印）後金額 → 請求明細 → フッターの縦積み。
 // 明細の列構成は「シングル画面案.xlsx ⑤-１請求・支払反映画面」に準拠する（→ DetailTable）。
 import { useEffect, useState } from 'react';
-import { Undo2, Save, Check, Trash2 } from 'lucide-react';
+import { Save, Check, Trash2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { BUTTON_STYLES } from '@/styles/commonStyles';
 import { ConfirmDialog } from '@/app/components/ui/confirm-dialog';
@@ -137,7 +137,7 @@ export default function BillingDetailAic({
               className="btn-action-base btn-action-outline"
               aria-label="一覧へ戻る"
             >
-              <Undo2 className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               一覧へ戻る
             </button>
             {/* 削除：AIC入力で誤って作成した入力単位を消す（決定25）。

@@ -381,7 +381,7 @@ const CANCEL_PANE_BUTTONS = [
   {
     key: 'reject',
     label: '差戻し',
-    icon: CornerUpLeft,
+    icon: Undo2,
     style: 'btn-action-red',
   },
   { key: 'seal', label: '検印', icon: Stamp, style: 'btn-action-green' },

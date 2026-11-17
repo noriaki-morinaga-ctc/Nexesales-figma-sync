@@ -5,7 +5,14 @@
 // （→ 02 §6・§6「共通スタイルクラスを優先使用」）。
 // 配色は 取消/差戻し=赤・承認/引戻し/申請=緑・保存=青・戻る=アウトライン
 // （支払詳細(自販機)のフッターと同一）。
-import { Save, Send, Check, Undo2, CornerUpLeft } from 'lucide-react';
+import {
+  Save,
+  Send,
+  Check,
+  Undo2,
+  CornerUpLeft,
+  ArrowLeft,
+} from 'lucide-react';
 import { FooterCommentField } from '@/app/components/shared/common/FooterCommentField';
 
 interface PlanDetailFooterProps {
@@ -33,7 +40,7 @@ export function PlanDetailFooter({
             onClick={onBack}
             aria-label="一覧へ戻る"
           >
-            <Undo2 className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
             一覧へ戻る
           </button>
         </div>
@@ -49,7 +56,7 @@ export function PlanDetailFooter({
             className="btn-action-base btn-action-red"
             aria-label="差戻し"
           >
-            <CornerUpLeft className="h-4 w-4" />
+            <Undo2 className="h-4 w-4" />
             差戻し
           </button>
           <button

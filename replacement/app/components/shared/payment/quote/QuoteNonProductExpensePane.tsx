@@ -365,7 +365,7 @@ const EXPENSE_ROWS: ExpenseRow[] = [
     mgmtClass: '651 試飲会費用',
     mgmtCode: '99999 量販経費追加スーパー',
     planDiff: 600,
-    matchType: '条件違い:2',
+    matchType: '2:条件違い',
     billPage: '①02',
   },
   {
@@ -1025,7 +1025,7 @@ export function QuoteNonProductExpensePane({
     onEditRow: (data: ExpenseRow) => onOpenEditExpense?.(data),
     onCopyRow: (data: ExpenseRow) => onOpenCopyExpense?.(data),
     onDeleteRow: (data: ExpenseRow) => handleOpenDelete(data),
-    // 行追加：拡売費明細行を明細の最上部に1行追加する（画面設計標準 4.4）
+    // 行追加：拡売費明細行を明細の最下行に1行追加する（→ 02 §8「行の追加位置」・UX-112）
     onAddRow: () => {
       const api = gridApiRef.current;
       if (!api) return;
@@ -1043,7 +1043,7 @@ export function QuoteNonProductExpensePane({
         showCostSplit: true,
         lineNo: maxLineNo + 1,
       };
-      api.applyTransaction({ add: [newRow], addIndex: 0 });
+      api.applyTransaction({ add: [newRow] });
       setSummary(applyExpenseFormulas(api, netRef.current));
     },
   };

@@ -96,13 +96,8 @@ export interface ReferenceRow {
 //   支払No・支払回数・明細No・商品・金額が重複しないダミー値を設定している。
 // ※ 行は「振替処理」「振替明細の削除」で両グリッド間を移動するため、
 //   実データは親（TransferDetail）が state として保持する。ここでは初期値のみ定義する。
-// 検索条件の選択肢の表示は「コード:名称」に統一する（事業場の選択肢と同じ体裁）。
-// 値は行データと同じ「名称:コード」を保持し、絞り込み（codeOf での突き合わせ）と
-// 基本情報からの初期値反映にそのまま使う。
-const toCodeNameLabel = (nameCode: string): string => {
-  const [name = '', code = ''] = nameCode.split(':');
-  return code ? `${code}:${name}` : nameCode;
-};
+// 検索条件の選択肢は、値・表示とも行データと同じ「コード:名称」（→ 02 §9-1・UX-114）。
+// 値は絞り込み（codeOf での突き合わせ）と基本情報からの初期値反映にそのまま使う。
 
 // サマリ商品名の先頭からメタブランドを導出する（モック用）。
 // 当モックのサマリ商品は商品マスタ（productMasters）に無い名称のため、
@@ -122,7 +117,7 @@ const metaBrandOf = (product: string): string =>
 // 検印済み明細が持つ末端組織と、販売店の担当組織（STORE_OWNER_ORG）の和集合から作る。
 // 部署マスタ（ORG_DEPTS）とはコードが異なる組織があるため（九州営業部の二重コード）、
 // 明細と同じ値を選択肢にして絞り込みの突き合わせと担当組織の表示を一致させる。
-// 値は明細と同じ「名称:コード」、表示は「コード:名称」。
+// 値・表示とも明細と同じ「コード:名称」。
 // 定義は INITIAL_REFERENCE_ROWS の直後（TRANSFER_TERMINAL_ORG_OPTIONS）。
 
 // 摘要1（社内用）・摘要2（社外用）のモック値を組み立てる。
@@ -142,7 +137,7 @@ const withSummaries = (
     //（支払詳細(追加口請求書有) の SearchPane と同じ扱い）。
     terminalOrg: r.dept,
     // 支払先は拡売費を支払う卸（一次店）とし、他画面と同じ「コード:名称」で保持する。
-    payee: toCodeNameLabel(r.primaryStore),
+    payee: r.primaryStore,
     summary1: `${r.mgmtCodeName}の実施費用（社内）`,
     summary2:
       r.product === '-'
@@ -164,14 +159,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'チラシ協賛A',
     measureClass: '販売促進',
     measureCode: 'SP011',
-    dept: '北海道営業部:10003041',
-    store: 'アークス:21100784',
-    tertiaryStore: '国分　北海道ＤＣ:10863349',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10003041:北海道営業部',
+    store: '21100784:アークス',
+    tertiaryStore: '10863349:国分　北海道ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '北海道支社:10000658',
-    staff: 'アサヒ　彩:5172738',
+    office: '10000658:北海道支社',
+    staff: '5172738:アサヒ　彩',
   },
   {
     no: 2,
@@ -186,14 +181,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '全国広告費',
     measureClass: 'スポット',
     measureCode: 'SS011',
-    dept: '北海道営業部:10003041',
-    store: 'アークス:21100784',
-    tertiaryStore: '国分　北海道ＤＣ:10863349',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10003041:北海道営業部',
+    store: '21100784:アークス',
+    tertiaryStore: '10863349:国分　北海道ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '北海道支社:10000658',
-    staff: 'アサヒ　彩:5172738',
+    office: '10000658:北海道支社',
+    staff: '5172738:アサヒ　彩',
   },
   {
     no: 3,
@@ -208,14 +203,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'エンド展開A',
     measureClass: 'リピート',
     measureCode: 'SR011',
-    dept: '東北営業部:10003056',
-    store: 'ヨークベニマル:21100792',
-    tertiaryStore: '日本アクセス　東北ＤＣ:10863356',
-    primaryStore: '株式会社日本アクセス:10888051',
+    dept: '10003056:東北営業部',
+    store: '21100792:ヨークベニマル',
+    tertiaryStore: '10863356:日本アクセス　東北ＤＣ',
+    primaryStore: '10888051:株式会社日本アクセス',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '東北支社:10000662',
-    staff: 'アサヒ　悠人:5172739',
+    office: '10000662:東北支社',
+    staff: '5172739:アサヒ　悠人',
   },
   {
     no: 4,
@@ -230,14 +225,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'クーラー什器費',
     measureClass: '新規導入',
     measureCode: 'SN011',
-    dept: '東北営業部:10003056',
-    store: 'ヨークベニマル:21100792',
-    tertiaryStore: '日本アクセス　東北ＤＣ:10863356',
-    primaryStore: '株式会社日本アクセス:10888051',
+    dept: '10003056:東北営業部',
+    store: '21100792:ヨークベニマル',
+    tertiaryStore: '10863356:日本アクセス　東北ＤＣ',
+    primaryStore: '10888051:株式会社日本アクセス',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '東北支社:10000662',
-    staff: 'アサヒ　悠人:5172739',
+    office: '10000662:東北支社',
+    staff: '5172739:アサヒ　悠人',
   },
   {
     no: 5,
@@ -252,14 +247,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'チラシ協賛A',
     measureClass: '販売促進',
     measureCode: 'SP002',
-    dept: '中部営業部:10003002',
-    store: 'マックスバリュ東海:21100678',
-    tertiaryStore: 'イオン中部ＲＤＣ:10863225',
-    primaryStore: '加藤産業株式会社:10888032',
+    dept: '10003002:中部営業部',
+    store: '21100678:マックスバリュ東海',
+    tertiaryStore: '10863225:イオン中部ＲＤＣ',
+    primaryStore: '10888032:加藤産業株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '中部本部:10000631',
-    staff: 'アサヒ　次郎:5172735',
+    office: '10000631:中部本部',
+    staff: '5172735:アサヒ　次郎',
   },
   {
     no: 6,
@@ -274,14 +269,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '新規導入販促',
     measureClass: 'リピート',
     measureCode: 'SR002',
-    dept: '首都圏営業第一部:10002985',
-    store: 'イトーヨーカ堂:21100695',
-    tertiaryStore: '伊藤忠食品　東日本ＤＣ:10863258',
-    primaryStore: '伊藤忠食品株式会社:10888045',
+    dept: '10002985:首都圏営業第一部',
+    store: '21100695:イトーヨーカ堂',
+    tertiaryStore: '10863258:伊藤忠食品　東日本ＤＣ',
+    primaryStore: '10888045:伊藤忠食品株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　花子:5172734',
+    office: '10000623:首都圏本部',
+    staff: '5172734:アサヒ　花子',
   },
   {
     no: 7,
@@ -296,14 +291,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '店頭定番販促',
     measureClass: '販売促進',
     measureCode: 'SP003',
-    dept: '首都圏営業第二部:10002990',
-    store: 'イオンリテール:21100677',
-    tertiaryStore: 'イオン東北ＲＤＣ:10863223',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    dept: '10002990:首都圏営業第二部',
+    store: '21100677:イオンリテール',
+    tertiaryStore: '10863223:イオン東北ＲＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　太郎:5172733',
+    office: '10000623:首都圏本部',
+    staff: '5172733:アサヒ　太郎',
   },
   {
     no: 8,
@@ -318,14 +313,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'チラシ協賛A',
     measureClass: '新規導入',
     measureCode: 'SN002',
-    dept: '近畿営業部:10003015',
-    store: '平和堂:21100711',
-    tertiaryStore: '日本アクセス　関西ＤＣ:10863271',
-    primaryStore: '株式会社日本アクセス:10888051',
+    dept: '10003015:近畿営業部',
+    store: '21100711:平和堂',
+    tertiaryStore: '10863271:日本アクセス　関西ＤＣ',
+    primaryStore: '10888051:株式会社日本アクセス',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '関西本部:10000645',
-    staff: 'アサヒ　美咲:5172736',
+    office: '10000645:関西本部',
+    staff: '5172736:アサヒ　美咲',
   },
   {
     no: 9,
@@ -340,14 +335,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'クーラー什器費',
     measureClass: 'スポット',
     measureCode: 'SS002',
-    dept: '近畿営業部:10003015',
-    store: '平和堂:21100711',
-    tertiaryStore: '日本アクセス　関西ＤＣ:10863271',
-    primaryStore: '株式会社日本アクセス:10888051',
+    dept: '10003015:近畿営業部',
+    store: '21100711:平和堂',
+    tertiaryStore: '10863271:日本アクセス　関西ＤＣ',
+    primaryStore: '10888051:株式会社日本アクセス',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '関西本部:10000645',
-    staff: 'アサヒ　美咲:5172736',
+    office: '10000645:関西本部',
+    staff: '5172736:アサヒ　美咲',
   },
   {
     no: 10,
@@ -362,14 +357,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '本社広告枠',
     measureClass: '販売促進',
     measureCode: 'SP004',
-    dept: '九州営業部:10003028',
-    store: 'イズミ:21100725',
-    tertiaryStore: '三菱食品　九州ＤＣ:10863288',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    dept: '10003028:九州営業部',
+    store: '21100725:イズミ',
+    tertiaryStore: '10863288:三菱食品　九州ＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '九州支社:10000679',
-    staff: 'アサヒ　健太:5172737',
+    office: '10000679:九州支社',
+    staff: '5172737:アサヒ　健太',
   },
   {
     no: 11,
@@ -384,14 +379,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '新規導入販促',
     measureClass: 'リピート',
     measureCode: 'SR003',
-    dept: '九州営業部:10003028',
-    store: 'イズミ:21100725',
-    tertiaryStore: '三菱食品　九州ＤＣ:10863288',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    dept: '10003028:九州営業部',
+    store: '21100725:イズミ',
+    tertiaryStore: '10863288:三菱食品　九州ＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '九州支社:10000679',
-    staff: 'アサヒ　健太:5172737',
+    office: '10000679:九州支社',
+    staff: '5172737:アサヒ　健太',
   },
   {
     no: 12,
@@ -406,14 +401,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'チラシ協賛A',
     measureClass: '新規導入',
     measureCode: 'SN003',
-    dept: '首都圏営業第一部:10002985',
-    store: 'サミット:21100732',
-    tertiaryStore: '国分　首都圏ＤＣ:10863294',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10002985:首都圏営業第一部',
+    store: '21100732:サミット',
+    tertiaryStore: '10863294:国分　首都圏ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　花子:5172734',
+    office: '10000623:首都圏本部',
+    staff: '5172734:アサヒ　花子',
   },
   {
     no: 13,
@@ -428,14 +423,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '店頭定番販促',
     measureClass: '販売促進',
     measureCode: 'SP005',
-    dept: '首都圏営業第一部:10002985',
-    store: 'サミット:21100732',
-    tertiaryStore: '国分　首都圏ＤＣ:10863294',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10002985:首都圏営業第一部',
+    store: '21100732:サミット',
+    tertiaryStore: '10863294:国分　首都圏ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　花子:5172734',
+    office: '10000623:首都圏本部',
+    staff: '5172734:アサヒ　花子',
   },
   {
     no: 14,
@@ -450,14 +445,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '全国広告費',
     measureClass: 'スポット',
     measureCode: 'SS003',
-    dept: '中部営業部:10003002',
-    store: 'バロー:21100744',
-    tertiaryStore: '加藤産業　中部ＤＣ:10863301',
-    primaryStore: '加藤産業株式会社:10888032',
+    dept: '10003002:中部営業部',
+    store: '21100744:バロー',
+    tertiaryStore: '10863301:加藤産業　中部ＤＣ',
+    primaryStore: '10888032:加藤産業株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '中部本部:10000631',
-    staff: 'アサヒ　次郎:5172735',
+    office: '10000631:中部本部',
+    staff: '5172735:アサヒ　次郎',
   },
   {
     no: 15,
@@ -472,14 +467,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '什器設置費',
     measureClass: 'スポット',
     measureCode: 'SS004',
-    dept: '中部営業部:10003002',
-    store: 'バロー:21100744',
-    tertiaryStore: '加藤産業　中部ＤＣ:10863301',
-    primaryStore: '加藤産業株式会社:10888032',
+    dept: '10003002:中部営業部',
+    store: '21100744:バロー',
+    tertiaryStore: '10863301:加藤産業　中部ＤＣ',
+    primaryStore: '10888032:加藤産業株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '中部本部:10000631',
-    staff: 'アサヒ　次郎:5172735',
+    office: '10000631:中部本部',
+    staff: '5172735:アサヒ　次郎',
   },
   {
     no: 16,
@@ -494,14 +489,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'エンド展開A',
     measureClass: 'リピート',
     measureCode: 'SR004',
-    dept: '首都圏営業第二部:10002990',
-    store: 'ヤオコー:21100758',
-    tertiaryStore: '三菱食品　関東ＤＣ:10863312',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    dept: '10002990:首都圏営業第二部',
+    store: '21100758:ヤオコー',
+    tertiaryStore: '10863312:三菱食品　関東ＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　太郎:5172733',
+    office: '10000623:首都圏本部',
+    staff: '5172733:アサヒ　太郎',
   },
   {
     no: 17,
@@ -516,14 +511,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '店頭定番販促',
     measureClass: '販売促進',
     measureCode: 'SP006',
-    dept: '首都圏営業第二部:10002990',
-    store: 'ヤオコー:21100758',
-    tertiaryStore: '三菱食品　関東ＤＣ:10863312',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    dept: '10002990:首都圏営業第二部',
+    store: '21100758:ヤオコー',
+    tertiaryStore: '10863312:三菱食品　関東ＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　太郎:5172733',
+    office: '10000623:首都圏本部',
+    staff: '5172733:アサヒ　太郎',
   },
   {
     no: 18,
@@ -538,14 +533,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '本社広告枠',
     measureClass: '新規導入',
     measureCode: 'SN004',
-    dept: '近畿営業部:10003015',
-    store: 'イズミヤ:21100766',
-    tertiaryStore: '国分　関西ＤＣ:10863325',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10003015:近畿営業部',
+    store: '21100766:イズミヤ',
+    tertiaryStore: '10863325:国分　関西ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '関西本部:10000645',
-    staff: 'アサヒ　美咲:5172736',
+    office: '10000645:関西本部',
+    staff: '5172736:アサヒ　美咲',
   },
   {
     no: 19,
@@ -560,14 +555,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: 'チラシ協賛A',
     measureClass: 'リピート',
     measureCode: 'SR005',
-    dept: '近畿営業部:10003015',
-    store: 'イズミヤ:21100766',
-    tertiaryStore: '国分　関西ＤＣ:10863325',
-    primaryStore: '国分グループ本社株式会社:10888066',
+    dept: '10003015:近畿営業部',
+    store: '21100766:イズミヤ',
+    tertiaryStore: '10863325:国分　関西ＤＣ',
+    primaryStore: '10888066:国分グループ本社株式会社',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '関西本部:10000645',
-    staff: 'アサヒ　美咲:5172736',
+    office: '10000645:関西本部',
+    staff: '5172736:アサヒ　美咲',
   },
   {
     no: 20,
@@ -582,14 +577,14 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     mgmtCodeName: '新規導入販促',
     measureClass: '販売促進',
     measureCode: 'SP007',
-    dept: '九州営業部:10003028',
-    store: 'サンリブ:21100779',
-    tertiaryStore: '日本アクセス　九州ＤＣ:10863337',
-    primaryStore: '株式会社日本アクセス:10888051',
+    dept: '10003028:九州営業部',
+    store: '21100779:サンリブ',
+    tertiaryStore: '10863337:日本アクセス　九州ＤＣ',
+    primaryStore: '10888051:株式会社日本アクセス',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '九州支社:10000679',
-    staff: 'アサヒ　健太:5172737',
+    office: '10000679:九州支社',
+    staff: '5172737:アサヒ　健太',
   },
   // 支払No「C2400NT11」の2明細。当画面の基本情報（TransferDetailSearch）と同じ商流の明細として、
   //   ・費用負担部署：基本情報の「部署」（BASIC_INFO.dept）
@@ -611,13 +606,13 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     measureClass: '販売促進',
     measureCode: 'SP012',
     dept: BASIC_INFO.dept,
-    store: 'イオンリテール:21100677',
-    tertiaryStore: 'イオン東北ＲＤＣ:10863223',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    store: '21100677:イオンリテール',
+    tertiaryStore: '10863223:イオン東北ＲＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　太郎:5172733',
+    office: '10000623:首都圏本部',
+    staff: '5172733:アサヒ　太郎',
   },
   {
     no: 22,
@@ -633,13 +628,13 @@ export const INITIAL_REFERENCE_ROWS: ReferenceRow[] = withSummaries([
     measureClass: 'スポット',
     measureCode: 'SS012',
     dept: BASIC_INFO.dept,
-    store: 'イオンリテール:21100677',
-    tertiaryStore: 'イオン東北ＲＤＣ:10863223',
-    primaryStore: '三菱食品株式会社（イオン）:10888030',
+    store: '21100677:イオンリテール',
+    tertiaryStore: '10863223:イオン東北ＲＤＣ',
+    primaryStore: '10888030:三菱食品株式会社（イオン）',
     postingMonth: '2025年10月',
     targetMonth: '2025年10月',
-    office: '首都圏本部:10000623',
-    staff: 'アサヒ　太郎:5172733',
+    office: '10000623:首都圏本部',
+    staff: '5172733:アサヒ　太郎',
   },
 ]);
 
@@ -651,7 +646,7 @@ export const TRANSFER_TERMINAL_ORG_OPTIONS: SingleComboboxOption[] = Array.from(
   ])
 )
   .sort()
-  .map((value) => ({ value, label: toCodeNameLabel(value) }));
+  .map((value) => ({ value, label: value }));
 
 // 数値表示（カンマ区切り・小数2桁まで）。
 const numFmt = (p: { value: unknown }) =>
@@ -666,20 +661,18 @@ const numFmt = (p: { value: unknown }) =>
 // ここでの組織系の既定は「未選択＝絞り込まない」とする。
 const INITIAL_OFFICE = ''; // 事業場：未選択（絞らない）
 
-// 「名称:コード」「コード:名称」いずれの表記からもコード（数字部分）を取り出す。
-// 行データは「名称:コード」、検索条件の選択肢ラベルは「コード:名称」のため、
-// 突き合わせはコードで行う。
+// 「コード:名称」の値からコード（数字部分）を取り出す。突き合わせはコードで行う。
 const codeOf = (value: string | undefined): string => {
   if (!value) return '';
   const parts = value.split(':');
   return parts.find((p) => /^\d+$/.test(p.trim()))?.trim() ?? '';
 };
 
-// 「名称:コード」の選択肢を、表示だけ「コード:名称」に置き換えた選択肢へ変換する。
+// 商流・組織の値（「コード:名称」）を、検索条件の選択肢（値・表示とも同じ）へ変換する。
 const toSearchOptions = (
   options: { value: string }[]
 ): SingleComboboxOption[] =>
-  options.map((o) => ({ value: o.value, label: toCodeNameLabel(o.value) }));
+  options.map((o) => ({ value: o.value, label: o.value }));
 
 // 選択中の値（option の value）に対応するコードを取り出す。
 const selectedCode = (
@@ -691,22 +684,22 @@ const selectedCode = (
   return codeOf(label ?? value);
 };
 
-// 基本情報の値「名称:コード」を、検索条件の選択肢（ラベルは「コード:名称」）に対応付ける。
+// 基本情報の値「コード:名称」を、検索条件の選択肢（ラベルは「コード:名称」）に対応付ける。
 // コードが一致する選択肢があればそれを選び、無ければ基本情報の値から
 // 「コード:名称」の選択肢を作って末尾に追加し、それを選択する
 //（基本情報の値をそのまま検索条件に表示するため）。
 const resolveSearchOption = (
   options: SingleComboboxOption[],
-  nameCode: string | undefined,
+  codeName: string | undefined,
   fallbackValue: string
 ): { options: SingleComboboxOption[]; value: string } => {
-  if (!nameCode) return { options, value: fallbackValue };
-  const [name = '', code = ''] = nameCode.split(':');
+  if (!codeName) return { options, value: fallbackValue };
+  const [code = '', name = ''] = codeName.split(':');
   const matched = options.find((o) => code && o.label.startsWith(`${code}:`));
   if (matched) return { options, value: matched.value };
   const added: SingleComboboxOption = {
-    value: code || nameCode,
-    label: code ? `${code}:${name}` : nameCode,
+    value: code || codeName,
+    label: code ? `${code}:${name}` : codeName,
   };
   return { options: [...options, added], value: added.value };
 };
@@ -816,7 +809,7 @@ export function ReferenceTable({
 
   // 検索条件の状態管理（項目構成は支払一覧の検索条件に準じる）。
   // 部署・営業担当者は固定マスタではなく「支払として存在する組合せ」から候補を求めるため、
-  // 行データと同じ「名称:コード」を値として保持する（基本情報の値をそのまま初期値にできる）。
+  // 行データと同じ「コード:名称」を値として保持する（基本情報の値をそのまま初期値にできる）。
   const [office, setOffice] = useState(officeField.value);
   const [department, setDepartment] = useState(basicInfo?.dept ?? '');
   const [terminalOrg, setTerminalOrg] = useState(basicInfo?.terminalOrg ?? '');
@@ -892,7 +885,7 @@ export function ReferenceTable({
 
   // 検索条件で明細を絞り込む（各条件は AND。未選択の条件は絞り込まない）。
   //   年月：基準（計上年月／対象年月）に対応する行の年月が 開始〜終了 の範囲内か
-  //   商流・組織：コードで突き合わせ（行データは「名称:コード」、選択肢は「コード:名称」）
+  //   商流・組織：コードで突き合わせ（行データは「コード:名称」、選択肢は「コード:名称」）
   const filteredRows = useMemo(() => {
     // 「振替元を固定する」で販売店・担当末端組織が未選択のうちは明細を出さない（決定事項1）。
     if (hideRowsUntilStore) return [];

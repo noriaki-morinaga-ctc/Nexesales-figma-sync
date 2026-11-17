@@ -479,8 +479,10 @@ export function SimulationCampaignSummaryTable({
           onRowDataUpdated={handleRowDataUpdated}
           suppressMovableColumns={true}
           ensureDomOrder={true}
-          onRowClicked={(e) => {
-            // 行クリックでドリルダウン開閉（chevron以外でも開閉可能にする）
+          onCellClicked={(e) => {
+            // 企画の列のセル（chevron を含む）のクリックだけでドリルダウンを開閉する。
+            // 数値のセルのクリックでは開閉しない（→ 02 §7・UX-111）
+            if (e.column?.getColId() !== 'campaign') return;
             if (!e.node || e.node.rowPinned) return;
             if ((e.node.allChildrenCount ?? 0) > 0) {
               e.node.setExpanded(!e.node.expanded);

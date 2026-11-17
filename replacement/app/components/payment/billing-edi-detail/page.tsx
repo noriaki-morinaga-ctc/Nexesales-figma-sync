@@ -4,7 +4,7 @@
 // 形式エラー（数値項目に数値以外の値 等）はこちらでは直せず、卸への照会・再送依頼になる。
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { RotateCcw, Undo2 } from 'lucide-react';
+import { RotateCcw, ArrowLeft } from 'lucide-react';
 
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { CollapsibleCard } from '@/app/components/ui/collapsible-card';
@@ -281,7 +281,7 @@ export default function BillingEdiDetail({
               onClick={onBack}
               aria-label="一覧へ戻る"
             >
-              <Undo2 className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               一覧へ戻る
             </button>
           </div>
