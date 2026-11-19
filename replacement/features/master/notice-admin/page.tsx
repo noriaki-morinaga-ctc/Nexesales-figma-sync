@@ -310,7 +310,7 @@ export default function NoticeAdminScreen() {
       onDup: handleDuplicate,
     }),
     // handleEdit・handleDuplicate は state の setter と共通フックの markRows（参照固定）のみを使うため初回の参照で足りる
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleEdit・handleDuplicate は setter と参照の変わらない markRows だけを使うため初回の参照で足りる
     []
   );
 

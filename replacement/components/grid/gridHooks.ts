@@ -4,7 +4,8 @@
 // - useFormulaSourceHighlight：計算式セルのホバーで算出元セルを枠線強調
 // - useLinkedCellUndo：主セル編集に連動する従属セルを Undo/Redo で一括・厳密復元
 import { useCallback, useMemo, useRef } from 'react';
-import type { CellClassRules } from 'ag-grid-community';
+import type { CellClassRules, ColumnState } from 'ag-grid-community';
+import { readStoredJson, writeStoredJson } from '@/utils/common/browserStorage';
 
 // ─────────────────────────────────────────────────────────────────────────
 // useChangedCells：編集セルの「変更ハイライト（黄）」共通仕様の中核フック（→ 02 §7.2）。
@@ -30,7 +31,7 @@ interface UseChangedCellsOptions {
 // 使い方：trackCellChange(withComparableCellValues(event))
 export const toComparableCellValue = (v: unknown): unknown => {
   if (v == null) return v;
-  const text = String(v).replace(/[,%s]/g, '');
+  const text = String(v).replace(/[,%\s]/g, '');
   const n = Number(text);
   return text !== '' && Number.isFinite(n) ? String(n) : v;
 };
@@ -97,20 +98,15 @@ export type UseChangedCells = ReturnType<typeof useChangedCells>;
 // ─────────────────────────────────────────────────────────────────────────
 // 保存済みの列状態を localStorage から読む（未保存・パース失敗時は null）。
 // 画面側で「初回表示か（＝保存済み設定が無いか）」を判定したい場合に使う。
-export function readSavedColumnState(storageKey: string): any[] | null {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    // パース失敗時は保存なし扱い（自動列幅調整にフォールバック）
-    return null;
-  }
+export function readSavedColumnState(storageKey: string): ColumnState[] | null {
+  // 未保存・パース失敗時は保存なし扱い（自動列幅調整にフォールバック）
+  return readStoredJson<ColumnState[]>(storageKey);
 }
 
 // 現在の列状態を localStorage へ保存する。画面側で既定の列設定（初期非表示列・
 // 自動列幅調整）を確定させた直後など、フックのイベント外で保存したい場合に使う。
 export function saveGridColumnState(storageKey: string, api: any): void {
-  localStorage.setItem(storageKey, JSON.stringify(api.getColumnState()));
+  writeStoredJson(storageKey, api.getColumnState());
 }
 
 // 保存済みの列状態に無い列（保存後に追加された列）を、列定義上の直前の列の後ろへ差し込む。
@@ -345,7 +341,7 @@ export function useFormulaSourceHighlight<R>(
     };
     // formulaDefs は各画面でモジュールスコープ定義（不変）のため依存に含めない。
     // options は optionsRef 経由で最新を読むため同様。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- formulaDefs は各画面のモジュール直下の定数で変わらず、options は optionsRef で最新を読むため
   }, []);
 }
 

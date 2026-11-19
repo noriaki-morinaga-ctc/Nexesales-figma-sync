@@ -1401,12 +1401,7 @@ export default function PaymentDetailOther() {
           .expansion-detail-grid .ag-cell[aria-colindex="1"] > * {
             justify-content: flex-start;
           }
-          /* 行ホバー時は1行全体をハイライト色で表示する。
-             各セルに編集可否の背景色（白/グレー）を cellStyle で付けているため、
-             ホバー行のセル背景を「透明」にしてテーマの行ホバー色をそのまま見せる。 */
-          .expansion-detail-grid .ag-row-hover .ag-cell {
-            background-color: transparent !important;
-          }
+          /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。セルの背景（白・灰）は変えない（UX-117） */
         `}</style>
 
         {/* 拡売費明細グリッドエリア */}

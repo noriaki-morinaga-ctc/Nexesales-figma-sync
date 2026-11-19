@@ -313,14 +313,18 @@ export function AnnualTotalTab({
       const unitExempt = item.unitExempt ?? false;
       const scale = isRate ? 100 : 1;
       const d = (i: number) => displayOf(monthAmounts[i][key], isRate);
-      const plan = series((i) => d(i).plan * scale);
-      const budget = series((i) => d(i).budget * scale);
-      const prev = series((i) => d(i).prevYear * scale);
+      // 率の項目で分母（売上高など）が 0 の月は計算できないため NaN にし、「-」と表示する（→ api/calculation-ownership.md K4）
+      const rateOf = (i: number, v: number) =>
+        isRate && rateDen && !monthAmounts[i][rateDen.key] ? NaN : v;
+      const plan = series((i) => rateOf(i, d(i).plan * scale));
+      const budget = series((i) => rateOf(i, d(i).budget * scale));
+      const prev = series((i) => rateOf(i, d(i).prevYear * scale));
+      // 予算比・前年比は、予算・前年実績が 0 なら計算できないため NaN（「-」と表示する）
       const budgetRatio = series((i) =>
-        d(i).budget ? (d(i).plan / d(i).budget) * 100 : 0
+        d(i).budget ? (d(i).plan / d(i).budget) * 100 : NaN
       );
       const prevRatio = series((i) =>
-        d(i).prevYear ? (d(i).plan / d(i).prevYear) * 100 : 0
+        d(i).prevYear ? (d(i).plan / d(i).prevYear) * 100 : NaN
       );
       // 表示整数化：formatNumber の金額規則（円・千円(非exempt)とも四捨五入）と同一。
       // 函数など unitExempt の項は円・千円とも四捨五入で揃える。
@@ -333,10 +337,10 @@ export function AnnualTotalTab({
       // 画面の計画実績 − 画面の予算/前年実績 と常に一致させる（端数処理由来の±1を解消）。
       // 率は従来どおり率差（×scale）で保持する（今回の主目的は金額の±1解消のため）。
       const budgetDiff = isRate
-        ? series((i) => (d(i).plan - d(i).budget) * scale)
+        ? series((i) => rateOf(i, (d(i).plan - d(i).budget) * scale))
         : series((i) => intAmount(d(i).plan) - intAmount(d(i).budget));
       const prevDiff = isRate
-        ? series((i) => (d(i).plan - d(i).prevYear) * scale)
+        ? series((i) => rateOf(i, (d(i).plan - d(i).prevYear) * scale))
         : series((i) => intAmount(d(i).plan) - intAmount(d(i).prevYear));
 
       // 率項目の集計列（累計/年間/上期/下期/四半期）用の生値。
@@ -644,6 +648,8 @@ export function AnnualTotalTab({
     if (isPercentage) {
       return formatPlanRate(value, PLAN_DETAIL_DIGITS.rate);
     }
+    // 計算できない値（NaN）は「-」
+    if (!Number.isFinite(value)) return '-';
     // 千円単位の場合は下3桁を削除（1000で割る）。
     // ただし函数などの数量項目は表示単位切替の対象外のため、そのまま表示する。
     const displayValue =
@@ -671,33 +677,19 @@ export function AnnualTotalTab({
     return roundBy(sum(data.diffPlanRaw)) - roundBy(sum(data.diffOtherRaw));
   };
 
-  // 差率（予算比/前年比）行の集計列。月次%を合計すると期間比率にならないため
-  //（例：1〜7月で 98.04% × 7 ≒ 686%）、生値の期間合計から Σ分子 ÷ Σ分母 × 100 で再計算する。
-  const aggRatioValue = (
-    data: AnnualTotalData,
+  // 差率（予算比/前年比）行と率項目（管理利益率・量経追加口率・売上連動拡売費率）の集計列。
+  // 月次%を合計しても期間の率にならないため（例：1〜7月で 98.04% × 7 ≒ 686%）、生値の期間合計から
+  // Σ分子 ÷ Σ分母 × 100 で再計算する（管理利益率(年間)＝管理利益額(年間) ÷ 売上高(年間) × 100）。
+  // 分母0は計算できないため NaN（「-」と表示する。月次の率・予算比・前年比と揃える）。
+  const aggRatioOfSums = (
+    num: Record<string, number>,
+    den: Record<string, number>,
     fields: readonly string[]
   ): number => {
-    const sum = (rec?: Record<string, number>) =>
-      fields.reduce((s, f) => s + (rec?.[f] ?? 0), 0);
-    const den = sum(data.ratioDenRaw);
-    // 分母0は月次と同じく0%扱い（月次の budgetRatio / prevRatio と揃える）。
-    if (!den) return 0;
-    return (sum(data.ratioNumRaw) / den) * 100;
-  };
-
-  // 率項目（管理利益率・量経追加口率・売上連動拡売費率）の集計列。
-  // 月次%の合計は期間の率にならないため、Σ分子 ÷ Σ分母 × 100 で算出する
-  //（管理利益率(年間)＝管理利益額(年間) ÷ 売上高(年間) × 100）。
-  const aggRateValue = (
-    data: AnnualTotalData,
-    fields: readonly string[]
-  ): number => {
-    const sum = (rec?: Record<string, number>) =>
-      fields.reduce((s, f) => s + (rec?.[f] ?? 0), 0);
-    const den = sum(data.aggDenRaw);
-    // 分母0は月次（computeForMonths の率算出）と同じく0%扱い。
-    if (!den) return 0;
-    return (sum(data.aggNumRaw) / den) * 100;
+    const sum = (rec: Record<string, number>) =>
+      fields.reduce((s, f) => s + (rec[f] ?? 0), 0);
+    const d = sum(den);
+    return d ? (sum(num) / d) * 100 : NaN;
   };
 
   // 集計列（累計・年間・上期・下期・四半期・年計）共通の値算出。
@@ -711,8 +703,9 @@ export function AnnualTotalTab({
   ): number => {
     if (data.isDiffRow && data.diffPlanRaw) return aggDiffValue(data, fields);
     if (data.ratioNumRaw && data.ratioDenRaw)
-      return aggRatioValue(data, fields);
-    if (data.aggNumRaw && data.aggDenRaw) return aggRateValue(data, fields);
+      return aggRatioOfSums(data.ratioNumRaw, data.ratioDenRaw, fields);
+    if (data.aggNumRaw && data.aggDenRaw)
+      return aggRatioOfSums(data.aggNumRaw, data.aggDenRaw, fields);
     return fields.reduce(
       (s, f) => s + (Number((data as Record<string, any>)[f]) || 0),
       0
@@ -1812,9 +1805,7 @@ ${note}`
                 background-color: transparent;
               }
 
-              .annual-total-grid .ag-row-hover .ag-cell {
-                background-color: var(--grid-row-hover) !important;
-              }
+              /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
 
               .annual-total-grid .ag-root-wrapper {
                 border: 1px solid var(--grid-grid-line);

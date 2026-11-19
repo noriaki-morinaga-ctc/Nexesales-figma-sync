@@ -56,25 +56,11 @@ export interface PlanDetailKeyRow {
   net?: string;
 }
 
-// 取引制度の別。マージン率固定とNET入力はKEYが同一のため1画面＝1種別として扱う。
-export type PlanTradingSystemKind = 'marginNet' | 'netFixed';
-
-// 拡売費削除確認ペインの表示切り替え。
-// 作成者は拡売費計画(紐づき無し)だけが表示するため、画面側から明示的に指定する。
-export interface ExpenseDeleteOptions {
-  showCreator?: boolean;
-}
-
 // 削除確認ペインが参照するシミュレーション明細行の項目。
 export interface SimulationKeyRow extends PlanDetailKeyRow {
   targetMonth?: string;
   campaign?: string;
   probability?: string;
-}
-
-// シミュレーション明細が持つ拡売費①②（接頭辞 exp1/exp2）。
-export interface SimulationExpenseRow {
-  [key: string]: unknown;
 }
 
 // 販売計画の検索条件で使う選択肢（末端組織／営業担当者／事業所／部署）。

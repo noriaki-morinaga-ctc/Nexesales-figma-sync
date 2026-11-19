@@ -101,6 +101,7 @@ interface ResizablePanelProps {
 
 // 高さをドラッグで拡縮できるパネル。children は height:100% で内部を埋める想定。
 // 単一の表（明細表・拡売費計画など）をそのまま包む用途に使う。
+// 規約例外（公開の部品）：02 の部品一覧に載せた共通部品（高さをドラッグで変えるエリアはこれを使う）。今は useResizableHeight・ResizeHandle を直接使う画面だけ
 export function ResizablePanel({
   children,
   defaultHeight = 500,

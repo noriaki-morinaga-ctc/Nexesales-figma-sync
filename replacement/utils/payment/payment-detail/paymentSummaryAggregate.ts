@@ -301,6 +301,8 @@ export interface SummaryValueRow {
   key: string;
   kind: SummaryRowKind;
   vals: Record<string, string>;
+  // 求めた値（丸める前の数値）。千円表示で、円で丸めた文字からもう一度丸めないために使う（→ convertSummaryCell）
+  raw?: Partial<Record<string, number>>;
 }
 
 // 率は小数1桁の百分率、金額・函数は整数の3桁区切りで表示する。数値でなければ空欄。
@@ -341,6 +343,11 @@ export const fillSummaryRowValues = <T extends SummaryValueRow>(
     );
     return {
       ...row,
+      raw: {
+        ...row.raw,
+        ...(payValue === undefined ? {} : { pay }),
+        ...(Number.isFinite(derived.diff) ? { diff: derived.diff } : {}),
+      },
       vals: {
         ...row.vals,
         pay:
@@ -359,3 +366,26 @@ export const fillSummaryRowValues = <T extends SummaryValueRow>(
       },
     };
   });
+
+// 金額のセルを表示単位（円／千円）に合わせて整形する（支払詳細 請求書有・請求書無の支払情報サマリ）。
+//  ・金額の行以外（函数・率）と、率の列（計画誤差率・前年比）は変えない
+//  ・千円は丸める前の数値（raw）から1回だけ丸める（円で丸めた文字から丸めると 1,499.6 → 1,500 → 2 のように2回丸めになる。
+//    → api/calculation-ownership.md K3）。raw が無い列（行定義の固定値）は表示の文字から求める
+//  ・数値でない値（「–」など）はそのまま
+export const convertSummaryCell = (
+  kind: SummaryRowKind,
+  convertible: boolean,
+  value: string,
+  unit: 'yen' | 'thousand',
+  raw?: number
+): string => {
+  if (unit === 'yen' || kind !== 'amount' || !convertible) return value;
+  const n =
+    raw !== undefined && Number.isFinite(raw)
+      ? raw
+      : parseFloat(value.replace(/,/g, ''));
+  if (!Number.isFinite(n)) return value;
+  const rounded = Math.round(n / 1000);
+  // -0 を「-0」と出さない
+  return (rounded === 0 ? 0 : rounded).toLocaleString();
+};

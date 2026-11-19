@@ -266,7 +266,7 @@ export function EvidenceViewerContent({
       onTimestamped?.(target.id, stampedAt);
     }, TIMESTAMP_INTERVAL_MS);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 付与の待ちの件数が変わったときだけ次の1件に付ける（並べたファイルの変化ではタイマーを掛け直さない）
   }, [isActive, pendingTimestampCount, onTimestamped]);
 
   const selected = orderedFiles[selectedIndex];
@@ -312,7 +312,7 @@ export function EvidenceViewerContent({
     setSelectedIndex(0);
     setRotation(0);
     setEditing(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 支払回数が変わったときだけ表示を初期化する（files の参照の変化では選択位置を戻さない）
   }, [paymentRound]);
 
   // ペイン開き直し・タブ切り替えで初期化
@@ -323,7 +323,7 @@ export function EvidenceViewerContent({
       setRotation(0);
       setEditing(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開き直し・タブ切替の合図（resetNonce）のときだけ初期化する
   }, [resetNonce]);
 
   // status/role が変わったら編集途中を破棄
@@ -404,7 +404,6 @@ export function EvidenceViewerContent({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoomPage, pageUrls.length, handlePrev, handleNext]);
 
   // D5: ダウンロードは常に原本（アップロードされたままの形式・ファイル名）。
@@ -553,7 +552,7 @@ export function EvidenceViewerContent({
     if (zoomPage === null || selectedPdfUrl) return;
     const img = zoomImgRef.current;
     if (img && img.complete && img.naturalWidth > 0) applyZoomImageFit(img);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 拡大するページ・ファイルが変わったときだけ画像の大きさを合わせ直す（applyZoomImageFit は描画のたびに作られる）
   }, [zoomPage, selectedIndex, selectedPdfUrl]);
 
   // 拡大表示中に資料を送ったときの整合を保つ。
@@ -567,7 +566,7 @@ export function EvidenceViewerContent({
       return;
     }
     if (pageUrls.length > 0 && zoomPage > pageUrls.length - 1) setZoomPage(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ここで zoomPage を変えるため、依存に入れると繰り返し動く。選んだファイルが変わったときだけ範囲を直す
   }, [selectedIndex, selectedPdfUrl, pageUrls.length]);
 
   useEffect(() => {

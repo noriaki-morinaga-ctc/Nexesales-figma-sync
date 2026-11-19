@@ -27,6 +27,7 @@ import {
   GRID_BASE_PROPS,
   gridFilterContextMenuItems,
   GRID_COLORS,
+  totalCellStyle,
   formatEmptyAsDash,
   useFormulaSourceHighlight,
   useGridColumnState,
@@ -85,6 +86,7 @@ import {
   giftRowSpan,
   costUnitPriceOf,
   recalcGiftLikeRates,
+  applyRateToRows,
   WHOLESALE_FORMULA_DEFS,
 } from '@/features/sales-plan/plan-detail-net-fixed/utils';
 import { buildDetailColumnDefs } from '@/features/sales-plan/plan-detail-net-fixed/utilsDetailColumns';
@@ -92,65 +94,14 @@ import { usePlanDetailRowHandlers } from '@/features/sales-plan/shared/plan-deta
 import { makeEmptyProduct } from '@/utils/sales-plan/plan-detail/planDetailEmptyRow';
 import { CHAIN_STORES } from '@/mocks/common/chainStore';
 import { SegmentToggle } from '@/components/shared/common/SegmentToggle';
+import type {
+  PlanDetailTableHandle,
+  PlanDetailTableProps,
+} from '@/types/planDetailPattern';
 
-export interface DetailTableHandle {
-  addCopiedRow: (data: ProductData) => void;
-  // 明細追加：フォーム値から新規行を生成し、最下行へ追加
-  addNewRow: (overrides: Partial<ProductData> & { section: string }) => void;
-  // 明細削除：一意な id で対象行を表から除去
-  deleteRow: (target: ProductData | string) => void;
-  // ギフト以外の明細編集を id 一致で更新（商品区分＝section で対象配列を選択）
-  updateRow: (data: ProductData) => void;
-  // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）
-  addGiftSet: (
-    base: Partial<ProductData>,
-    plans: [string, string, string]
-  ) => void;
-  // ギフト：セットをまるごと複製して新規セット（3行）を追加（コピー由来）
-  addCopiedGiftSet: (
-    base: Partial<ProductData>,
-    plans: [string, string, string]
-  ) => void;
-  // ギフト：セットの共通項目・各期間の計画(箱数)を更新
-  updateGiftSet: (
-    giftSetId: string,
-    base: Partial<ProductData>,
-    plans: [string, string, string]
-  ) => void;
-  // ギフト：セットの現在値を取得（編集ペインの初期表示用）
-  getGiftSet: (
-    giftSetId: string
-  ) => { base: ProductData; plans: [string, string, string] } | null;
-  // 計画保存時：明細コピー・明細追加の帯と編集セルの強調を消し、未保存状態を解除する
-  clearSavedMarks: () => void;
-}
-
-interface DetailTableProps {
-  onOpenFixedMargin?: () => void;
-  onOpenAddDetail?: (section: string) => void;
-  onDeleteDetail?: (data: ProductData) => void;
-  onOpenAnnualContract?: () => void;
-  onOpenCenterFee?: () => void;
-  onOpenWholesaleIncentive?: () => void;
-  // 前月計画コピー右ペイン。他の右ペインと排他表示するため開閉は親が管理する。
-  copyPaneOpen?: boolean;
-  onOpenCopyPane?: () => void;
-  onCloseCopyPane?: () => void;
-  // 各ペインで設定した値。**単位を含んだ表示用文字列**（率は `8.70%`、直接入力の金額は `123,000円`）。
-  // 金額に「%」を付けないため、単位は渡す側で付与する。
-  annualContractAvg?: string;
-  centerFeeAvg?: string;
-  wholesaleIncentiveAvg?: string;
-  // 年間計画／シミュレーションへの画面遷移コールバック
-  onNavigate?: (menuId: string) => void;
-  // 年間計画・シミュレーションのボタンを非活性にするか（取引制度を変更した後の対象年月）
-  isPlanNavigationDisabled?: boolean;
-  // グリッドの全明細行が変わったときに親へ通知する（販売計画(集計)の算出元）。
-  // 親側は必ず useCallback で安定化したハンドラを渡すこと（毎レンダリング再生成すると無限ループになる）。
-  onRowsChange?: (rows: ProductData[]) => void;
-  // 見出しの行の先頭に置く「販売計画(詳細)｜拡売費計画」の切替（親が持つ。UX-106）
-  sectionSwitch?: React.ReactNode;
-}
+// 明細の表の操作と props は計画詳細の骨組みと共通（→ types/planDetailPattern）
+type DetailTableHandle = PlanDetailTableHandle;
+type DetailTableProps = PlanDetailTableProps;
 
 export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
   function DetailTable(
@@ -160,8 +111,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       onOpenAnnualContract,
       onOpenCenterFee,
       onOpenWholesaleIncentive,
-      copyPaneOpen = false,
-      onOpenCopyPane,
+      copyPaneMode = null,
+      onOpenPlanCopy,
       onCloseCopyPane,
       annualContractAvg = '0.00%',
       centerFeeAvg = '0.00%',
@@ -337,7 +288,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const handleCopyRow = useCallback(
       (data: ProductData) => {
         // 行データを複製する
-        const copiedData = {
+        // 明細追加の行はフォームの値から、社外売上高・売上原価・値入額などを計算する（コピーは同じ値になる）
+        const copiedData = recalcGiftLikeRates({
           ...data,
           // コピー行には一意なIDを再採番（getRowId 衝突・編集時の源行巻き込みを防止）
           id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
@@ -348,7 +300,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             data._copySource === 'detail'
               ? productRowBlockKey(data)
               : undefined,
-        } as ProductData;
+        } as ProductData);
 
         // 追加・コピーした行へ移って強調する（行が反映された後に強調される）
         reveal.markRows([String(copiedData.id)]);
@@ -387,6 +339,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       setGiftProductsData,
       bumpGridRebuild,
       onRowsAdded: reveal.markRows,
+      recalcRow: recalcGiftLikeRates,
     });
 
     // Expose 行操作（追加・コピー・削除）to parent via ref
@@ -423,7 +376,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // ギフト以外の明細編集を id 一致で更新（商品区分＝section で対象配列を選択）
       // ※モーダル経由の編集は AG Grid のセル編集を通らず node.data が未更新のため、
       //   トークンを bump して rowData を再構築し新値を反映する（セル編集とは別経路）。
-      updateRow: (data: ProductData) => {
+      updateRow: (edited: ProductData) => {
+        // 編集した値から、社外売上高・売上原価・値入額などを計算し直す
+        const data = recalcGiftLikeRates(edited);
         if (data.section === '新商品') handleUpdateNewProduct(data);
         else if (data.section === '特殊商品')
           handleUpdatePromotionProduct(data);
@@ -501,10 +456,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             ? giftProductsData.filter((r) => r.giftSetId === data.giftSetId)
             : [data];
         const seq = Date.now();
+        // 合算・分けた計画函数から、社外売上高などを計算し直す
         const rows = buildCategoryChangeRows(sourceRows, newCategory, {
           newGiftSetId,
           newRowId: (i) => `new-${seq}-${i}`,
-        });
+        }).map(recalcGiftLikeRates);
         if (rows.length === 0) return;
         const removedIds = new Set(sourceRows.map((r) => r.id));
         // 変更前の区分の配列から取り除き、変更後の区分の配列へ入れ替える。
@@ -540,19 +496,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       const num = parseFloat(String(value).replace(/,/g, ''));
       return isNaN(num) ? 0 : num;
     };
-
-    // 前年実績×率% を計画函数へ反映するヘルパー（前年実績が無い行は据え置き）
-    const applyRateToRows = (rows: ProductData[], rate: number) =>
-      rows.map((row) => {
-        const base = parseNumber(row.prevYear);
-        if (base <= 0) return row;
-        return {
-          ...row,
-          plan: String(Math.round((base * rate) / 100)),
-          // 率は小数点以下2桁を四捨五入し、小数点以下1桁で表示する。
-          ratio: formatPlanRate(rate, PLAN_DETAIL_DIGITS.ratio),
-        };
-      });
 
     // 函数反映の確認ダイアログ表示状態
     const [isApplyConfirmShown, setIsApplyConfirmShown] = useState(false);
@@ -716,7 +659,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         _isHeader: false,
       };
       // isRowInActiveTab は activeTab・heldRowKeys から決まるため、それらを依存に置く。
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- isRowInActiveTab は activeTab・heldRowKeys から決まるため、それらを依存に置く
     }, [allData, activeTab, heldRowKeys, filteredRowIds]);
 
     // 列の定義（最初の描画で1回だけ作る。処理は utilsDetailColumns.tsx）
@@ -845,7 +788,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // allData は本文で参照するが依存には含めない（値編集で rowData 参照を変えず
       // Undo 履歴を維持するため、再生成は構造シグネチャ／再構築トークンの変化時のみに限定）。
       // 構造変化・非セル編集の値更新時は allData が最新のため rebuild に必要な値も最新。
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の編集で行データの参照を変えない（Undo 履歴を保つ → 02 §7.1）。構造が変わったときだけ作り直す
     }, [rowStructureSignature, activeTab, heldRowKeys, gridRebuildToken]);
 
     const getRowStyle = asRowStyle(
@@ -853,7 +796,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         // ピン留めされた行（合計行）
         if (params.node.rowPinned) {
           return {
-            backgroundColor: GRID_COLORS.total, // amber-100 - 商品に紐づかない拡売費と同じ色
+            ...totalCellStyle(),
             fontWeight: 'bold',
           };
         }
@@ -928,7 +871,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               <CopySourceLegend showReference={false} />
               {/* 一括操作：前月計画コピー（右ペインで実行。コピー元は前月計画で固定）・函数反映 */}
               <PlanBulkActionsMenu
-                onPlanCopy={() => onOpenCopyPane?.()}
+                onPlanCopy={() => onOpenPlanCopy?.()}
                 casePlanPercentage={casePlanPercentage}
                 onCasePlanPercentageChange={setCasePlanPercentage}
                 onApplyCasePlan={() => setIsApplyConfirmShown(true)}
@@ -1024,12 +967,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                     .sales-detail-grid .ag-cell.gift-actions-bottom {
                       border-bottom: 1px solid var(--grid-grid-line) !important;
                     }
-                    /* ホバー：行全体を薄いブルー（GRID_COLORS.rowHover）でハイライト。
-                       白・グレー系セルも含め、行内の全セルをブルーにする。 */
-                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell,
-                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell[style*="background-color"] {
-                      background-color: var(--grid-row-hover) !important;
-                    }
+                    /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
                     .sales-detail-grid .ag-row-pinned-top {
                       border-top: 2px solid var(--grid-pinned-row-border);
                     }
@@ -1096,7 +1034,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           ＝計画詳細(マージン率固定・NET入力)の「前月計画コピー」と同じ内容。 */}
         <PlanCopyPane
           chainStores={CHAIN_STORES}
-          open={copyPaneOpen}
+          open={copyPaneMode === 'plan'}
           onClose={onCloseCopyPane ?? (() => {})}
           title="前月計画コピー"
           showStoreSelection={false}

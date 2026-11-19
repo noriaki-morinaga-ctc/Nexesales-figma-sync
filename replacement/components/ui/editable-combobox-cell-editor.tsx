@@ -25,10 +25,6 @@ export interface EditableComboboxCellEditorParams {
   width?: string;
 }
 
-// 文字列配列を EditableCombobox の候補（value=label）へ変換するヘルパー。
-export const toEditableComboOptions = (
-  values: string[]
-): EditableComboboxOption[] => values.map((v) => ({ value: v, label: v }));
 
 export const EditableComboboxCellEditor = (
   props: CustomCellEditorProps & EditableComboboxCellEditorParams

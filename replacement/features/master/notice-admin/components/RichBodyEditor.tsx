@@ -296,14 +296,13 @@ export function RichBodyEditor({
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = blocksToHtml(initialBody);
     // 初期表示時のみ本文を流し込む（以降は contenteditable 側が正）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初期表示のときだけ本文を流し込む（以降は contenteditable 側が正）
   }, []);
 
   // 選択範囲の変化（カーソル移動含む）を監視してボタン状態を追従させる。
   useEffect(() => {
     document.addEventListener('selectionchange', refreshMarks);
     return () => document.removeEventListener('selectionchange', refreshMarks);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // contenteditable の現在の内容を本文ブロックへシリアライズ

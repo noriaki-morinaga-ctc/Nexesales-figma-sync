@@ -18,6 +18,7 @@ import { PlanDetailFooter } from './components/PlanDetailFooter';
 import {
   GRID_BASE_PROPS,
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_WRAP_HEADER_COL_DEF,
   revertNonNumericValueParser,
@@ -149,8 +150,7 @@ const gridOverrideStyles = (prefix: string) => `
   .${prefix} .ag-header-cell-menu-button { display: none !important; }
   /* データ行は themeBalham 本来の表示を継承し、レイアウト（横余白）のみ指定する。 */
   .${prefix} .ag-cell { padding: 0 0.5rem; transition: background-color 0.2s ease; }
-  /* ホバー：手売りと同じく、編集可(白)・編集不可(灰)・合計(薄青)のセルも含め行全体を薄青にする（→ UI/UX UX-082）。 */
-  .${prefix} .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell { background-color: var(--grid-row-hover) !important; }
+  /* ホバーは手売りと同じく共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
   .${prefix} .ag-cell-left-pinned { background-color: inherit !important; }
   .${prefix} .ag-cell-right { text-align: right; justify-content: flex-end; }
   .${prefix} .ag-cell-left { text-align: left !important; justify-content: flex-start !important; display: flex !important; align-items: center !important; }
@@ -1193,7 +1193,6 @@ export default function PlanDetailVending() {
     if (!isDiffMode)
       return { text: String(current), color: GRID_COLORS.neutralText };
     return calcHeaderDiff(current, PREV_YEAR_SHIPPING_WORKING_DAYS);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDiffMode]);
 
   const shukkaYoyRatio = useMemo(() => {
@@ -1220,7 +1219,6 @@ export default function PlanDetailVending() {
         .map((ref) => excelRefToCellId(ref))
         .filter((cell): cell is { rowIndex: number; colId: string } => !!cell)
         .map((cell) => `${cell.rowIndex}-${cell.colId}`),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [salesPlanData]
   );
 
@@ -1370,9 +1368,9 @@ export default function PlanDetailVending() {
     if (rowIndex === 0) {
       // 強調（青/緑/オレンジ）は枠線だけで示し、背景は元の配色を保つ。
       const bg = isEditable ? GRID_COLORS.editable : GRID_COLORS.total;
-      return {
+      // 合計行の印（太字・下の濃い線）は totalCellStyle。強調の枠（border）があればそちらが優先される
+      return totalCellStyle({
         backgroundColor: bg,
-        fontWeight: 'bold',
         cursor: isEditable ? 'pointer' : 'default',
         border: isClicked
           ? CLICK_HIGHLIGHT_BORDER
@@ -1381,7 +1379,7 @@ export default function PlanDetailVending() {
             : isHighlighted
               ? REF_HIGHLIGHT_BORDER
               : undefined,
-      };
+      });
     }
 
     // 親行の場合は薄いグレーの背景色（ただし条件口=showAsValue は
@@ -1433,9 +1431,9 @@ export default function PlanDetailVending() {
     if (rowIndex === 0) {
       // 強調（青/緑/オレンジ）は枠線だけで示し、背景は元の配色を保つ。
       const bg = isEditable ? GRID_COLORS.editable : GRID_COLORS.total;
-      return {
+      // 合計行の印（太字・下の濃い線）は totalCellStyle。強調の枠（border）があればそちらが優先される
+      return totalCellStyle({
         backgroundColor: bg,
-        fontWeight: 'bold',
         cursor: isEditable ? 'pointer' : 'default',
         border: isClicked
           ? CLICK_HIGHLIGHT_BORDER
@@ -1444,7 +1442,7 @@ export default function PlanDetailVending() {
             : isHighlighted
               ? REF_HIGHLIGHT_BORDER
               : undefined,
-      };
+      });
     }
 
     // 強調（青/緑/オレンジ）は枠線だけで示し、背景は元の配色を保つ。
@@ -1827,10 +1825,8 @@ export default function PlanDetailVending() {
   const computeCatPlanValues = (api: any): Record<number, number> => {
     const num = (v: any) =>
       parseFloat(String(v ?? '0').replace(/[,%]/g, '')) || 0;
-    const rateOf = (v: any, def: string) => {
-      const r = num(v ?? def);
-      return r > 1 ? r / 100 : r;
-    };
+    // 率は百分率の数（'21%'・19 など）で持つため、いつも 100 で割る
+    const rateOf = (v: any, def: string) => num(v ?? def) / 100;
     const getData = (idx: number) =>
       api?.getDisplayedRowAtIndex(idx)?.data ??
       expensePlanDataRef.current[idx] ??

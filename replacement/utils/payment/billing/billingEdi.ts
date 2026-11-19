@@ -1,14 +1,4 @@
 // 請求EDI取込の処理（→ 04 §画面ディレクトリ構成「共通の処理」）
-import type { ProductCodeType } from '@/types/billingEdi';
-
-/** GTIN の先頭ゼロを除き、JAN の変換ルールへ合流できる形にする（8-04 EDI打合せ 決定2）。 */
-export const normalizeProductCode = (
-  productCodeOriginal: string,
-  productCodeType: ProductCodeType | ''
-): string =>
-  productCodeType === 'GTIN'
-    ? productCodeOriginal.replace(/^0+/, '')
-    : productCodeOriginal;
 
 /**
  * 商流販売店変換マスタのキー。請求元企業事業所コードがあれば①、無ければ②の組合せで1件を表す。

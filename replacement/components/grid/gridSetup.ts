@@ -53,6 +53,9 @@ export function setupAgGrid(): void {
     // 列幅で省略されたときだけツールチップを出す（画面設計標準 4.2 ⑥）。
     // 計算式をツールチップで見せるグリッドは、画面側で tooltipShowMode="standard" にする
     tooltipShowMode: 'whenTruncated',
+    // 列幅の自動調整で測った幅に足す余白（AG Grid の既定は 20px）。半角1文字分（約6px）狭くする試作
+    //（UI/UX 確認用モックのコメント #14「自動調整をもう半角くらい狭く」。結論が出たら規約に書く）
+    autoSizePadding: 14,
     // 並べ替えの印は ▲▼ を上下に並べた形（今の向きを濃く。並べ替え中の列だけ。→ grid/gridCommon・UX-098）
     icons: GRID_SORT_ICONS,
     // 件数表示（statusBar）を付けないグリッドにも、非表示の列があるときだけ「非表示の列：N列　列選択」を出す

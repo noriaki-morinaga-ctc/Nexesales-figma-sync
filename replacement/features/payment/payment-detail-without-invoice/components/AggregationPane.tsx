@@ -28,6 +28,7 @@ import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
 import {
   fillSummaryRowValues,
+  convertSummaryCell,
   summaryPayValuesOf,
   type SummaryDetailTotals,
   type SummaryRowKind,
@@ -107,6 +108,8 @@ interface RowDefItem {
   planFormula?: FormulaTemplate;
   note?: string;
   vals: Record<string, string>;
+  // 求めた値（丸める前の数値。fillSummaryRowValues が入れる）。千円表示の丸めに使う
+  raw?: Partial<Record<string, number>>;
 }
 
 // 販売計画書・前年実績の列は固定値。全支払回数の明細から求めた支払・実績情報と並べて
@@ -330,21 +333,6 @@ const ROW_LABELS: Record<string, string> = Object.fromEntries(
   ROWS.map((r) => [r.key, r.label])
 );
 
-// 金額セルを表示単位（円／千円）に応じて整形する。
-//  ・金額行以外（函数・各種率）と、率の列（計画誤差率・前年比）は変換しない
-//  ・数値でない値（–等）はそのまま
-const convertCell = (
-  kind: RowKind,
-  convertible: boolean,
-  value: string,
-  unit: 'yen' | 'thousand'
-): string => {
-  if (unit === 'yen' || kind !== 'amount' || !convertible) return value;
-  const n = parseFloat(value.replace(/,/g, ''));
-  if (!Number.isFinite(n)) return value;
-  return Math.round(n / 1000).toLocaleString();
-};
-
 // 値セルの並べ替え比較。セル値は「1,234」「10.0%」等の整形済み文字列のため、
 // 数値へ戻して比較する。数値化できない値は常に末尾へ寄せる。
 const compareValueCells = (a: string, b: string): number => {
@@ -482,11 +470,12 @@ export function AggregationPane({
     for (const r of rows) {
       const vals: Record<string, string> = {};
       for (const c of COLS) {
-        vals[c.key] = convertCell(
+        vals[c.key] = convertSummaryCell(
           r.kind,
           !!c.convertible,
           r.vals[c.key] ?? '',
-          displayUnit
+          displayUnit,
+          r.raw?.[c.key]
         );
       }
       map.set(r.key, vals);

@@ -1,6 +1,6 @@
-# Figma Make 取り込み用（main d55d8b70 時点の src 一式）
+# Figma Make 取り込み用（main c2c58620 時点の src 一式）
 
-今回から src のフォルダー構成が変わりました（画面・部品・処理を src/app の外へ移しています）。
+前回の取り込み（main 3c9dec4f）から src のフォルダー構成が変わりました（画面・部品・処理を src/app の外へ移しています）。
 
 Figma Make への指示：
 

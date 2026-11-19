@@ -223,7 +223,6 @@ export function SimulationReferenceTable({
         },
         // 拡売費①②は表示しない（コピー実行時に空欄＝「ー」で取り込むため）
       ],
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       [showWholesaleMesh]
     );
 

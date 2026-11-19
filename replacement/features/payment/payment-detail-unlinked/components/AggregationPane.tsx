@@ -419,18 +419,16 @@ export function AggregationPane({
                   grid.css の共通指定（左寄せ）に委譲する。 */}
               <style>{`
               /* 以下の1行ハイライトは、各セルの cellStyle 背景を上書きするため全セルを対象にする。
-                 ホバー行はセル背景を透明にし、テーマが行へ塗るホバー色を見せる。 */
-              .jbr-expense-summary-grid .ag-row-hover .ag-cell {
-                background-color: transparent !important;
-              }
+                 ホバーは共通（grid.css）の上下の青い線と左端の青い帯。セルの背景（白・灰）は変えない（UX-117） */
               /* 計画差異が大きい行：赤背景 */
               .jbr-expense-summary-grid .ag-row.expense-summary-alert .ag-cell {
                 background-color: var(--expense-alert-bg) !important;
               }
-              /* 合計行：薄い青背景・太字 */
+              /* 合計行：背景は白・太字・下に濃い線（共通の合計行 → 02 §7。UX-117） */
               .jbr-expense-summary-grid .ag-row.expense-summary-total .ag-cell {
                 background-color: var(--expense-total-bg) !important;
                 font-weight: 700;
+                box-shadow: inset 0 -2px 0 var(--grid-total-row-border);
               }
               /* 値を変えたセル（差異理由）は、赤背景の行の中でも共通の変更ハイライト（薄い黄）を出す（→ 02 §7.2） */
               .jbr-expense-summary-grid .ag-row .ag-cell.ag-cell-changed {

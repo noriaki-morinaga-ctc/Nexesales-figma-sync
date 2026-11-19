@@ -1,5 +1,4 @@
 import type { SelectOption } from '@/types/master';
-import { getPromotionLabels } from '@/utils/sales-plan/common/promotionCategories';
 
 const toOptions = (labels: string[]): SelectOption[] =>
   labels.map((label) => ({ value: label, label }));
@@ -47,15 +46,8 @@ export const PROMOTION_LABELS_BY_CATEGORY: Record<string, string[]> = {
   特殊商品: ['特殊商品'],
 };
 
-// 販促区分リストを持つ商品区分（特殊商品以外）
-export const PROMOTABLE_CATEGORIES = ['定番商品', '特売', '新商品', 'ギフト'];
-
 // 販促区分が存在しない場合に表示する記号（特殊商品など）
 export const PROMOTION_NONE_LABEL = '-';
-
-// 指定した商品区分の販促区分オプション（value/label）配列を返す
-export const getPromotionOptions = (category: string): SelectOption[] =>
-  toOptions(getPromotionLabels(category));
 
 // ===== 商品区分の選択肢（画面種別ごと） =====
 // マージン率固定・NET入力画面: 定番商品 / 新商品 / 特売 / ギフト
@@ -83,4 +75,3 @@ export const CATEGORY_LABELS_ANNUAL = [
   'ギフト',
   '特殊商品',
 ];
-export const CATEGORY_OPTIONS_ANNUAL = toOptions(CATEGORY_LABELS_ANNUAL);

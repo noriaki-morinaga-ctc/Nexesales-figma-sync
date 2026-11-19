@@ -32,6 +32,7 @@ import {
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
   GRID_COLORS,
+  totalCellStyle,
   gridFilterContextMenuItems,
   withHeaderTooltips,
   useChangedCells,
@@ -1230,7 +1231,7 @@ export const NonProductExpensePane = forwardRef<
   // 合計行は薄い青（gridStyles の total）、通常データ行（非活性列）は灰（readonly）。
   const groupStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
-      ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+      ? totalCellStyle()
       : { backgroundColor: GRID_COLORS.readonly }
   );
 
@@ -1244,8 +1245,7 @@ export const NonProductExpensePane = forwardRef<
   // 操作ウィジェット列（販売計画選択・費用分割）用：データ行は白背景。
   // 合計行（グループ合計・総合計）は薄い青。分割先行は非活性（灰）。
   const widgetStyle = asCellStyle((params: any) => {
-    if (params.data?.isGroup || params.data?.isTotal)
-      return { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
+    if (params.data?.isGroup || params.data?.isTotal) return totalCellStyle();
     if (isSplitDestRow(params))
       return { backgroundColor: GRID_COLORS.readonly };
     return { backgroundColor: GRID_COLORS.editable };
@@ -1318,8 +1318,7 @@ export const NonProductExpensePane = forwardRef<
   // 枝番行だけを活性にする列のセル背景（活性＝白／非活性＝灰。合計行は薄い青）。
   const branchCellStyle = (isEditable: (params: any) => boolean) =>
     asCellStyle((params: any) => {
-      if (params.data?.isGroup || params.data?.isTotal)
-        return { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
+      if (params.data?.isGroup || params.data?.isTotal) return totalCellStyle();
       return isEditable(params)
         ? { backgroundColor: GRID_COLORS.editable }
         : { backgroundColor: GRID_COLORS.readonly };
@@ -1911,7 +1910,7 @@ export const NonProductExpensePane = forwardRef<
         cellStyle: widgetStyle,
       },
     ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列の定義は初回だけ作る（表示中に参照を変えない → 02 §7.1。行ごとの値は書式の関数の中で読む）
   }, []);
 
   const defaultColDef: ColDef = useMemo(

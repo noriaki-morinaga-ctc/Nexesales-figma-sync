@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { readStoredJson, writeStoredJson } from '@/utils/common/browserStorage';
 
 // ===== お知らせ 共有 in-memory ストア（モック・バックエンドなし） =====
 // お知らせメンテ画面(NoticeAdminScreen)が使用する（TOP画面との共有は未対応）。
@@ -57,12 +58,6 @@ export interface NoticeItem {
 // 一覧表示・新着判定の基準時刻（モック用の固定 NOW）
 export const NOW_STR = '2026/06/26 00:00';
 
-export const STATUS_LABEL: Record<NoticeStatus, string> = {
-  draft: '下書き',
-  published: '公開',
-  withdrawn: '取下げ',
-};
-
 // 表示用の派生ステータス（保存ステータス＋掲載期間から算出）
 export type DisplayStatus =
   | 'draft'
@@ -86,10 +81,6 @@ export const displayStatus = (
   if (n.endAt && n.endAt < NOW_STR) return 'ended';
   return 'open';
 };
-
-// 一般画面（TOP）に出すのは「公開中」のみ
-export const isNoticeVisible = (n: NoticeItem): boolean =>
-  !n.deleted && displayStatus(n) === 'open';
 
 // ===== 本文レンダリング・ヘルパ（実体は components/NoticeBody に集約・再エクスポート） =====
 export {
@@ -440,23 +431,15 @@ let allNotices: NoticeItem[] = [
 // v2：試験操作で増えた複製・下書きを全員分リセットするためキーを更新（2026/10/22）
 const STORAGE_KEY = 'nextsales-notices-v2';
 const loadSaved = (): NoticeItem[] | null => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length
-      ? (parsed as NoticeItem[])
-      : null;
-  } catch {
-    return null;
-  }
+  const parsed = readStoredJson(STORAGE_KEY);
+  return Array.isArray(parsed) && parsed.length
+    ? (parsed as NoticeItem[])
+    : null;
 };
 const persist = () => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allNotices));
-  } catch (e) {
+  if (!writeStoredJson(STORAGE_KEY, allNotices)) {
     // 容量超過等。保存失敗してもアプリ動作は継続する
-    console.warn('お知らせの保存に失敗しました', e);
+    console.warn('お知らせの保存に失敗しました');
   }
 };
 {

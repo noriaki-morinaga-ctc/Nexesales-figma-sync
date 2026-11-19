@@ -1,14 +1,6 @@
 // 集計（集計軸・表示項目・集計ツリー・集計元データ）の型（型だけを書く → 04 §画面ディレクトリ構成「共通の型」）
 import type { FormulaTemplate } from '@/components/grid/gridCommon';
 
-// 集計単位の種別（全体／メタブランド／容器容量G のみ）
-export type AggregationUnit = 'all' | 'meta-brand' | 'container-capacity';
-
-export interface AggregationUnitOption {
-  value: AggregationUnit;
-  label: string;
-}
-
 // 集計表の表示項目定義 ─ 課題0255/0288/0450
 // 30項目を、各集計ビューごとに「常時表示／＋ボタンで表示可／非表示」で出し分けるための
 // 単一の情報源（Single Source of Truth）。資料 XLSX「各シートの役割」シート（列E〜H）に準拠。
@@ -49,12 +41,6 @@ export interface AggregationDisplayItem {
   // ビューごとの表示判定
   visibility: Record<AggregationView, DisplayVisibility>;
 }
-
-// 将来、ASD管理者が×項目を〇/△へ変更できるようにするための上書き口（課題スライド4【相談】）。
-// 現状は上書き無し。overrides を渡すと該当ビューの判定だけ差し替える。
-export type DisplayOverrides = Partial<
-  Record<number, Partial<Record<AggregationView, DisplayVisibility>>>
->;
 
 // 集計対象から除外する組合せ（メタブランド value × 容器容量G value）─ 課題0290。
 //

@@ -368,7 +368,6 @@ export function DetailTable({
       if (params.node) params.api.redrawRows({ rowNodes: [params.node] });
     },
     // resolveStoreStatus は素の関数のため依存に含めない（毎レンダー同一の判定）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 

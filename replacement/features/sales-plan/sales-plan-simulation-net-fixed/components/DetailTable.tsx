@@ -27,6 +27,7 @@ import {
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
   GRID_COLORS,
+  totalCellStyle,
   GRID_STATUS_BAR,
   formatEmptyAsDash,
   gridFilterContextMenuItems,
@@ -76,6 +77,8 @@ import {
   getDetailRowId,
   costUnitPriceOf,
   withBaseline,
+  withRecomputed,
+  withGiftBaseline,
   giftRowSpan,
   makeEmptyProduct,
   WHOLESALE_SIM_FORMULA_DEFS,
@@ -374,7 +377,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // 企画単位集計データを集計表へ通知（明細データ・集計の対象期間の変更時のみ実行）
     useEffect(() => {
       onCampaignDataChange?.(buildCampaignSummary());
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 明細の値・集計の対象期間が変わったときだけ通知する（関数の参照の変化では通知しない）
     }, [aggregationPeriodData]);
 
     // 区分タブの絞り込み
@@ -513,8 +516,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       (data: ProductData) => {
         // 拡売費①②の計上年月は詳細の対象期間 from の翌月を設定する（金額等は空のまま）
         const postingMonth = addMonths(targetPeriodFrom, 1);
-        // 行データを複製する
-        const copiedData: ProductData = {
+        // 行データを複製し、拡売費を空にした・明細追加で値を入れた行の売上高・管理利益などを計算し直す
+        const copiedData: ProductData = withRecomputed({
           ...data,
           // コピー行には一意な id を再採番（getRowId 衝突・編集時の源行巻き込みを防止）
           id: `copy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
@@ -554,7 +557,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           // 拡売費の中身は空でも、行を作ったのはログインユーザーのため作成者を設定する。
           exp1Creator: CURRENT_USER_NAME,
           exp2Creator: CURRENT_USER_NAME,
-        };
+        });
 
         // コピーした行を強調対象にする（行が反映された後に強調される）
         reveal.markRows([String(copiedData.id)]);
@@ -599,16 +602,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       },
       [handleCopyRow]
     );
-
-    // ギフト行の比較基準（変更前）を補完（初期表示では変更前=変更後で増減0）。
-    const withGiftBaseline = (row: ProductData): ProductData => {
-      const copy = { ...row } as unknown as Record<string, string | undefined>;
-      COMPARISON_FIELDS.forEach((f) => {
-        copy[`${f}Before`] = copy[f] ?? '';
-        copy[`${f}After`] = '';
-      });
-      return copy as unknown as ProductData;
-    };
 
     // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）。
     const handleAddGiftSet = useCallback(
@@ -692,7 +685,9 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             if (r.giftSetId !== giftSetId) return r;
             const idx = giftPeriodIndex(r.period);
             const plan = plans[idx] ?? r.plan;
-            return {
+            // 納価・NET・売価・函数の変更に合わせて、マージン率・値入率・社外売上高・管理利益などを計算し直す
+            // （セル編集と同じ計算。マージン率固定のシミュレーションと同じ）
+            return withRecomputed({
               ...r,
               ...base,
               section: 'ギフト',
@@ -701,7 +696,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               giftSetId,
               period: r.period,
               plan,
-            };
+            } as ProductData);
           });
         setGiftProductsData(upd);
         // セル編集を通らない値更新のため rowData を作り直して新値を反映する。
@@ -770,9 +765,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         } as ProductData);
       },
       updateRow: (data: ProductData) => {
+        // 編集した値から、売上高・管理利益などを計算し直す（セル編集と同じ計算。比べる基準の値は変えない）
         const upd = (prev: ProductData[]) =>
           prev.map((item) =>
-            item.id === data.id ? { ...item, ...data } : item
+            item.id === data.id ? withRecomputed({ ...item, ...data }) : item
           );
         setRegularProductsData(upd);
         setNewProductsData(upd);
@@ -1141,7 +1137,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       };
       return [total];
       // parseMetric は純粋関数のため依存に含めない
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visibleRows, filteredRowIds]);
 
     // 行の構造シグネチャ（表示行の行ID＋ギフトセット＋挿入順）。セル値の編集では変化せず、
@@ -1194,7 +1189,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // visibleRows は本文で参照するが依存には含めない（値編集で rowData 参照を変えず
       // Undo 履歴を維持するため、作り直しは構造シグネチャ／再構築トークンの変化時のみに限定）。
       // 構造変化・セル編集を通らない値更新の時点では visibleRows が最新のため、作り直す値も最新。
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の編集で行データの参照を変えない（Undo 履歴を保つ → 02 §7.1）。構造が変わったときだけ作り直す
     }, [rowStructureSignature, gridRebuildToken]);
 
     const getRowStyle = asRowStyle(
@@ -1202,7 +1197,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         // ピン留めされた行（合計行）
         if (params.node.rowPinned) {
           return {
-            backgroundColor: GRID_COLORS.total, // amber-100 - 商品に紐づかない拡売費と同じ色
+            ...totalCellStyle(),
             fontWeight: 'bold',
           };
         }
@@ -1366,13 +1361,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                     .sales-detail-grid .ag-cell.gift-actions-bottom {
                       border-bottom: 1px solid var(--grid-grid-line) !important;
                     }
-                    /* ホバー：行全体を薄いブルー（GRID_COLORS.rowHover）でハイライト。
-                       白・グレー系（反映済・不採用のグレーアウト含む）も含め、
-                       行内の全セルをブルーにする。 */
-                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell,
-                    .sales-detail-grid .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell[style*="background-color"] {
-                      background-color: var(--grid-row-hover) !important;
-                    }
+                    /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
                     /* マイナス値の赤字表示を維持（ホバー時も） */
                     .sales-detail-grid .ag-cell[style*="color: rgb(220, 38, 38)"] {
                       color: var(--grid-decrease-text) !important;

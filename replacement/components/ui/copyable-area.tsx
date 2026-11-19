@@ -51,12 +51,14 @@ const resolveCopyText = (target: EventTarget | null): string => {
   return '';
 };
 
-/** 文字をクリップボードへコピーする。失敗したときだけトーストで知らせる */
-export const copyText = async (text: string): Promise<void> => {
+/** 文字をクリップボードへコピーする。失敗したときだけトーストで知らせる（戻り値＝コピーできたか） */
+export const copyText = async (text: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(text);
+    return true;
   } catch {
     toast.error('コピーできませんでした');
+    return false;
   }
 };
 

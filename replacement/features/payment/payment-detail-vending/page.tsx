@@ -416,7 +416,7 @@ export default function PaymentDetailVending() {
     () => activeDetailData,
     // activeDetailData は本文で参照するが依存には含めない（値編集で参照を変えないため）。
     // 構造変化時は最新の activeDetailData が渡る。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の編集で行データの参照を変えない（Undo 履歴を保つ → 02 §7.1）。構造が変わったときだけ作り直す
     [detailRowStructureSignature]
   );
 
@@ -1227,28 +1227,24 @@ export default function PaymentDetailVending() {
             height: auto;
           }
           /* 以下の1行ハイライトはいずれも、各セルの cellStyle 背景（白/グレー）を
-             上書きするため全セルを対象にする。
-             ホバー行はセル背景を透明にし、テーマが行(.ag-row)へ塗るホバー色を見せる
-             （セルに直接ホバー色を塗ると行側の塗りと二重になり濃く見えるため）。 */
-          .expense-item-grid .ag-row-hover .ag-cell,
-          .expense-summary-grid .ag-row-hover .ag-cell {
-            background-color: transparent !important;
-          }
+             上書きするため全セルを対象にする。ホバーは共通（grid.css）の上下の青い線と左端の青い帯（UX-117） */
           /* 計画差異が大きい行（ロケ運転費）：赤背景 */
           .expense-summary-grid .ag-row.expense-summary-alert .ag-cell {
             background-color: var(--expense-alert-bg) !important;
           }
-          /* 集計行（合計・営業経費・自販機関係費）：薄い青背景・太字 */
+          /* 集計行（合計・営業経費・自販機関係費）：背景は白・太字・下に濃い線（共通の合計行 → 02 §7。UX-117） */
           .expense-summary-grid .ag-row.expense-summary-aggregate .ag-cell {
             background-color: var(--expense-subtotal-bg) !important;
             font-weight: 700;
+            box-shadow: inset 0 -2px 0 var(--grid-total-row-border);
           }
           /* 区切り行（営業経費・自販機関係費）：計画詳細(自販機)の経費計画グリッドと
-             同じ区切り行色（グレー）＋太字なし（太字は合計行のみ → 02 §7）。
-             上の集計行ルールと同じ詳細度のため、後に書いて背景と文字ウェイトを上書きする。 */
+             同じ区切り行の配色（グレーの背景・濃いグレーの太字 → 02 §7。UX-117）。
+             上の集計行ルールと同じ詳細度のため、後に書いて背景・文字・下の線を上書きする。 */
           .expense-summary-grid .ag-row.expense-summary-section .ag-cell {
             background-color: var(--expense-section-bg) !important;
-            font-weight: 400;
+            color: var(--grid-section-row-text);
+            box-shadow: none;
           }
         `}</style>
 

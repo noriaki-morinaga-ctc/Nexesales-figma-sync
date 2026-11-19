@@ -8,11 +8,13 @@ import type { CellStyle } from 'ag-grid-community';
 // （inline style は原則禁止だが、AG Grid の cellStyle コールバックは設計標準で許可）
 export const GRID_COLORS = {
   editable: '#ffffff', // 編集可セル：白
-  readonly: '#e8e8e8', // 編集不可セル：灰（全画面共通）
+  readonly: '#f3f4f6', // 編集不可セル：薄い灰（gray-100。全画面共通。UX-117）
   inheritedText: '#4b5563', // 継承表示（親行の値をそのまま参照表示する等）：グレー文字（gray-600。編集不可の灰のセルの上でもコントラスト 4.5:1 以上 → 06）
-  total: '#dbeafe', // 合計・集計行：薄い青
+  // 合計・集計行：背景は塗らない（白）。太字と下の濃い線（totalRowBorder）で示す（UX-117）。セルは totalCellStyle で付ける
+  total: '#ffffff',
+  totalRowBorder: '#374151', // 合計行の下の線：濃いグレー（gray-700・2px）
   planValue: '#ffffff', // 計画値：白系
-  actualValue: '#f3f4f6', // 実績値：灰系（計画値と区別）
+  actualValue: '#f9fafb', // 実績値：ごく薄い灰（gray-50。計画値の白・編集不可の gray-100 と区別）
   changedBg: '#fefce8', // 入力変更セル背景：薄い黄（yellow-50。枠は付けない＝UX-035）
   // 下ペインの「選択内容を反映」等で値が入ったセルの背景：薄い水色。
   // 入力変更（薄い黄）と区別し、どのセルに反映されたかをその場で分かるようにする。
@@ -49,17 +51,17 @@ export const GRID_COLORS = {
   gridLine: '#e5e7eb',
   // 行ハイライト（1行全体）。CSSクラスによる行強調で使用する。
   // データ種の区切り（見出し）行：グレー。値を持たない見出し行の背景に使う。
-  // 編集不可セル（readonly）より一段濃くして「行の集まりの境目」を示す。
-  // ※ 太字は合計行のみとする設計標準に合わせ、見出し行は太字にしない。
-  sectionRowBg: '#d1d5db',
+  // 編集不可セル（readonly）より一段濃くして「行の集まりの境目」を示す。文字は太字・濃いグレー（UX-117）。
+  sectionRowBg: '#e5e7eb', // gray-200
+  sectionRowText: '#374151', // gray-700
   alertRowBg: '#fecaca', // 警告行（計画差異が大きい等）：赤系
   // 期限超過のセルの背景：薄い赤（grid.css の .cell-overdue。UI/UX UX-028 → 02 §7「期限超過の表示」）
   overdueBg: '#fecaca',
   overBilledBg: '#fca5a5', // 超過行（計画NET−請求NETの超過等）：濃いめの赤系
   localeContractRowBg: '#dcfce7', // 読み取り専用の特例行（ロケ契約料等）：緑系
-  // 行ホバー背景：薄い青。GRID_THEME（gridCommon.ts）の rowHoverColor（公式Theming API）と、
-  // grid.css の inline背景セル用 !important 上書き（--grid-row-hover で参照）の両方で使う。
-  rowHover: '#f0f9ff',
+  // 行ホバー：背景は塗らず、行の上下の青い線＋左端の青い帯で示す（grid.css の .ag-row-hover。UX-117）。
+  // GRID_THEME の rowHoverColor は透明にする（セルの背景〔編集可否の白・灰〕を変えない）。
+  rowHoverLine: '#2563eb', // blue-600
   // ヘッダー（列見出し）：薄い青の背景・紺の文字・列の区切りは上下を空けた薄いグレーの線
   // （UI/UX分科会 決定事項21＝宮澤案。GRID_THEME の headerBackgroundColor 等で使う。UX-031）
   headerBackground: '#eaf0fb',
@@ -92,7 +94,7 @@ export const GRID_COLORS = {
   strongDivider: '#d1d5db', // 濃いめの区切り線（項目の境目・四半期の境目・見出しの縦線）
   editingBg: '#fef08a', // 編集中のセルの背景：黄
   editingBorder: '#fbbf24', // 編集中のセルの枠：濃い黄
-  rejectedBg: '#f3f4f6', // 不採用行の背景：readonly より薄い灰（変更できる行と区別）
+  rejectedBg: '#f9fafb', // 不採用行の背景：readonly より薄い灰（gray-50。変更できる行と区別）
   treeLevel1Bg: '#f9fafb', // 集計ツリーの2階層目のラベル列：ごく薄いグレー
   treeLevel2Bg: '#f3f4f6', // 集計ツリーの3階層目のラベル列：薄いグレー
   detailRowBg: '#f9fafb', // 展開した詳細行（masterDetail）の背景：ごく薄いグレー
@@ -177,6 +179,14 @@ export function copySourceLeftBorder(
   return { borderLeft: `0.25rem solid ${COPY_SOURCE_COLORS[copySource]}` };
 }
 
+// 合計行・区切り行のスタイル関数に渡す追加のスタイル（強調の枠など、値が無いときの undefined も渡せる）
+type CellStyleInput = Record<string, string | number | undefined>;
+
+// 値の無い（undefined の）項目を捨てる。AG Grid は undefined の項目をスタイルから消すため、
+// 渡したままにすると、ほかの指定（強調の枠など）とぶつかって消えることがある
+const definedStyle = (base: CellStyleInput): CellStyleInput =>
+  Object.fromEntries(Object.entries(base).filter(([, v]) => v !== undefined));
+
 // 行種別（計画／実績／合計）に対応する背景色を返す。
 export type RowKind = 'plan' | 'actual' | 'total';
 
@@ -192,9 +202,55 @@ export function rowKindColor(kind: RowKind): string {
   }
 }
 
-// 行種別に応じた背景色の cellStyle を返す（base に追加スタイルをマージ可能）。
-export function rowKindBg(kind: RowKind, base: CellStyle = {}): CellStyle {
-  return { backgroundColor: rowKindColor(kind), ...base };
+// 行種別に応じた背景色の行のスタイル（getRowStyle 用）を返す（base に追加スタイルをマージ可能）。
+export function rowKindBg(kind: RowKind, base: CellStyleInput = {}): CellStyle {
+  // 行（getRowStyle）に付けるため、合計行の下の線は行の下の枠で描く（セルの内側の影は行では隠れる）
+  if (kind === 'total')
+    return {
+      backgroundColor: GRID_COLORS.total,
+      fontWeight: 'bold',
+      borderBottom: `2px solid ${GRID_COLORS.totalRowBorder}`,
+      ...definedStyle(base),
+    } as CellStyle;
+  return { backgroundColor: rowKindColor(kind), ...base } as CellStyle;
+}
+
+// 合計・集計行のセルの cellStyle（背景は白・太字・下に濃い 2px の線。UX-117）。
+// 合計行のセルは背景色だけでなく、必ずこれで付ける（下の線が合計行の印になる）。base に追加のスタイルをマージできる。
+type TotalCellStyle = Record<
+  'backgroundColor' | 'fontWeight' | 'boxShadow',
+  string
+>;
+export function totalCellStyle(): TotalCellStyle;
+export function totalCellStyle<T extends CellStyleInput>(
+  base: T
+): TotalCellStyle & T;
+export function totalCellStyle(base: CellStyleInput = {}): CellStyleInput {
+  return {
+    backgroundColor: GRID_COLORS.total,
+    fontWeight: 'bold',
+    // 下の線はセルの内側の影で描く（border だとセルの右の透明な枠との角が欠けるため）
+    boxShadow: `inset 0 -2px 0 ${GRID_COLORS.totalRowBorder}`,
+    ...definedStyle(base),
+  };
+}
+
+// データ種の区切り（見出し）行のセルの cellStyle（グレーの背景・濃いグレーの太字。UX-117）。
+type SectionRowCellStyle = Record<
+  'backgroundColor' | 'color' | 'fontWeight',
+  string
+>;
+export function sectionRowCellStyle(): SectionRowCellStyle;
+export function sectionRowCellStyle<T extends CellStyleInput>(
+  base: T
+): SectionRowCellStyle & T;
+export function sectionRowCellStyle(base: CellStyleInput = {}): CellStyleInput {
+  return {
+    backgroundColor: GRID_COLORS.sectionRowBg,
+    color: GRID_COLORS.sectionRowText,
+    fontWeight: 'bold',
+    ...definedStyle(base),
+  };
 }
 
 // 編集可否に応じた背景色（編集可=白 / 編集不可=灰）の cellStyle を返す。

@@ -43,9 +43,12 @@ export interface EdiMatchGridContext {
   ediRowHintOf: (row: ProductData) => string;
 }
 
-// 行頭マーカーのバッジの色（文字と枠。白地）。自動＝緑／手動＝紫／追加＝赤／未突合＝青（補足8-7 図1-1・1-2）
-const EDI_MARKER_BADGE_CLASS: Record<EdiMatchStatus, string> = {
-  unmatched: 'border-blue-600 bg-white text-blue-700',
+// 行頭マーカーのバッジの色（文字と枠。白地）。自動＝緑／手動＝紫／追加＝赤（補足8-7 図1-1・1-2）。
+// 未突合（EDI行）はマーカーを出さず、行の背景色で示す（補足8-7 ②：マーカーは自動・手動・追加だけ）。
+const EDI_MARKER_BADGE_CLASS: Record<
+  Exclude<EdiMatchStatus, 'unmatched'>,
+  string
+> = {
   auto1: 'border-green-600 bg-white text-green-700',
   auto2: 'border-green-600 bg-white text-green-700',
   auto3: 'border-green-600 bg-white text-green-700',
@@ -67,7 +70,7 @@ export const ediRowCellStyle = (): CellStyle => ({
 });
 
 // 行頭マーカーの列（補足8-7 ②）。計画行は突合の状態（自動・手動・追加）を出し、手動の行には「取消」を置く。
-// EDI行は計画行へドラッグするためのハンドル（AG Grid 公式の rowDrag）と「未突合」を出す。
+// EDI行は計画行へドラッグするためのハンドル（AG Grid 公式の rowDrag）だけを出す（未突合は行の背景色で示す）。
 // コピー由来カラーバー（明細コピー・明細追加の左端の帯）も左端のこの列に付ける（→ 02 §10.1）。
 export const buildEdiMarkerColumn = (
   baseCellStyle: CellStyleFn
@@ -78,7 +81,7 @@ export const buildEdiMarkerColumn = (
   cellClass: 'cell-center',
   sortable: false,
   headerTooltip:
-    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（取消で戻せる）／追加＝未突合のまま保存して追加した明細／未突合＝一致する計画納価が無いEDI行（計画行へドラッグして突合する）',
+    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（取消で戻せる）／追加＝未突合のまま保存して追加した明細。印の無い薄い藍の行は、一致する計画納価が無いEDI行（計画行へドラッグして突合する）',
   // EDI行だけドラッグできる（ドロップした計画行へ突合する。行は動かさない＝rowDragManaged なし）
   rowDrag: (params: RowDragCallbackParams<ProductData>) =>
     !!params.data?._ediRow && !params.node.rowPinned,
@@ -92,7 +95,7 @@ export const buildEdiMarkerColumn = (
   valueGetter: (params: ValueGetterParams<ProductData>) => {
     if (params.node?.rowPinned) return '';
     const status = ediStatusOf(params.data);
-    return status ? EDI_MARKER_LABELS[status] : '';
+    return status && status !== 'unmatched' ? EDI_MARKER_LABELS[status] : '';
   },
   tooltipValueGetter: (params: ITooltipParams<ProductData>) => {
     if (params.node?.rowPinned || !params.data) return undefined;
@@ -110,7 +113,7 @@ export const buildEdiMarkerColumn = (
     const row = params.data;
     if (!row || params.node.rowPinned) return null;
     const status = ediStatusOf(row);
-    if (!status) return null;
+    if (!status || status === 'unmatched') return null;
     const badge = (
       <Badge variant="outline" className={EDI_MARKER_BADGE_CLASS[status]}>
         {EDI_MARKER_LABELS[status]}

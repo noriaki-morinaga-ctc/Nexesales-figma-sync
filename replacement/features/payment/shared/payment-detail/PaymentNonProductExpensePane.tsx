@@ -24,6 +24,7 @@ import {
   GRID_EMPTY_TEXT,
   GRID_STATUS_BAR,
   GRID_COLORS,
+  totalCellStyle,
   changedCellStyle,
   viewportGridHeight,
   gridFilterContextMenuItems,
@@ -944,7 +945,7 @@ export const PaymentNonProductExpensePane = forwardRef<
 
   const groupStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
-      ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+      ? totalCellStyle()
       : { backgroundColor: rowBgOf(params, GRID_COLORS.readonly) }
   );
 
@@ -962,8 +963,7 @@ export const PaymentNonProductExpensePane = forwardRef<
   // 操作ウィジェット列（追加口へ戻す・販売計画選択・費用分割）用：データ行は白背景。
   // 合計行（グループ合計・総合計）は薄い青。枝番行は非活性（灰）。
   const widgetStyle = asCellStyle((params: any) => {
-    if (params.data?.isGroup || params.data?.isTotal)
-      return { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
+    if (params.data?.isGroup || params.data?.isTotal) return totalCellStyle();
     if (isBranchRow(params)) return { backgroundColor: GRID_COLORS.readonly };
     return { backgroundColor: rowBgOf(params, GRID_COLORS.editable) };
   });

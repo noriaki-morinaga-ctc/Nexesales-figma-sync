@@ -33,8 +33,7 @@ const svgToDataUri = (svg: string) =>
 //  - 請求書番号 … 明細グリッドの「請求書番号」列（アウトプットイメージ③項目詳細 No.55）
 //  - 稟議決裁書番号 … 同 No.58
 export const INVOICE_NO_LANDSCAPE = 'NP-2025-100412'; // 横長（サンプルベンディング東）
-export const INVOICE_NO_PORTRAIT = 'NV-2025-0731'; // 縦長（サンプルベンディング中央）
-export const APPROVAL_DOC_NO = '稟2025-自販-0642'; // 稟議決裁書番号
+export const INVOICE_NO_PORTRAIT = 'NV-2025-0731'; // 稟議決裁書番号
 
 // 金額をぼかすための定義（網掛けパターンとガウスぼかし）。
 const BLUR_DEFS = `

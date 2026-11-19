@@ -163,7 +163,7 @@ export function BottomPane({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
     // 初回の表示だけで測る（既定の高さは利用者のドラッグで変わるため上書きしない）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回の表示だけで測る（既定の高さは利用者のドラッグで変わるため上書きしない）
   }, []);
   const [isResizing, setIsResizing] = useState(false);
   // 画面下部のアクションバー（フッター）の高さ（rem）。ペインの下端オフセットに使う。

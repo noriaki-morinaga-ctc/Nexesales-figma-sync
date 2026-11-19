@@ -8,6 +8,3 @@ export const ACTUAL_REFLECTED_MONTHS: readonly string[] = [
   'apr',
   'may',
 ];
-
-// 実績反映済みの月数（1月起点の連続月数）。累計列など期間列の判定に使用する。
-export const ACTUAL_REFLECTED_MONTH_COUNT = ACTUAL_REFLECTED_MONTHS.length;

@@ -7,8 +7,6 @@ export const VOUCHER_TYPE = {
   deptTransfer: '振替',
 } as const;
 
-export type VoucherType = (typeof VOUCHER_TYPE)[keyof typeof VOUCHER_TYPE];
-
 /** 検索プルダウンの「全て」を表す値。 */
 export const VOUCHER_TYPE_ALL = '全て';
 

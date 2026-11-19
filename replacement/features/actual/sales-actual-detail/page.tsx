@@ -10,6 +10,7 @@ import {
 
 import {
   GRID_COLORS,
+  totalCellStyle,
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
   formatEmptyAsDash,
@@ -420,7 +421,7 @@ export default function SalesActualDetail() {
       setHighlightedCells({ references: [], affects: [] });
     }
     // 数式ガイドの ON→OFF 切替時のみクリアする意図のため、他の値は依存に含めない。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 数式ガイドの ON→OFF の切替のときだけ強調を消す
   }, [isFormulaGuideShown]);
 
   // 強調表示の状態を ref に同期し、グリッドのセルを再描画する。
@@ -864,12 +865,11 @@ export default function SalesActualDetail() {
     if (rowIndex === 0) {
       const row0BgColor = isEditable ? GRID_COLORS.editable : GRID_COLORS.total;
 
-      return {
+      return totalCellStyle({
         backgroundColor: row0BgColor,
-        fontWeight: 'bold',
         cursor: isEditable ? 'pointer' : 'default',
-        border,
-      };
+        ...(border === 'none' ? {} : { border }),
+      });
     }
 
     return {
@@ -904,11 +904,9 @@ export default function SalesActualDetail() {
           const rowIndex = params.node?.rowIndex ?? -1;
           // 合計行（rowIndex === 0＝商流販売店計）は合計色の背景＋太字。
           // それ以外の行タイトルは太字にしない（太字は合計行のみ／→ 02 §7）。
-          return {
-            backgroundColor:
-              rowIndex === 0 ? GRID_COLORS.total : GRID_COLORS.readonly,
-            fontWeight: rowIndex === 0 ? 'bold' : 'normal',
-          };
+          return rowIndex === 0
+            ? totalCellStyle()
+            : { backgroundColor: GRID_COLORS.readonly, fontWeight: 'normal' };
         },
       },
       {
@@ -973,7 +971,7 @@ export default function SalesActualDetail() {
                   // 合計行（rowIndex === 0）の場合は薄い灰色の背景
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       fontWeight: 'bold',
                       cursor: isEditable ? 'pointer' : 'default',
                     };
@@ -1024,7 +1022,7 @@ export default function SalesActualDetail() {
                   // 合計行（rowIndex === 0）の場合は薄い灰色の背景
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       fontWeight: 'bold',
                       cursor: isEditable ? 'pointer' : 'default',
                     };
@@ -1099,7 +1097,7 @@ export default function SalesActualDetail() {
                   // 合計行（rowIndex === 0）の場合は薄い灰色の背景
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       fontWeight: 'bold',
                       cursor: isEditable ? 'pointer' : 'default',
                     };
@@ -1151,7 +1149,7 @@ export default function SalesActualDetail() {
                   // 合計行（rowIndex === 0）の場合は薄い灰色の背景
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       fontWeight: 'bold',
                       cursor: isEditable ? 'pointer' : 'default',
                     };
@@ -1195,7 +1193,7 @@ export default function SalesActualDetail() {
                   // 商流販売店計行は太字の薄灰色
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       cursor: 'default',
                       fontWeight: 'bold',
                     };
@@ -1252,7 +1250,7 @@ export default function SalesActualDetail() {
                   // 商流販売店計行は太字の薄灰色
                   if (rowIndex === 0) {
                     return {
-                      backgroundColor: GRID_COLORS.total,
+                      ...totalCellStyle(),
                       cursor: 'default',
                       fontWeight: 'bold',
                     };
@@ -1319,7 +1317,7 @@ export default function SalesActualDetail() {
               // 合計行（rowIndex === 0）の場合は薄い灰色の背景
               if (rowIndex === 0) {
                 return {
-                  backgroundColor: GRID_COLORS.total,
+                  ...totalCellStyle(),
                   fontWeight: 'bold',
                   cursor: isEditable ? 'pointer' : 'default',
                 };
@@ -1338,7 +1336,7 @@ export default function SalesActualDetail() {
       },
     ],
     // 列定義は再描画トリガとなる state のみ依存に含める（関数参照は意図的に除外）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列の定義は再描画のきっかけの state だけで作り直す（関数の参照の変化では作り直さない → 02 §7.1）
     [salesPlanData, clickedCell, highlightedCells]
   );
 
@@ -1396,7 +1394,7 @@ export default function SalesActualDetail() {
     // 合計行（rowIndex === 0）の場合
     if (!params.node?.rowPinned && params.node?.rowIndex === 0) {
       return {
-        backgroundColor: GRID_COLORS.total,
+        ...totalCellStyle(),
         fontWeight: 'bold',
       };
     }

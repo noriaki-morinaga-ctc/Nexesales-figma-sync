@@ -5,10 +5,14 @@ import { type FormulaDefs } from '@/components/grid';
 import { parseFormulaNumber } from '@/components/grid/gridCommon';
 
 import { withWholesaleRowDummies } from '@/mocks/common/salesPlanWholesale';
-import type { ProductData } from '@/types/salesPlanWholesale';
+import type { DetailFormValues, ProductData } from '@/types/salesPlanWholesale';
+import type { WholesaleMeshOption } from '@/types/planDetailPattern';
+import { promotionValid } from '@/utils/sales-plan/common/promotionCategoryHelpers';
+import { periodFromProductValue } from '@/utils/common/productMasters';
 
 import {
   SUMMARY_PRODUCT_OPTIONS,
+  SUMMARY_PRODUCT_BY_WHOLESALE_MESH,
   WHOLESALE_MESH_OPTIONS,
 } from '@/constants/productMasters';
 
@@ -226,3 +230,90 @@ export const WHOLESALE_FORMULA_DEFS: FormulaDefs<ProductData> = {
     ),
   },
 };
+
+// ── 明細追加ペインの決まり（計画詳細の骨組み PlanDetailScreen に渡す） ──
+
+// セクション（タブ）→ 明細追加ペインの商品区分。
+// 定番商品はペインの選択肢に無い（一般卸メッシュ単位で新規追加が発生しないため）ので、
+// 定番商品タブ・全てタブから開いた場合は先頭の選択肢である新商品を初期表示する。
+export const sectionToCategory = (section: string): string => {
+  if (section.includes('特殊商品')) return '特殊商品';
+  if (section === 'ギフト') return 'ギフト';
+  return '新商品';
+};
+
+// 明細フォームの未入力必須項目（主選択・販促区分・計画函数）。
+// 主選択は定番商品＝一般卸メッシュ、それ以外＝サマリ商品名。
+export const detailMissingFields = (f: DetailFormValues): string[] => {
+  const m: string[] = [];
+  if (f.category === '定番商品') {
+    if (String(f.wholesaleMesh ?? '').trim() === '') m.push('一般卸メッシュ');
+  } else if (String(f.summaryProduct ?? '').trim() === '') {
+    m.push('サマリ商品名');
+  }
+  if (!promotionValid(f)) m.push('販促区分');
+  // 計画函数は必須。ギフトは上旬/中旬/下旬の3行1セットで追加するため、各期間を必須にする。
+  // 0 は有効な入力値として扱い、空欄のみを未入力とみなす。
+  const planMissing =
+    f.category === 'ギフト'
+      ? [f.boxEarly, f.boxMid, f.boxLate].some(
+          (v) => String(v ?? '').trim() === ''
+        )
+      : String(f.plan ?? '').trim() === '';
+  if (planMissing) m.push('計画函数');
+  return m;
+};
+
+// 一般卸メッシュを選んだときのフォームの反映。
+// 一般卸メッシュ→対応サマリ商品の連動情報も自動補完（NET固定・定番）
+export const applyWholesaleMesh = (
+  prev: DetailFormValues,
+  m: WholesaleMeshOption
+): DetailFormValues => {
+  const s = SUMMARY_PRODUCT_BY_WHOLESALE_MESH.get(m.value);
+  return {
+    ...prev,
+    wholesaleMesh: m.value,
+    metaBrand: m.metaBrand,
+    containerCapacityG: m.containerCapacityG,
+    quantity: m.quantity,
+    currentEstimate: m.currentEstimate,
+    currentActual: m.currentActual,
+    prevYearActual: m.prevYearActual,
+    net: m.net,
+    // メッシュ選択時に終売区分を自動反映（定番商品でも非活性表示）
+    endSale: m.endSale ?? '',
+    ...(s
+      ? {
+          summaryProduct: s.value,
+          promotion: s.promotion,
+          endSale: s.endSale,
+          deliveryPrice: s.deliveryPrice,
+          margin: s.margin,
+          price: s.price,
+          costOfSales: s.costOfSales,
+          seihan: s.seihan,
+          profitRate: s.profitRate,
+          discountRate: s.discountRate,
+          period: periodFromProductValue(s.value),
+        }
+      : {}),
+  };
+};
+
+// 前年実績×率% を計画函数へ反映する（函数反映・計画コピー。前年実績が無い行は据え置き）。
+// 変えた計画函数から、社外売上高・売上原価・値入額などを計算し直す
+export const applyRateToRows = (
+  rows: ProductData[],
+  rate: number
+): ProductData[] =>
+  rows.map((row) => {
+    const base = parseFloat(String(row.prevYear ?? '').replace(/,/g, '')) || 0;
+    if (base <= 0) return row;
+    return recalcGiftLikeRates({
+      ...row,
+      plan: String(Math.round((base * rate) / 100)),
+      // 率は小数点以下2桁を四捨五入し、小数点以下1桁で表示する。
+      ratio: formatPlanRate(rate, PLAN_DETAIL_DIGITS.ratio),
+    });
+  });

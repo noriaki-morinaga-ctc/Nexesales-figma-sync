@@ -151,7 +151,7 @@ export function PlanAggregationPane({
     setDraftContainerCapacities(selectedContainerCapacities);
     setDraftExcludePairs(excludePairs);
     // 開いた時点の確定値のみを取り込むため、確定値は依存に含めない
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた時点の確定値だけを取り込む（確定値の変化では下書きを上書きしない）
   }, [showAggFilterPane]);
   // 集計単位①②・除外ペアの編集値をすべて初期化する（確認ダイアログなしで即時リセット）。
   // 確定値は変わらないため、確定を押すまで集計対象は変化しない。

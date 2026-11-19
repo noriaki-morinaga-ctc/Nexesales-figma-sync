@@ -519,7 +519,7 @@ export const AllocationPane = forwardRef<
   // セル編集は destRows の参照を変えないため、editVersion も依存に含めて再集計する。
   const splitTotal = useMemo(
     () => destRows.reduce((s, r) => s + (r.amount ?? 0), 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- セル編集は destRows の参照を変えないため、editVersion を再集計のきっかけに置く
     [destRows, editVersion]
   );
   const remainTotal = payTotal - splitTotal;
@@ -1004,7 +1004,7 @@ export const AllocationPane = forwardRef<
       ];
     },
     // 固定指定（振替元／振替先）の切替で活性・背景色が変わるため作り直す。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 固定指定（振替元／振替先）・対象期間の切替のときだけ列を作り直す（表示中に参照を変えない → 02 §7.1）
     [destFieldsLocked, src.targetPeriod]
   );
 

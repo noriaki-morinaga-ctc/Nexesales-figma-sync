@@ -28,6 +28,7 @@ import { ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
@@ -1146,11 +1147,8 @@ const buildQuoteRows = (
 // ── セルの体裁 ──────────────────────────────────────────────
 // 参照専用の一覧のため、明細行・枝番行は編集不可色（灰）で統一する。
 const READONLY_CELL_STYLE = editableBg(false);
-// 伝票行は拡売費一覧のグループ合計行と同じ薄い青・太字にして、明細行と見分けられるようにする。
-const VOUCHER_CELL_STYLE = {
-  backgroundColor: GRID_COLORS.total,
-  fontWeight: 'bold' as const,
-};
+// 伝票行は拡売費一覧のグループ合計行と同じ合計行のスタイル（白・太字・下の濃い線）にして、明細行と見分けられるようにする。
+const VOUCHER_CELL_STYLE = totalCellStyle();
 
 type QuoteCellParams = { data?: QuoteGridRow; value?: unknown };
 

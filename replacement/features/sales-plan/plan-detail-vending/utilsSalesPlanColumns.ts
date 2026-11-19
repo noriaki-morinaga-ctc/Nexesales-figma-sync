@@ -4,7 +4,7 @@ import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import type { CellClassParams, GridApi } from 'ag-grid-community';
 import type { AgGridReact } from 'ag-grid-react';
 import type { createSalesPlanInitialRows } from '@/mocks/sales-plan/plan-detail-vending/salesPlan';
-import { GRID_COLORS } from '@/components/grid';
+import { GRID_COLORS, totalCellStyle } from '@/components/grid';
 import { REF_HIGHLIGHT_BORDER } from './constants';
 import {
   computeSalesCol18,
@@ -72,7 +72,7 @@ export const buildSalesPlanColumnDefs = ({
       // 合計行（rowIndex === 0）の場合は合計色の背景
       if (rowIndex === 0) {
         return {
-          backgroundColor: GRID_COLORS.total,
+          ...totalCellStyle(),
           fontWeight: 'bold',
           paddingLeft: '0.5rem',
           border: isHighlighted ? REF_HIGHLIGHT_BORDER : undefined,

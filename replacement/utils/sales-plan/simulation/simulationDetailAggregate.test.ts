@@ -62,3 +62,12 @@ describe('aggregateSimulationDetail（A口のみ集計）', () => {
     expect(isAOnlyPromoTarget('', 'RA001')).toBe(true);
   });
 });
+
+describe('aggregateSimulationDetail（センターフィ）', () => {
+  it('詳細の行と同じ既定の設定（社外売上高 × 8.7%・PB商品を除く）で算出する', () => {
+    const pbRow = { ...ROW, metaBrand: 'PB商品', externalSales: '50000' };
+    const agg = aggregateSimulationDetail([ROW, pbRow], SEL, SIMULATION_RATIOS);
+    // PB商品の 50,000 は除き、100,000 × 8.7%
+    expect(agg.centerFee).toBeCloseTo(8700);
+  });
+});

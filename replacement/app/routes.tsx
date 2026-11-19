@@ -1,7 +1,4 @@
 import type { ReactNode } from 'react';
-import type { QuoteBasicInfo } from '@/utils/payment/quote/quoteBasicInfo';
-import type { BillingRow } from '@/types/billing';
-import type { BillingEdiImportRow } from '@/types/billingEdi';
 
 import TopDashboard from '@/features/top/page';
 // 販売計画
@@ -65,51 +62,17 @@ import NewProductUnitPriceMaster from '@/features/master/new-product-unit-price-
 import NewProductBulkChangeMaster from '@/features/master/new-product-bulk-change-master/page';
 import SummaryProductMaster from '@/features/master/summary-product-master/page';
 
-/** 画面へ渡す共有ハンドラ・状態。App.tsx が組み立てて render に渡す。
- * 画面の切り替え（遷移先のルート ID）は props で渡さず、ui/use-app-navigation の useAppNavigation で受け取る。 */
-export interface RouteContext {
-  /** 引用ペインから受け取った基本情報（支払詳細(引用) 入力へのプリフィル）。 */
-  quoteBasicInfo?: QuoteBasicInfo;
-  /** 年間計画作成へ引き継ぐ取引制度。 */
-  annualPlanTradingSystem: string;
-  /** 請求一覧で選択された入力単位（請求詳細へ引き継ぐ）。 */
-  selectedBilling?: BillingRow;
-  /** 請求一覧の行操作。データ種別に対応する請求詳細（請求EDI／AIC入力）へ遷移する。 */
-  onOpenBillingDetail: (entry: BillingRow) => void;
-  onCreateBilling: () => void;
-  onBackToBillingList: () => void;
-  /** 請求EDI取込一覧の行データ。詳細画面での再取込指示によるステータス更新を
-   * 一覧・詳細の両方に反映するため、App.tsx が state で保持し配列で共有する。 */
-  billingEdiRows: BillingEdiImportRow[];
-  /** 請求EDI取込一覧で選択された取込分のID（請求EDI取込結果詳細へ引き継ぐ）。
-   * IDのみ保持し billingEdiRows から引き直すことで、再取込後も詳細画面の表示が古くならない。 */
-  selectedBillingEdiId?: string;
-  onOpenBillingEdiDetail: (row: BillingEdiImportRow) => void;
-  onBackToBillingEdiList: () => void;
-  /** 請求EDI取込結果詳細の再取込指示（指示したエラーを取り除き、対象行のステータスを正常／エラーに付け直す）。 */
-  onReimportBillingEdiSummary: (rowId: string, summaryId: string) => void;
-  onAssignBillingEdiValue: (
-    rowId: string,
-    summaryId: string,
-    assignedValue: string
-  ) => void;
-  onCorrectBillingEdiDetail: (
-    rowId: string,
-    detailId: string,
-    field: string,
-    corrected: string
-  ) => void;
-}
-
+// 画面へは props で状態を渡さない。遷移先へ引き継ぐ値は遷移のパラメータ（useRouteParams）、
+// 画面をまたいで共有する業務のデータは業務の Provider（App.tsx で囲む）から受け取る（→ ui/use-app-navigation）。
 export interface RouteDef {
   /** 画面のディレクトリ（ルート ID との一致を検証するために保持する）。 */
   dir: string;
-  render: (ctx: RouteContext) => ReactNode;
+  render: () => ReactNode;
 }
 
 /**
  * ルート ID → 画面定義。
- * ルート ID は `components/<category>/<ルートID>/page.tsx` のディレクトリ名と一致させること
+ * ルート ID は `src/features/<category>/<ルートID>/page.tsx` のディレクトリ名と一致させること
  * （`top` のみ `features/top/page.tsx`）。ROUTE_DIR_EXCEPTIONS 以外はテストで検証する。
  */
 export const ROUTES: Record<string, RouteDef> = {
@@ -150,9 +113,7 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'annual-plan-creation': {
     dir: 'sales-plan/annual-plan-creation',
-    render: (c) => (
-      <AnnualPlanCreation tradingSystem={c.annualPlanTradingSystem} />
-    ),
+    render: () => <AnnualPlanCreation />,
   },
   'sales-plan-simulation-margin-rate-fixed': {
     dir: 'sales-plan/sales-plan-simulation-margin-rate-fixed',
@@ -215,7 +176,7 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'payment-detail-quote-entry': {
     dir: 'payment/payment-detail-quote-entry',
-    render: (c) => <PaymentDetailQuoteEntry basicInfo={c.quoteBasicInfo} />,
+    render: () => <PaymentDetailQuoteEntry />,
   },
   'transfer-detail': {
     dir: 'payment/transfer-detail',
@@ -235,54 +196,25 @@ export const ROUTES: Record<string, RouteDef> = {
   },
   'billing-edi-list': {
     dir: 'payment/billing-edi-list',
-    render: (c) => (
-      <BillingEdiList
-        rows={c.billingEdiRows}
-        onOpenDetail={c.onOpenBillingEdiDetail}
-      />
-    ),
+    render: () => <BillingEdiList />,
   },
   'billing-edi-detail': {
     dir: 'payment/billing-edi-detail',
-    render: (c) => (
-      <BillingEdiDetail
-        rows={c.billingEdiRows}
-        selectedId={c.selectedBillingEdiId}
-        onBack={c.onBackToBillingEdiList}
-        onReimportSummary={c.onReimportBillingEdiSummary}
-        onAssignValue={c.onAssignBillingEdiValue}
-        onCorrectDetail={c.onCorrectBillingEdiDetail}
-      />
-    ),
+    render: () => <BillingEdiDetail />,
   },
   'billing-list': {
     dir: 'payment/billing-list',
-    render: (c) => (
-      <BillingList
-        onOpenDetail={c.onOpenBillingDetail}
-        onCreate={c.onCreateBilling}
-      />
-    ),
+    render: () => <BillingList />,
   },
   // 請求詳細はデータ種別ごとに画面を分ける。請求一覧からは行のデータ種別に応じて
   // どちらかへ遷移し、新規作成（AIC入力）は請求詳細(AIC入力)へ遷移する。
   'billing-detail-edi': {
     dir: 'payment/billing-detail-edi',
-    render: (c) => (
-      <BillingDetailEdi
-        entry={c.selectedBilling}
-        onBack={c.onBackToBillingList}
-      />
-    ),
+    render: () => <BillingDetailEdi />,
   },
   'billing-detail-aic': {
     dir: 'payment/billing-detail-aic',
-    render: (c) => (
-      <BillingDetailAic
-        entry={c.selectedBilling}
-        onBack={c.onBackToBillingList}
-      />
-    ),
+    render: () => <BillingDetailAic />,
   },
   'unamortized-project-billing-list': {
     dir: 'payment/unamortized-project-billing-list',
@@ -404,15 +336,9 @@ export const ROUTE_DIR_EXCEPTIONS = new Set([
   'marketing-file-upload-actual',
 ]);
 
-/** ルート ID。`ROUTES` のキー。 */
-export type RouteId = keyof typeof ROUTES;
-
 /**
  * 未知のルート ID を受け取った場合のフォールバック先。
  * 初期表示ページを変えたい場合はここではなく `App.tsx` の
  * `useState<string>('…')` を編集する。
  */
 export const DEFAULT_ROUTE = 'top';
-
-/** ヘッダのメニューから遷移せず、外部システムへ飛ぶ ID。 */
-export const EXTERNAL_ROUTE_IDS = new Set(['bi-system', 'budget-sales-system']);

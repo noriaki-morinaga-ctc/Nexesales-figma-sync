@@ -55,13 +55,7 @@ import {
 } from '@/mocks/payment/billing-list';
 import type { BillingRow, BillingStatus } from '@/types/billing';
 import { ScreenTitle } from '@/components/ui/screen-title';
-
-interface BillingListProps {
-  // 行の「入力」ボタン／行ダブルクリックで請求詳細を開く
-  onOpenDetail?: (entry: BillingRow) => void;
-  // 「新規作成」ボタンで空の入力単位の請求詳細を開く
-  onCreate?: () => void;
-}
+import { useAppNavigation } from '@/components/ui/use-app-navigation';
 
 // 選択条件の未選択（＝絞り込まない）を表す値。未選択は「指定なし」と表示し、
 // 「全て」の選択肢は持たない（→ 02 §9）。
@@ -103,10 +97,8 @@ const formatAmount = (value: unknown): string =>
 // 行IDは入力単位の id（BILLING_LIST で一意。→ 画面設計標準 4.7）
 const getRowId = (params: GetRowIdParams<BillingRow>) => params.data.id;
 
-export default function BillingList({
-  onOpenDetail,
-  onCreate,
-}: BillingListProps) {
+export default function BillingList() {
+  const navigate = useAppNavigation();
   const [criteria, setCriteria] = useState(INITIAL_CRITERIA);
   // 削除の確認ダイアログの対象（AIC入力の入力単位のみ。決定25）
   const [deleteTarget, setDeleteTarget] = useState<BillingRow | null>(null);
@@ -217,10 +209,22 @@ export default function BillingList({
 
   const handleClear = () => setCriteria(INITIAL_CRITERIA);
 
+  // 行の「入力」ボタン／行ダブルクリックから請求詳細を開く。選んだ入力単位は ID で渡す。
+  // 請求詳細はデータ種別ごとに画面が分かれているため、行のデータ種別で遷移先を決める
   const handleOpenDetail = useCallback(
-    (entry: BillingRow) => onOpenDetail?.(entry),
-    [onOpenDetail]
+    (entry: BillingRow) =>
+      navigate(
+        entry.dataSource === 'EDI'
+          ? 'billing-detail-edi'
+          : 'billing-detail-aic',
+        { id: entry.id }
+      ),
+    [navigate]
   );
+
+  // 「新規作成」から、空の入力単位（明細0件）で請求詳細(AIC入力)を開く。
+  // 新規作成は AIC が入力する場合のみのため、請求EDI側の画面へは遷移しない（決定24）
+  const handleCreate = () => navigate('billing-detail-aic', { mode: 'new' });
 
   const handleRowDoubleClicked = useCallback(
     (event: RowDoubleClickedEvent<BillingRow>) => {
@@ -615,7 +619,7 @@ export default function BillingList({
           headerActions={
             /* 新規作成：明細0件の入力単位で請求詳細を開く（カード開閉はしない） */
             <button
-              onClick={onCreate}
+              onClick={handleCreate}
               className={`flex items-center gap-1 px-2 py-1 whitespace-nowrap text-sm ${BUTTON_STYLES.outline} ${BUTTON_BASE}`}
               aria-label="新規作成"
             >

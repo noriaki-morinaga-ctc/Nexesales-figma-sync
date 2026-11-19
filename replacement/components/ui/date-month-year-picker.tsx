@@ -138,7 +138,7 @@ export function DateMonthYearPicker({
       setSelectedMonth(month);
       setStep('month');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた瞬間の値・範囲だけを基準にする（入力のたびにカレンダーを動かさない）
   }, [isOpen]);
 
   // 年送りは min/max の年をはみ出さない（送った先が全月選択不可になるのを防ぐ）

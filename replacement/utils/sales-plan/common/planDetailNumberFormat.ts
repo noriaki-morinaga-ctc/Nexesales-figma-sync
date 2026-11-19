@@ -45,19 +45,25 @@ const roundTo = (value: number, digits: number, useGrouping: boolean): string =>
     useGrouping,
   });
 
+// 計算できない値（分母が 0 の率など。NaN・Infinity）の表示（→ api/calculation-ownership.md K4）
+const NOT_COMPUTABLE_TEXT = '-';
+
 // 数値（金額・単価）を指定桁で整形する。桁区切りは既存の社外売上高・売上原価に合わせる。
 export function formatPlanAmount(value: number, digits: number): string {
+  if (!Number.isFinite(value)) return NOT_COMPUTABLE_TEXT;
   return roundTo(value, digits, true);
 }
 
 // 函数・入数を整形する。函数・入数は整数のみで小数を持たないため、
 // 端数が出た場合も四捨五入して整数にし、3桁区切りを付ける。
 export function formatPlanCount(value: number): string {
+  if (!Number.isFinite(value)) return NOT_COMPUTABLE_TEXT;
   return roundTo(value, 0, true);
 }
 
 // 率を指定桁＋「％」で整形する（金額と同じく3桁区切りを付ける）。
 export function formatPlanRate(value: number, digits: number): string {
+  if (!Number.isFinite(value)) return NOT_COMPUTABLE_TEXT;
   return `${roundTo(value, digits, true)}%`;
 }
 

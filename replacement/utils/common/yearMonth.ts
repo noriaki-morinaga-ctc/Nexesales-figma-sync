@@ -32,16 +32,6 @@ export function addYears(yearMonth: string, years: number): string {
   return addMonths(yearMonth, years * 12);
 }
 
-// システム日付の昨年1月（'YYYY/01'）。シミュレーションの対象期間・集計期間の from の初期値。
-export function lastYearJanuary(): string {
-  return `${new Date().getFullYear() - 1}/01`;
-}
-
-// システム日付の昨年12月（'YYYY/12'）。シミュレーションの対象期間・集計期間の to の初期値。
-export function lastYearDecember(): string {
-  return `${new Date().getFullYear() - 1}/12`;
-}
-
 // システム日付の当年1月（'YYYY/01'）。シミュレーション(集計)の対象期間 from の初期値・選択下限。
 export function thisYearJanuary(): string {
   return `${new Date().getFullYear()}/01`;

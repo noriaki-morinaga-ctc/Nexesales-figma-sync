@@ -5,7 +5,7 @@
 // 修正する（→ 20260821_第31回 決定事項13）。そのため明細はすべて参照表示になる。
 // 構成は支払詳細(追加口請求書有)（PaymentDetailWithInvoice）に準拠し、基本情報 → 確定（検印）後金額 → 請求明細 → フッターの縦積み。
 // 明細の列構成は「シングル画面案.xlsx ⑤-１請求・支払反映画面」に準拠する（→ DetailTable）。
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Save, Check, Trash2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -18,13 +18,10 @@ import {
 import { isBillingDetailStatusLocked } from '@/utils/payment/billing/billing';
 import type { BillingDetailRow, BillingRow } from '@/types/billing';
 import { ScreenTitle } from '@/components/ui/screen-title';
-
-interface BillingDetailEdiProps {
-  // 請求一覧で選択された入力単位（請求EDI取込分）。
-  // メニューから直接開いた場合は既定の入力単位を表示する
-  entry?: BillingRow;
-  onBack?: () => void;
-}
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
 
 // メニューから直接開いた場合の既定表示（請求EDI取込の入力単位）
 const DEFAULT_ENTRY =
@@ -38,11 +35,15 @@ const loadDetailRows = (): BillingDetailRow[] =>
     ...row,
   }));
 
-export default function BillingDetailEdi({
-  entry,
-  onBack,
-}: BillingDetailEdiProps) {
-  const targetEntry = entry ?? DEFAULT_ENTRY;
+export default function BillingDetailEdi() {
+  const navigate = useAppNavigation();
+  const params = useRouteParams();
+  // 請求一覧で選択された入力単位（請求EDI取込分）は ID で受け取る。
+  // メニューから直接開いた場合は既定の入力単位を表示する
+  const targetEntry = useMemo(
+    () => BILLING_LIST.find((row) => row.id === params.id) ?? DEFAULT_ENTRY,
+    [params]
+  );
   // 基本情報は請求EDIの受信内容がそのまま入るため、すべて参照表示にする
   const [entryDraft, setEntryDraft] = useState<BillingRow>(targetEntry);
   // 明細行。参照専用だが、グリッドの内部状態を入力画面と揃えるため state で保持する
@@ -74,7 +75,7 @@ export default function BillingDetailEdi({
   // 一覧へ戻る：計画詳細(NET固定)と同様、入力中データの破棄を確認してから遷移する
   const handleBack = () => {
     setIsBackOpen(false);
-    onBack?.();
+    navigate('billing-list');
   };
 
   return (

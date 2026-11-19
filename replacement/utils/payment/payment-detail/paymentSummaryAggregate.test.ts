@@ -14,6 +14,7 @@ import {
   type SummaryEntryRow,
   type SummaryValueRow,
   type SummaryExpenseRow,
+  convertSummaryCell,
 } from './paymentSummaryAggregate';
 
 // 追加口明細1行（集計に使う項目だけ）。
@@ -356,5 +357,42 @@ describe('fillSummaryRowValues', () => {
     );
     expect(net.vals.pay).toBe('0');
     expect((net.vals as Record<string, string>).yoy).toBe('');
+  });
+});
+
+describe('convertSummaryCell（千円表示）', () => {
+  it('丸める前の数値から1回だけ丸める（円で丸めた文字から丸めない）', () => {
+    // 1,499.6 円：円の表示は 1,500 だが、千円は 1（2 にしない）
+    expect(
+      convertSummaryCell('amount', true, '1,500', 'thousand', 1499.6)
+    ).toBe('1');
+  });
+  it('数値が無い列は表示の文字から求める', () => {
+    expect(convertSummaryCell('amount', true, '2,500', 'thousand')).toBe('3');
+  });
+  it('円・金額以外の行・数値でない値はそのまま', () => {
+    expect(convertSummaryCell('amount', true, '1,500', 'yen', 1499.6)).toBe(
+      '1,500'
+    );
+    expect(convertSummaryCell('rate', true, '10.0%', 'thousand')).toBe('10.0%');
+    expect(convertSummaryCell('amount', true, '–', 'thousand')).toBe('–');
+  });
+});
+
+describe('fillSummaryRowValues（丸める前の数値）', () => {
+  it('支払・実績情報と差の数値を raw に持つ', () => {
+    const [row] = fillSummaryRowValues(
+      [
+        {
+          key: 'sales',
+          kind: 'amount',
+          vals: { plan: '1,000', prev: '' },
+        } as SummaryValueRow,
+      ],
+      { sales: 1499.6 }
+    );
+    expect(row.raw?.pay).toBe(1499.6);
+    expect(row.raw?.diff).toBeCloseTo(499.6);
+    expect(row.vals.pay).toBe('1,500');
   });
 });

@@ -8,10 +8,6 @@ import {
 export const containerGroupCodeOf = (masterCode: string): string =>
   CONTAINER_GROUP_CODE_BY_MASTER_CODE.get(masterCode) ?? '';
 
-/** ダミーのサマリ商品か（コード先頭が「D」。判定は暫定で、新商品・新価格用サマリ商品の設計で変わり得る。Q&A No.31） */
-export const isDummySummaryProductCode = (code: string): boolean =>
-  code.startsWith('D');
-
 /** サマリ商品名 → サマリ商品コード */
 export const summaryProductCodeOf = (name?: string): string =>
   SUMMARY_PRODUCT_CODE_BY_VALUE.get(String(name ?? '')) ?? '';

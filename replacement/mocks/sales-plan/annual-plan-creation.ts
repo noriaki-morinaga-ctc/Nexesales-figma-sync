@@ -4,56 +4,6 @@
 import { CATEGORY_LABELS_ANNUAL } from '@/constants/promotionCategories';
 import { getPromotionLabels } from '@/utils/sales-plan/common/promotionCategories';
 
-export const NEW_PRODUCT_MASTER: {
-  code: string;
-  productName: string;
-  launchYearMonth: string;
-  fiscalYear: string;
-}[] = [
-  {
-    code: 'P2024001',
-    productName: '三ツ矢サイダー28・350',
-    launchYearMonth: '2024年10月',
-    fiscalYear: '2024',
-  },
-  {
-    code: 'P2024002',
-    productName: 'リタ瓶（プレーン）',
-    launchYearMonth: '2024年11月',
-    fiscalYear: '2024',
-  },
-  {
-    code: 'P2024003',
-    productName: '十六茶自販機用660ml',
-    launchYearMonth: '2024年12月',
-    fiscalYear: '2024',
-  },
-  {
-    code: 'P2024004',
-    productName: 'クリーミーラテ280ml',
-    launchYearMonth: '2025年1月',
-    fiscalYear: '2024',
-  },
-  {
-    code: 'P2025001',
-    productName: 'カルピスソーダ500mL帯',
-    launchYearMonth: '2025年4月',
-    fiscalYear: '2025',
-  },
-  {
-    code: 'P2025002',
-    productName: 'グレープフルーツ350ml',
-    launchYearMonth: '2025年5月',
-    fiscalYear: '2025',
-  },
-  {
-    code: 'P2025003',
-    productName: '和紅茶ストレート500',
-    launchYearMonth: '2025年6月',
-    fiscalYear: '2025',
-  },
-];
-
 // ギフトの販売期間（旬）の並び。ギフトは上旬・中旬・下旬の3行1セットで計画する
 // （第14回手売りセッション 決定事項8。計画詳細と同じ持ち方）。
 export const GIFT_PERIOD_ORDER = ['上旬', '中旬', '下旬'] as const;

@@ -21,6 +21,7 @@ import { ChevronRight, Plus, Copy } from 'lucide-react';
 import {
   viewportGridHeight,
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_WRAP_HEADER_COL_DEF,
   GRID_EMPTY_TEXT,
@@ -571,8 +572,7 @@ export const PlanNonProductExpensePane = forwardRef<
     (params: any) => {
       if (params.data?.isTotal) {
         return {
-          fontWeight: 'bold',
-          backgroundColor: GRID_COLORS.total,
+          ...totalCellStyle(),
           ...totalExtra,
         };
       }
@@ -692,10 +692,7 @@ export const PlanNonProductExpensePane = forwardRef<
       cellClass: 'cell-right',
       cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
-          ? {
-              fontWeight: 'bold',
-              backgroundColor: GRID_COLORS.total,
-            }
+          ? totalCellStyle()
           : { backgroundColor: GRID_COLORS.readonly }
       ),
     },
@@ -713,10 +710,7 @@ export const PlanNonProductExpensePane = forwardRef<
       cellClass: 'cell-right',
       cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
-          ? {
-              fontWeight: 'bold',
-              backgroundColor: GRID_COLORS.total,
-            }
+          ? totalCellStyle()
           : { backgroundColor: GRID_COLORS.readonly }
       ),
     },
@@ -1035,11 +1029,9 @@ export const PlanNonProductExpensePane = forwardRef<
         maxWidth: 45,
         cellRenderer: CopyDeleteCellRenderer,
         cellRendererParams: COPY_DELETE_PARAMS,
-        // 合計行は操作列も含めてブルー背景に揃える
+        // 合計行は操作列も含めて合計行のスタイル（白・太字・下の濃い線）に揃える
         cellStyle: (params: any) =>
-          params.data?.isTotal
-            ? { backgroundColor: GRID_COLORS.total }
-            : undefined,
+          params.data?.isTotal ? totalCellStyle() : undefined,
         suppressHeaderMenuButton: true,
         sortable: false,
         filter: false,

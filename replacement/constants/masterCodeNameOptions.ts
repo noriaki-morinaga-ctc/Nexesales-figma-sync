@@ -11,7 +11,7 @@ import {
 import { wholesaleMeshCodeOf } from '@/utils/common/comboFieldOptions';
 import { STORE_HIERARCHY } from './storeHierarchy';
 import type { CodeNameOption } from '@/types/master';
-import { isDummySummaryProductCode } from '@/utils/common/masterCodeNameOptions';
+import { isDummySummaryProductCode } from '@/utils/common/summaryProductCode';
 
 // 「コード:名称」（storeHierarchy・draftingOrgCascade の表記）→ { code, name }
 const fromCodeName = (value: string): CodeNameOption => {
@@ -150,12 +150,6 @@ export const PRODUCT_HANDLING_KBN: CodeNameOption[] = [
   { code: '03', name: '自販機専用商品' },
 ];
 
-/** 管理対象エリア（全国＋事業場。コードは仮） */
-export const TARGET_AREA_CODE_NAME: CodeNameOption[] = [
-  { code: '00', name: '全国' },
-  ...OFFICE_CODE_NAME,
-];
-
 /** 共通会社コード */
 export const COMPANY_CODE_NAME: CodeNameOption[] = [
   { code: '0093', name: 'アサヒ飲料' },
@@ -230,9 +224,6 @@ export const BRAND_CODE_NAME: CodeNameOption[] = BRAND_MASTER.map((b) => ({
   code: b.code,
   name: b.name,
 }));
-/** ブランドコード → メタブランドコード（メタブランド → ブランドの絞り込みに使う） */
-export const META_BRAND_CODE_BY_BRAND_CODE: Record<string, string> =
-  Object.fromEntries(BRAND_MASTER.map((b) => [b.code, b.metaBrand]));
 
 /** 小ブランド（コードは現行の小ブランドコード体系に合わせた仮の値） */
 const SUB_BRAND_MASTER: { code: string; name: string; brand: string }[] = [

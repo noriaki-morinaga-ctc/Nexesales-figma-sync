@@ -1,5 +1,6 @@
 // 請求EDI（取込一覧・取込結果詳細）の型（型だけを書く → 04 §画面ディレクトリ構成「共通の型」）
 import type {
+  AssignTarget,
   BillingEdiErrorCategory,
   CorrectionKind,
   ReimportState,
@@ -95,6 +96,17 @@ export interface RetailerAssignOption extends RetailerConversion {
   // 選択値。同じ三次店・販売店が複数の一次店にぶら下がるため、3つの組で一意にする
   value: string;
   label: string; // 表示（一次店名 / 三次店名 / 販売店名:販売店コード）
+}
+
+// 「変換後の値」を明細へ反映するときに引くマスタ（実システムでは事業所・得意先・商品マスタから取得する）。
+// 共通の処理はモックを読まないため、画面（App）から渡す
+export interface BillingEdiAssignMasters {
+  // 項目ごとの変換後の値の選択肢（ラベルは「コード:名称」）
+  assignOptions: Record<AssignTarget, { value: string; label: string }[]>;
+  // 商流販売店の選択肢（一次店・三次店・販売店の組）
+  retailerAssignOptions: RetailerAssignOption[];
+  // オンライン商品から導出するサマリ商品（決定6）
+  summaryProduct: { code: string; name: string };
 }
 
 // エラーサマリ（詳細画面 中段）の1行。同じ原因の明細をまとめた作業単位＝再取込の単位。

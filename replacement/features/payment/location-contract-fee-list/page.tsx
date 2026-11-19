@@ -1105,11 +1105,9 @@ export default function LocationContractFeeList() {
           .lc-item-grid .ag-cell[col-id="managementCategoryCode"] > * {
             justify-content: flex-start;
           }
-          .lc-item-grid .ag-row-hover .ag-cell {
-            background-color: transparent !important;
-          }
+          /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。セルの背景（白・灰）は変えない（UX-117） */
           .lc-item-grid .ag-row.lc-split-dest .ag-cell {
-            background-color: #e8e8e8 !important;
+            background-color: var(--grid-readonly) !important;
           }
           /* 最左の選択（チェックボックス）列を、各データ行ともセル中央に配置する。 */
           .lc-item-grid .ag-cell[aria-colindex="1"] {

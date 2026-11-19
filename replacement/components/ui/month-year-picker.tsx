@@ -95,7 +95,7 @@ export function MonthYearPicker({
     setSelectedYear(parsed.year);
     setSelectedMonth(parsed.month);
     // parseValue は純粋関数のため依存に含めない
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parseValue は純粋関数で、value が変わったときだけ読み直す
   }, [value]);
 
   // 選択可能範囲（min/max）の判定

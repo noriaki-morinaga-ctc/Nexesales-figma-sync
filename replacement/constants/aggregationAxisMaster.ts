@@ -4,13 +4,6 @@
 // 旧「一般卸メッシュ」「サマリ商品」は集計単位から削除済み（資料 mst シート準拠）。
 
 import type { MultiComboboxOption } from '@/components/ui/multi-combobox';
-import type { AggregationUnitOption } from '@/types/aggregation';
-
-export const AGGREGATION_UNIT_OPTIONS: AggregationUnitOption[] = [
-  { value: 'all', label: '全体' },
-  { value: 'meta-brand', label: 'メタブランド' },
-  { value: 'container-capacity', label: '容器容量G' },
-];
 
 // メタブランド（集計単位選択①）
 export const META_BRAND_OPTIONS: MultiComboboxOption[] = [

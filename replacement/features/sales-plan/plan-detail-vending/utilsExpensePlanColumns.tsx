@@ -7,7 +7,11 @@ import type {
   EXPENSE_BASELINE,
 } from '@/mocks/sales-plan/plan-detail-vending/expense';
 import { Input } from '@/components/ui/input';
-import { GRID_COLORS } from '@/components/grid';
+import {
+  GRID_COLORS,
+  totalCellStyle,
+  sectionRowCellStyle,
+} from '@/components/grid';
 import { TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import { REF_HIGHLIGHT_BORDER } from './constants';
 import { formatDecimal1, formatExpenseNumber } from './utils';
@@ -182,20 +186,15 @@ export const buildExpensePlanColumnDefs = ({
         const cellKey = `${rowIndex}-category`;
         const isHighlighted =
           expenseHighlightedCellsRef.current.includes(cellKey);
-        return {
-          // 経費金額合計行（rowIndex === 0）のみ合計色。その他の行タイトルは
-          // 合計ではない通常（編集不可＝灰）背景にする。
-          backgroundColor:
-            rowIndex === 0
-              ? GRID_COLORS.total
-              : rowData?.isGroupHeaderRow
-                ? GRID_COLORS.sectionRowBg
-                : GRID_COLORS.readonly,
-          // 太字は合計行（経費金額合計＝rowIndex 0）のみ（標準準拠）
-          fontWeight: rowIndex === 0 ? 'bold' : 'normal',
+        // 経費金額合計行（rowIndex === 0）は合計行、区切り行（営業経費など）は区切り行のスタイル。
+        // その他の行タイトルは通常（編集不可＝灰）背景。太字は合計行と区切り行（→ 02 §7・UX-117）
+        const base = {
           paddingLeft,
           border: isHighlighted ? REF_HIGHLIGHT_BORDER : undefined,
         };
+        if (rowIndex === 0) return totalCellStyle(base);
+        if (rowData?.isGroupHeaderRow) return sectionRowCellStyle(base);
+        return { ...base, backgroundColor: GRID_COLORS.readonly };
       },
       cellRenderer: (params: any) => {
         const label = params.value != null ? String(params.value) : '';

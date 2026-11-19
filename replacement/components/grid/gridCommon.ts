@@ -93,7 +93,8 @@ export const GRID_THEME = themeBalham.withParams({
   fontFamily: '"メイリオ", "Meiryo", sans-serif', // 全グリッド共通フォント（デザイントークン準拠）
   oddRowBackgroundColor: GRID_COLORS.background, // 明細の背景を全て白（奇数行の縞模様を無効化）
   backgroundColor: GRID_COLORS.background, // グリッド背景も白
-  rowHoverColor: GRID_COLORS.rowHover, // 行ホバー色（gridStyles に集約）
+  // 行ホバーは背景を塗らない（セルの白・灰を変えない）。上下の青い線と左端の青い帯は grid.css（UX-117）
+  rowHoverColor: 'transparent',
   // ヘッダー（列見出し）の配色（UI/UX分科会 決定事項21＝宮澤案。UI/UX UX-031 → 02 §7「ヘッダーの配色」）
   // 薄い青の背景・紺の太字。列の区切りは上下 0.375rem ずつ空けた薄いグレーの線。
   // ヘッダーと明細の間は明細の横罫線と同じ薄いグレー（紺の線は引かない）。

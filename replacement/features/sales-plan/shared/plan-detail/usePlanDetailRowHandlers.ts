@@ -24,6 +24,8 @@ interface UsePlanDetailRowHandlersArgs {
   bumpGridRebuild: () => void;
   // 追加・コピーした行の id を受け取り、その行へ移って強調する（useRevealNewRows の markRows → 02 §8・UX-112）
   onRowsAdded?: (ids: string[]) => void;
+  // 行の値（計画函数・単価）から社外売上高・売上原価・値入額などを計算し直す（計算のパターンごとの関数）
+  recalcRow: (row: ProductData) => ProductData;
 }
 
 export function usePlanDetailRowHandlers({
@@ -34,6 +36,7 @@ export function usePlanDetailRowHandlers({
   setGiftProductsData,
   bumpGridRebuild,
   onRowsAdded,
+  recalcRow,
 }: UsePlanDetailRowHandlersArgs) {
   // ギフト：上旬/中旬/下旬の3行を1セットとして追加（plans=各期間の箱数=計画函数）。
   const handleAddGiftSet = useCallback(
@@ -52,13 +55,13 @@ export function usePlanDetailRowHandlers({
         id: `new-${seq}-${i}`,
         _addedSeq: seq,
         _copySource: 'new' as const,
-      }));
+      })).map(recalcRow);
       // 最下行に追加し、追加した行へ移って強調する（→ 02 §8「行の追加位置」・UX-112）
       onRowsAdded?.(rows.map((r) => String(r.id)));
       setGiftProductsData((prev) => [...prev, ...rows]);
       bumpGridRebuild();
     },
-    [bumpGridRebuild, onRowsAdded, setGiftProductsData]
+    [bumpGridRebuild, onRowsAdded, setGiftProductsData, recalcRow]
   );
   // ギフト：セットをまるごと複製して新規セット（上旬/中旬/下旬の3行）を追加。
   // handleAddGiftSet と同様だが、行の追加経路をコピー由来（_copySource:'detail'・id=copy-...）とする。
@@ -84,12 +87,12 @@ export function usePlanDetailRowHandlers({
         _addedSeq: seq,
         _copySource: 'detail' as const,
         _copyOf: sourceSetId,
-      }));
+      })).map(recalcRow);
       onRowsAdded?.(rows.map((r) => String(r.id)));
       setGiftProductsData((prev) => [...prev, ...rows]);
       bumpGridRebuild();
     },
-    [bumpGridRebuild, onRowsAdded, setGiftProductsData]
+    [bumpGridRebuild, onRowsAdded, setGiftProductsData, recalcRow]
   );
   // ギフト：セットの共通項目・各期間の計画(箱数)を更新。
   const handleUpdateGiftSet = useCallback(
@@ -103,7 +106,7 @@ export function usePlanDetailRowHandlers({
           if (r.giftSetId !== giftSetId) return r;
           const idx = giftPeriodIndex(r.period);
           const plan = plans[idx] ?? r.plan;
-          return {
+          return recalcRow({
             ...r,
             ...base,
             section: 'ギフト',
@@ -112,12 +115,12 @@ export function usePlanDetailRowHandlers({
             period: r.period,
             plan,
             estimate: plan,
-          };
+          });
         })
       );
       bumpGridRebuild();
     },
-    [bumpGridRebuild, setGiftProductsData]
+    [bumpGridRebuild, setGiftProductsData, recalcRow]
   );
   // ギフト：セットの現在値を取得（編集ペインの初期表示用）。
   const getGiftSet = useCallback(

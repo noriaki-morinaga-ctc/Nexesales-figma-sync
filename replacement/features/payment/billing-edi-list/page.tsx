@@ -3,7 +3,7 @@
 // いずれも1ファイル＝1卸で、区分1〜8のセットの繰り返しは同一卸内の束だった。
 // 請求書・伝票は1ファイル内に多数あるため行にはできない。
 // 支払は商流販売店単位でEDIとは粒度が異なり、支払との紐づけは請求一覧・請求詳細が担う。
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { SearchPane } from './components/SearchPane';
@@ -15,17 +15,24 @@ import type {
 } from '@/types/billingEdi';
 import { filterBillingEdiRows } from '@/utils/payment/billing/billingEdiImport';
 import { ScreenTitle } from '@/components/ui/screen-title';
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
+import { useBillingEdi } from '@/features/payment/shared/billing-edi/BillingEdiProvider';
 
-interface BillingEdiListProps {
-  // 一覧の行データ（App.tsx が state で保持。再取込指示による更新を反映する）
-  rows: BillingEdiImportRow[];
-  onOpenDetail: (row: BillingEdiImportRow) => void;
-}
+export default function BillingEdiList() {
+  const navigate = useAppNavigation();
+  const params = useRouteParams();
+  // 一覧の行データ（BillingEdiProvider が持つ。詳細画面の再取込・修正を反映する）
+  const { rows, reset } = useBillingEdi();
 
-export default function BillingEdiList({
-  rows,
-  onOpenDetail,
-}: BillingEdiListProps) {
+  // 詳細画面の「戻る」以外（メニューなど）から開いたときは、行データを初期状態へ戻す。
+  // 再取込でエラーを取り除いた行も元に戻し、何度でも同じ操作を試せるようにする（モックの都合。実システムでは行わない）
+  useEffect(() => {
+    if (params.from !== 'billing-edi-detail') reset();
+  }, [params, reset]);
+
   // 検索条件（一覧の絞り込みに反映）
   const [searchCriteria, setSearchCriteria] =
     useState<BillingEdiSearchCriteria>(INITIAL_SEARCH_CRITERIA);
@@ -38,7 +45,7 @@ export default function BillingEdiList({
 
   // 詳細ボタン押下処理（請求EDI取込結果詳細へ遷移する）
   const handleDetail = (row: BillingEdiImportRow) => {
-    onOpenDetail(row);
+    navigate('billing-edi-detail', { id: row.id });
   };
 
   return (

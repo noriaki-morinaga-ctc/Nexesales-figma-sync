@@ -4,7 +4,7 @@
 // 本画面は AIC入力の入力単位専用のため、明細はすべて画面で入力・修正できる。
 // 構成は支払詳細(追加口請求書有)（PaymentDetailWithInvoice）に準拠し、基本情報 → 確定（検印）後金額 → 請求明細 → フッターの縦積み。
 // 明細の列構成は「シングル画面案.xlsx ⑤-１請求・支払反映画面」に準拠する（→ DetailTable）。
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Save, Check, Trash2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { BUTTON_STYLES } from '@/styles/commonStyles';
@@ -14,6 +14,7 @@ import { DetailTable } from './components/DetailTable';
 import {
   BILLING_DETAIL_BY_DATA_SOURCE,
   BILLING_LIST,
+  createEmptyBilling,
 } from '@/mocks/common/billing';
 import { NEW_BILLING_ID } from '@/constants/billing';
 import {
@@ -22,13 +23,10 @@ import {
 } from '@/utils/payment/billing/billing';
 import type { BillingDetailRow, BillingRow } from '@/types/billing';
 import { ScreenTitle } from '@/components/ui/screen-title';
-
-interface BillingDetailAicProps {
-  // 請求一覧で選択された入力単位（AIC入力分）。
-  // メニューから直接開いた場合は既定の入力単位を表示する
-  entry?: BillingRow;
-  onBack?: () => void;
-}
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
 
 // メニューから直接開いた場合の既定表示（AIC入力の入力単位）
 const DEFAULT_ENTRY =
@@ -44,11 +42,19 @@ const loadDetailRows = (entry: BillingRow): BillingDetailRow[] =>
         ...row,
       }));
 
-export default function BillingDetailAic({
-  entry,
-  onBack,
-}: BillingDetailAicProps) {
-  const targetEntry = entry ?? DEFAULT_ENTRY;
+export default function BillingDetailAic() {
+  const navigate = useAppNavigation();
+  const params = useRouteParams();
+  // 請求一覧で選択された入力単位（AIC入力分）は ID で、新規作成は mode=new で受け取る。
+  // メニューから直接開いた場合は既定の入力単位を表示する。
+  // 遷移のたびに作り直すと下の読み直しが止まらないため、パラメータが変わったときだけ作る
+  const targetEntry = useMemo(
+    () =>
+      params.mode === 'new'
+        ? createEmptyBilling()
+        : (BILLING_LIST.find((row) => row.id === params.id) ?? DEFAULT_ENTRY),
+    [params]
+  );
   // 新規作成の入力単位は基本情報の請求元企業事業所名を入力できる。
   // 請求元企業は AIC入力分では特定できないため入力欄を設けず、対象年月は入力単位のキーから
   // 外れたため項目自体を持たない（決定24／20260818_第30回 宿題事項15。→ BasicInfoPane）。
@@ -89,14 +95,14 @@ export default function BillingDetailAic({
   // 一覧へ戻る：計画詳細(NET固定)と同様、入力中データの破棄を確認してから遷移する
   const handleBack = () => {
     setIsBackOpen(false);
-    onBack?.();
+    navigate('billing-list');
   };
 
   // 削除：誤って作成した AIC 入力の入力単位を消して一覧へ戻る（決定25）
   const handleDelete = () => {
     setIsDeleteOpen(false);
     toast.success('入力単位を削除しました。');
-    onBack?.();
+    navigate('billing-list');
   };
 
   return (

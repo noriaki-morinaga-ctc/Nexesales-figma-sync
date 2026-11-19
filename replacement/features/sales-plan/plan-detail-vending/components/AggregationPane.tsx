@@ -19,6 +19,13 @@ import {
   RowClassParams,
 } from 'ag-grid-community';
 import { ChevronDown, Calendar, TrendingUp, CalendarRange } from 'lucide-react';
+import {
+  readStoredJson,
+  readStoredText,
+  removeStored,
+  writeStoredJson,
+  writeStoredText,
+} from '@/utils/common/browserStorage';
 
 import { RadioGroup } from '@/components/ui/radio-group';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -40,6 +47,11 @@ import {
 import { FORM_LABEL_CLASS, TEXT_INPUT_CLASS } from '@/styles/commonStyles';
 import { SegmentToggle } from '@/components/shared/common/SegmentToggle';
 import { KpiCard } from '@/features/sales-plan/shared/common/KpiCard';
+import { formatRatioDecimal1 } from '@/features/sales-plan/plan-detail-vending/utils';
+import {
+  formatPlanRate,
+  PLAN_DETAIL_DIGITS,
+} from '@/utils/sales-plan/common/planDetailNumberFormat';
 
 // 集計表（売上サマリ数値・詳細）の初期の高さ（px）。表の下端のリサイズハンドルの
 // ドラッグで拡縮する（計画詳細(NET固定)＝ PlanAggregationPane と同じ共通フック
@@ -82,22 +94,6 @@ const getDetailRowId = (params: GetRowIdParams<UnifiedAggregationData>) =>
 // すべての列を率(%)で表示する項目。金額ではないため金額単位（円／千円）の換算対象から
 // 外し、差額列も「小数第1位＋%」で表示する。
 const RATE_ITEM_LABELS = new Set(['管理利益率', '条件口率', 'ロケ運転費率']);
-
-// 前年比などの比率(%)を小数第1位まで表示（小数第2位を四捨五入）。
-// 値が無い（空・"－"）ときは半角「-」、非数値はそのまま返す。AG Grid の valueFormatter で使用。
-const formatRatioDecimal1 = (value: unknown): string => {
-  if (value === null || value === undefined) return GRID_EMPTY_TEXT;
-  const str = String(value);
-  if (str === '' || str === '－') return GRID_EMPTY_TEXT;
-  const num = parseFloat(str.replace(/[,%\s]/g, ''));
-  if (isNaN(num)) return str;
-  return (
-    (Math.round(num * 10) / 10).toLocaleString(undefined, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }) + '%'
-  );
-};
 
 interface UnifiedAggregationData {
   label: string;
@@ -1408,12 +1404,12 @@ export function AggregationPane() {
   // 行タイトル列の幅を「初期表示は既定幅・以降は利用者の調整を保持」で適用する。
   // 共通フックが保存済み列状態を復元した後に実行され、既定幅が変わったときだけ上書きする。
   const applyRowTitleDefaultWidth = useCallback((event: GridReadyEvent) => {
-    const applied = localStorage.getItem(ROW_TITLE_WIDTH_APPLIED_KEY);
+    const applied = readStoredText(ROW_TITLE_WIDTH_APPLIED_KEY);
     if (applied === String(ROW_TITLE_COLUMN_WIDTH)) return;
     event.api.applyColumnState({
       state: [{ colId: ROW_TITLE_COLUMN_ID, width: ROW_TITLE_COLUMN_WIDTH }],
     });
-    localStorage.setItem(
+    writeStoredText(
       ROW_TITLE_WIDTH_APPLIED_KEY,
       String(ROW_TITLE_COLUMN_WIDTH)
     );
@@ -1428,12 +1424,11 @@ export function AggregationPane() {
   // 保存済みの列グループ（予算・前年）の開閉状態を適用する。
   const handleRestoreDetailGroupState = useCallback(
     (event: { api: GridApi }) => {
-      try {
-        const saved = localStorage.getItem(DETAIL_GROUP_STATE_KEY);
-        if (saved) event.api.setColumnGroupState(JSON.parse(saved));
-      } catch {
-        // 保存値が壊れている場合は列定義どおりの開閉状態のままにする
-      }
+      // 保存値が壊れている場合は列定義どおりの開閉状態のままにする
+      const saved = readStoredJson<
+        Parameters<GridApi['setColumnGroupState']>[0]
+      >(DETAIL_GROUP_STATE_KEY);
+      if (saved) event.api.setColumnGroupState(saved);
     },
     []
   );
@@ -1448,23 +1443,13 @@ export function AggregationPane() {
   // （初回アクセス時と同じ状態にそろえる）。
   const handleResetDetailGroupState = useCallback((event: { api: GridApi }) => {
     event.api.resetColumnGroupState();
-    try {
-      localStorage.removeItem(DETAIL_GROUP_STATE_KEY);
-    } catch {
-      // 保存領域を扱えない環境では消す処理も行わない
-    }
+    removeStored(DETAIL_GROUP_STATE_KEY);
   }, []);
 
   // 列グループを開閉するたびに状態を保存する（次回アクセス時に復元する）。
   const handleSaveDetailGroupState = useCallback((event: { api: GridApi }) => {
-    try {
-      localStorage.setItem(
-        DETAIL_GROUP_STATE_KEY,
-        JSON.stringify(event.api.getColumnGroupState())
-      );
-    } catch {
-      // 保存できない環境（プライベートモード等）では記憶しない
-    }
+    // 保存できない環境（プライベートモード等）では記憶しない
+    writeStoredJson(DETAIL_GROUP_STATE_KEY, event.api.getColumnGroupState());
   }, []);
 
   // マウスオーバー時のツールチップ（画面設計標準準拠）を付与した列定義。
@@ -1579,10 +1564,13 @@ export function AggregationPane() {
         valueLabel="計画/実績"
         valueText={formatCardValue(data.計画, data.unit)}
         budgetRate={budgetRate}
-        budgetRateText={`${budgetRate.toFixed(1)}%`}
+        budgetRateText={formatPlanRate(budgetRate, PLAN_DETAIL_DIGITS.rate)}
         budgetDiffText={formatDiff(budgetDiff)}
         previousYearRate={previousYearRate}
-        previousYearRateText={`${previousYearRate.toFixed(1)}%`}
+        previousYearRateText={formatPlanRate(
+          previousYearRate,
+          PLAN_DETAIL_DIGITS.rate
+        )}
         previousYearDiffText={formatDiff(previousYearDiff)}
       />
     );

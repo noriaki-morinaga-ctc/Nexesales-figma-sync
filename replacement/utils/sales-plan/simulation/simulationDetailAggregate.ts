@@ -11,7 +11,7 @@
 // 各中間項目の構成比を求め、詳細グリッドの確度絞り込み後の実集計値へ適用してフルP/Lを再構成する。
 //   ・函数／社外売上高／納品金額／拡売費①② … 詳細グリッドの実入力を集計（確度連動）
 //   ・量経追加口／条件口／売上原価／ロケ補填 … 計画詳細ダミーデータ由来の対社外売上高比で按分
-//   ・センターフィ … 社外売上高 × センターフィ率（RATE_SETTINGS.centerFeeRate）
+//   ・センターフィ … 詳細の行と同じ既定の設定（DEFAULT_COMMON_RATE_SETTINGS）と算出基準（PB商品を除く／含む）で算出
 //   ・売上連動拡売費／直接固定費 … 実拡売費①②合計を計画詳細の内訳比で按分
 //   ・管理利益 … 補足3-1 の全チェーン（売買差益 − 直接固定費）で算出
 // これにより全項目が値を持ち、かつ確度選択・詳細入力に連動して変化する。
@@ -21,7 +21,9 @@
 import type { AggTreeNodeRef } from '@/types/aggregation';
 import type { AggAmounts } from '@/utils/sales-plan/common/aggregationCalc';
 import { computeMonthsRange } from '@/utils/sales-plan/common/aggregationCalc';
-import { RATE_SETTINGS } from '@/constants/aggregationSourceData';
+import { DEFAULT_COMMON_RATE_SETTINGS } from '@/constants/commonRateSettings';
+import { isPBProduct } from '@/utils/sales-plan/common/aggregationAxisMapping';
+import { computeCommonRateAmount } from '@/utils/sales-plan/common/commonRateAmounts';
 import type { AggregationSource } from '@/types/aggregation';
 import { makeTreeValueFor } from '@/utils/sales-plan/common/aggregationTreeValue';
 import { managementClassFromCode } from '@/utils/common/expenseRelations';
@@ -34,6 +36,7 @@ export interface SimulationDetailRow {
   quantity?: string; // 入数
   planPrice?: string; // 納価
   externalSales?: string; // 社外売上高（算出済・3桁区切り文字列）
+  metaBrand?: string; // メタブランド（センターフィの PB 商品の判定に使う）
   managementProfitAmount?: string; // 管理利益額（算出済＝社外売上高−拡売費①②／簡易P/L）
   exp1PlannedAmountBefore?: string; // 拡売費①計画金額
   exp1ManagementClass?: string; // 拡売費①管理区分
@@ -136,15 +139,24 @@ export const aggregateSimulationDetail = (
   let func = 0;
   let extSales = 0;
   let deliveryAmount = 0;
+  // センターフィの算出基準（PB商品を除く）用の合計
+  let extSalesExcludingPB = 0;
+  let deliveryExcludingPB = 0;
   let promo = 0; // 実入力の拡売費①②合計
   for (const r of rows) {
     if (r._isHeader) continue; // 見出し・合計行は集計対象外
     if (!r.probability || !probs.has(r.probability)) continue; // 未選択確度は除外
     const fn = num(r.plan);
     func += fn;
-    extSales += num(r.externalSales);
+    const rowExtSales = num(r.externalSales);
+    extSales += rowExtSales;
     // 納品金額＝納価×入数×函数（詳細グリッドの補足2-2 と同一導出）
-    deliveryAmount += num(r.planPrice) * num(r.quantity) * fn;
+    const rowDelivery = num(r.planPrice) * num(r.quantity) * fn;
+    deliveryAmount += rowDelivery;
+    if (!isPBProduct(r.metaBrand ?? '')) {
+      extSalesExcludingPB += rowExtSales;
+      deliveryExcludingPB += rowDelivery;
+    }
     // 拡売費＝拡売費①＋②（詳細グリッドの実入力）。A口のみ集計時は対象管理区分の金額だけを合算する
     const exp1 = num(r.exp1PlannedAmountBefore);
     const exp2 = num(r.exp2PlannedAmountBefore);
@@ -164,7 +176,16 @@ export const aggregateSimulationDetail = (
   const cost = extSales * ratios.cost;
   const sales = extSales - volumeAdd - condition; // 売上高＝社外売上高−量経追加口−条件口
   const netProfit = sales - cost; // 売上総利益＝売上高−売上原価
-  const centerFee = extSales * RATE_SETTINGS.centerFeeRate; // センターフィ＝社外売上高×率
+  // センターフィ：詳細の行（simulationManagementProfitOf）と同じ既定の設定・算出基準で求める
+  const centerFee = computeCommonRateAmount(
+    DEFAULT_COMMON_RATE_SETTINGS.centerFee,
+    {
+      extSalesAll: extSales,
+      extSalesExcludingPB,
+      deliveryAll: deliveryAmount,
+      deliveryExcludingPB,
+    }
+  );
   const locFill = extSales * ratios.locFill;
   const variableCost = centerFee + locFill; // 変動費＝センターフィ＋ロケ補填
   const tradeProfit = netProfit - variableCost; // 売買差益＝売上総利益−変動費

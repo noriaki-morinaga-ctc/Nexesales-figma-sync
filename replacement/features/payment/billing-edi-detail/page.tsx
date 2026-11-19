@@ -17,12 +17,14 @@ import {
 import { BasicInfo } from './components/BasicInfo';
 import { ErrorList } from './components/ErrorList';
 import { BillingDetailList } from './components/BillingDetailList';
-import type {
-  BillingEdiErrorSummary,
-  BillingEdiImportRow,
-} from '@/types/billingEdi';
+import type { BillingEdiErrorSummary } from '@/types/billingEdi';
 import { targetCountOf } from '@/utils/payment/billing/billingEdiImport';
 import { ScreenTitle } from '@/components/ui/screen-title';
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
+import { useBillingEdi } from '@/features/payment/shared/billing-edi/BillingEdiProvider';
 import { viewportGridHeight } from '@/components/grid';
 
 // 請求EDI明細（画面のいちばん下の表）の高さで画面の縦幅から引く分（rem。アプリのヘッダー・
@@ -30,38 +32,17 @@ import { viewportGridHeight } from '@/components/grid';
 // ちょうど収まる値（UX-099。実測で決めた値）。
 const DETAIL_GRID_OFFSET_REM = 9.5;
 
-interface BillingEdiDetailProps {
-  // 一覧の行データ（App.tsx が state で保持）
-  rows: BillingEdiImportRow[];
-  // 一覧で選択された行のID。メニューから直接開いた場合は未選択とし、既定行を表示する
-  selectedId?: string;
-  onBack?: () => void;
-  // 再取込指示の確定処理（エラーサマリ1件が単位。対象を「再取込指示済」に更新する）
-  // 再取込の実行（オンライン。押した時点で結果が確定する）
-  onReimportSummary: (rowId: string, summaryId: string) => void;
-  // エラーサマリの「変換後の値」を登録したときの反映
-  onAssignValue: (
-    rowId: string,
-    summaryId: string,
-    assignedValue: string
-  ) => void;
-  // 形式エラーの値を画面で修正したときの反映（原本は保持し差分として記録する）
-  onCorrectDetail: (
-    rowId: string,
-    detailId: string,
-    field: string,
-    corrected: string
-  ) => void;
-}
-
-export default function BillingEdiDetail({
-  rows,
-  selectedId,
-  onBack,
-  onReimportSummary,
-  onAssignValue,
-  onCorrectDetail,
-}: BillingEdiDetailProps) {
+export default function BillingEdiDetail() {
+  const navigate = useAppNavigation();
+  // 一覧で選択された行の ID（遷移のパラメータ）。メニューから直接開いた場合は未選択とし、既定行を表示する
+  const selectedId = useRouteParams().id;
+  // 一覧の行データと更新の処理（BillingEdiProvider が持ち、一覧にも反映する）。
+  // 再取込は「再取込の実行（オンライン。押した時点で結果が確定する）」、変換後の値の登録、
+  // 形式エラーの値の修正（原本は保持し差分として記録する）
+  const { rows, reimportSummary, assignValue, correctDetail } = useBillingEdi();
+  // 一覧へ戻る（戻った一覧では行データを初期状態へ戻さない）
+  const handleBack = () =>
+    navigate('billing-edi-list', { from: 'billing-edi-detail' });
   // 表示対象の行。選択IDがあればそれを rows から引き直す（再取込後も表示を最新に保つ）。
   // 選択が無い場合（メニューから直接開いた場合）はエラーを持つ最初の行、
   // 無ければ先頭行を既定表示とする。
@@ -128,7 +109,7 @@ export default function BillingEdiDetail({
     field: string,
     corrected: string
   ) => {
-    onCorrectDetail(source.id, detailId, field, corrected);
+    correctDetail(source.id, detailId, field, corrected);
     toast.success(
       `「${field}」を修正しました。原本の連携値は保持し、修正前後を差分として記録します。`
     );
@@ -141,7 +122,7 @@ export default function BillingEdiDetail({
     if (selectedForReimport.length === 0) return;
     // TODO: 再取込APIを呼び出す
     selectedForReimport.forEach((summary) =>
-      onReimportSummary(source.id, summary.id)
+      reimportSummary(source.id, summary.id)
     );
     toast.success(`${selectedForReimport.length} 件のエラーを再取込しました。`);
     setIsReimportOpen(false);
@@ -174,7 +155,7 @@ export default function BillingEdiDetail({
 
   // 「変換後の値」をエラーサマリのセルで登録したときの処理
   const handleAssign = (summaryId: string, assignedValue: string) => {
-    onAssignValue(source.id, summaryId, assignedValue);
+    assignValue(source.id, summaryId, assignedValue);
   };
 
   return (
@@ -278,7 +259,7 @@ export default function BillingEdiDetail({
           <div>
             <button
               className="btn-action-base btn-action-outline"
-              onClick={onBack}
+              onClick={handleBack}
               aria-label="一覧へ戻る"
             >
               <ArrowLeft className="h-4 w-4" />

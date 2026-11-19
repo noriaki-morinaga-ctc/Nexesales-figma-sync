@@ -358,3 +358,11 @@ export const SIM_FORMULA_DEFS: FormulaDefs<ProductData> = {
 // ===== 変更前 / 変更後 / 増減 比較 ヘルパー =====
 // 文字列→数値（カンマ・%除去）。空は NaN。
 export const parseMetric = parseSimMetric;
+
+// 行を写して、売上高・管理利益などを計算し直した行を返す（セル編集と同じ計算。比べる基準の値は変えない）。
+// 明細追加・行のコピー・明細編集ペイン・ギフトのセットの更新のように、セル編集を通らずに行を変えるときに使う
+export const withComputed = (row: ProductData): ProductData => {
+  const d = { ...row };
+  computeDerived(d);
+  return d;
+};

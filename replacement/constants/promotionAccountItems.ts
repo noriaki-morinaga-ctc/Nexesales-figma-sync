@@ -16,15 +16,3 @@ export const PROMOTION_ACCOUNT_ITEMS: Record<string, PromotionAccountItem> = {
   lease: { code: '52600', name: 'リース料' },
   equip: { code: '52700', name: '販売器具費' },
 };
-
-// 管理区分名称 → 対応する勘定科目キー。
-// 拡売費計画Grid の「管理区分を選ぶと勘定科目が決まる」連動と、拡売費集計の口明細行が
-// 同じ対応関係を参照できるようにする（対応表をここ1か所に集約する）。
-export const ACCOUNT_KEY_BY_MANAGEMENT_CLASS: Record<string, string> = {
-  売上連動拡売費A口: 'salesLinkedA',
-  売上連動拡売費B口: 'salesLinkedB',
-  売上連動拡売費本社口: 'salesLinkedH',
-  '拡売費(固定費)A口': 'fixedA',
-  '拡売費(固定費)B口': 'fixedB',
-  '拡売費(固定費)本社口': 'fixedH',
-};

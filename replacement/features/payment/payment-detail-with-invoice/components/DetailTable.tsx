@@ -31,6 +31,7 @@ import {
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
   GRID_COLORS,
+  totalCellStyle,
   changedCellStyle,
   gridFilterContextMenuItems,
   useGridColumnState,
@@ -338,12 +339,6 @@ const computeEntryTotal = (
 const computeNetUnapproved = (rows: AdditionalEntryData[]): NetUnapprovedLink =>
   netUnapprovedLinkOf(rows);
 
-// 追加口明細の消費税率。追加口は税率の列を設けず一律8%を裏で保持する
-// （→ 課題 No.0871／20260710_第16回 決定事項21）。消費税コード・名称はPRIMEのものを使い、
-// 追加口はF始まりの8%を初期値とする（→ 20260724_第23回_共通 決定事項10。
-// コードの採番はPRIMEマスタのため基本設計で定める）。
-export const ADDITION_TAX_RATE = 0.08;
-
 // 照合支払区分の選択肢（拡売費明細と共通の定数を使う）。
 // 「拡売費処理」で当該明細を拡売費明細へ転記するとき、照合支払区分の値を
 // そのまま引き継ぐため、両一覧の選択肢は同じでなければならない。
@@ -634,8 +629,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const inputCellStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
-            fontWeight: 'bold',
-            backgroundColor: GRID_COLORS.total,
+            ...totalCellStyle(),
             textAlign: 'right',
           }
         : isOverBilled(params.data)
@@ -652,8 +646,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const rightStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
-            fontWeight: 'bold',
-            backgroundColor: GRID_COLORS.total,
+            ...totalCellStyle(),
             textAlign: 'right',
           }
         : isOverBilled(params.data)
@@ -667,7 +660,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // 非活性（表示のみ）スタイル。データ行は灰（gridStyles の readonly）。
     const totalStyle = asCellStyle((params: any) =>
       params.data?.isTotal
-        ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+        ? totalCellStyle()
         : isOverBilled(params.data)
           ? { backgroundColor: OVER_BILLED_BG }
           : { backgroundColor: rowBgOf(params, GRID_COLORS.readonly) }
@@ -677,7 +670,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     // 編集後は変更ハイライト（gridStyles の changedCellStyle）に統一。
     const inputTextStyle = asCellStyle((params: any) =>
       params.data?.isTotal
-        ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+        ? totalCellStyle()
         : isOverBilled(params.data)
           ? { backgroundColor: OVER_BILLED_BG }
           : isCellChanged(params)
@@ -690,8 +683,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const inputCenterStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
-            fontWeight: 'bold',
-            backgroundColor: GRID_COLORS.total,
+            ...totalCellStyle(),
             textAlign: 'center',
           }
         : isOverBilled(params.data)
@@ -708,8 +700,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     const widgetCenterStyle = asCellStyle((params: any) =>
       params.data?.isTotal
         ? {
-            fontWeight: 'bold',
-            backgroundColor: GRID_COLORS.total,
+            ...totalCellStyle(),
             textAlign: 'center',
           }
         : isOverBilled(params.data)

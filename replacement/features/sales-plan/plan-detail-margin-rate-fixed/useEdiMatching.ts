@@ -72,6 +72,10 @@ export interface LastEdiMatch {
 // ドラッグ中のEDI行のサマリ商品（未突合の一覧の位置）を明細表の枠に付ける属性
 const DRAG_ATTRIBUTE = 'data-edi-drag';
 
+// 突合先の計画行の枠（青い破線。補足8-7 図1-1）
+const EDI_FRAME_CSS =
+  'outline: 0.125rem dashed var(--grid-edi-drop-border); outline-offset: -0.125rem;';
+
 // 日時（YYYY/MM/DD HH:mm:ss）。手動で突合した日時として残す（補足8-7 ①）
 const nowText = (): string => {
   const d = new Date();
@@ -327,11 +331,13 @@ export function useEdiMatching({
     [setDragAttribute]
   );
 
-  // 突合先の候補の計画行に、ドラッグ中の枠のクラスを付ける（EDI行のサマリ商品ごとに番号を分ける）
+  // 突合先の候補の計画行に、ドラッグ中の枠のクラスを付ける（EDI行のサマリ商品ごとに番号を分ける）。
+  // EDI行には edi-row を付け、選択中の枠（計画行だけ）の対象から外す。
   const getRowClass = useCallback(
     (params: RowClassParams<ProductData>): string | undefined => {
       const row = params.data;
-      if (!row || params.node.rowPinned || row._ediRow) return undefined;
+      if (!row || params.node.rowPinned) return undefined;
+      if (row._ediRow) return 'edi-row';
       const index = unmatchedProducts.indexOf(row.summaryProduct);
       return index >= 0 && isEdiMatchCandidate(row, row.summaryProduct)
         ? `edi-drop-candidate-${index}`
@@ -340,15 +346,19 @@ export function useEdiMatching({
     [unmatchedProducts]
   );
 
-  // ドラッグ中の枠の CSS（明細表の <style> に足す）。色は gridStyles の CSS 変数で参照する
+  // 突合の枠の CSS（明細表の <style> に足す）。色は gridStyles の CSS 変数で参照する。
+  // ・チェックを付けた突合先の計画行（EDI行は除く）に青い破線の枠を出す（補足8-7 図1-1 の P2）
+  // ・ドラッグ中は、そのEDI行と同じサマリ商品の突合先の候補に同じ枠を出す
+  // 行に枠を付けるとセルの背景色で隠れるため、図1-1 と同じくセルごとに囲む。
   const dragHighlightCss = useMemo(
     () =>
-      unmatchedProducts
-        .map(
+      [
+        `.sales-detail-grid .ag-row.ag-row-selected:not(.edi-row):not(.ag-row-pinned) .ag-cell { ${EDI_FRAME_CSS} }`,
+        ...unmatchedProducts.map(
           (_product, i) =>
-            `.sales-detail-grid[${DRAG_ATTRIBUTE}="${i}"] .ag-row.edi-drop-candidate-${i} { outline: 0.125rem dashed var(--grid-edi-drop-border); outline-offset: -0.125rem; }`
-        )
-        .join('\n'),
+            `.sales-detail-grid[${DRAG_ATTRIBUTE}="${i}"] .ag-row.edi-drop-candidate-${i} .ag-cell { ${EDI_FRAME_CSS} }`
+        ),
+      ].join('\n'),
     [unmatchedProducts]
   );
 

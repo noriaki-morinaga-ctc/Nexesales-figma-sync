@@ -2,7 +2,6 @@
 import {
   NEW_PRODUCT_MONTHS,
   PERIOD_OPTIONS_MASTER,
-  WHOLESALE_MESH_OPTIONS,
 } from '@/constants/productMasters';
 
 export const periodFromProductValue = (value: string): string => {
@@ -10,21 +9,6 @@ export const periodFromProductValue = (value: string): string => {
   let h = 0;
   for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
   return PERIOD_OPTIONS_MASTER[Math.abs(h) % PERIOD_OPTIONS_MASTER.length];
-};
-
-// 一般卸メッシュの候補（SingleCombobox用）。編集/コピーで選択済みの値（ギフト等マスタ未登録）が
-// 候補に無い場合でもフォームに表示できるよう、先頭へ補完する。
-export const wholesaleMeshOptions = (
-  selected: string
-): { value: string; label: string }[] => {
-  const base = WHOLESALE_MESH_OPTIONS.map((o) => ({
-    value: o.value,
-    label: o.value,
-  }));
-  if (selected && !base.some((o) => o.value === selected)) {
-    return [{ value: selected, label: selected }, ...base];
-  }
-  return base;
 };
 
 // 'YYYY/MM' を比較用の通し月数へ変換（不正値は null）。

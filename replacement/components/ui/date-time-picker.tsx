@@ -191,7 +191,7 @@ export function DateTimePicker({
       setIsPickingMonth(false);
     }
     // 開いた瞬間の選択値だけを基準にする（選択のたびにカレンダーを動かさない）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた瞬間の選択値だけを基準にする（選択のたびにカレンダーを動かさない）
   }, [open]);
 
   // 手打ちモードに入ったらテキストを現在値で初期化しフォーカス（エラーもリセット）
@@ -228,7 +228,7 @@ export function DateTimePicker({
     document.addEventListener('mousedown', handleDocMouseDown);
     return () => document.removeEventListener('mousedown', handleDocMouseDown);
     // commitTyped は typedText に依存するため typedText を監視する
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- commitTyped は typedText に依存するため typedText の監視で足りる
   }, [open, isTyping, typedText]);
 
   // Esc でパネルを閉じる（→ 06 キーボード操作）

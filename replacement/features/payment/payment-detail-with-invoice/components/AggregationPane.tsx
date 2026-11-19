@@ -25,6 +25,7 @@ import { CARD_TITLE_CLASS } from '@/styles/commonStyles';
 import { SPLIT_AFFECTED_SUMMARY_KEYS } from '@/utils/payment/payment-detail/paymentSummarySplit';
 import {
   fillSummaryRowValues,
+  convertSummaryCell,
   summaryPayValuesOf,
   type SummaryDetailTotals,
   type SummaryRowKind,
@@ -108,6 +109,8 @@ interface RowDefItem {
   planFormula?: FormulaTemplate;
   note?: string;
   vals: Record<string, string>;
+  // 求めた値（丸める前の数値。fillSummaryRowValues が入れる）。千円表示の丸めに使う
+  raw?: Partial<Record<string, number>>;
   // 追加口の分割を反映した場合の、支払・実績情報セルの内訳（計算式を持たない取得値のみ）
   splitTip?: string;
 }
@@ -435,21 +438,6 @@ const buildSummaryRows = (
   }));
 };
 
-// 金額セルを表示単位（円／千円）に応じて整形する。
-//  ・金額行以外（函数・各種率）と、率の列（計画誤差率・前年比）は変換しない
-//  ・数値でない値（–等）はそのまま
-const convertCell = (
-  kind: RowKind,
-  convertible: boolean,
-  value: string,
-  unit: 'yen' | 'thousand'
-): string => {
-  if (unit === 'yen' || kind !== 'amount' || !convertible) return value;
-  const n = parseFloat(value.replace(/,/g, ''));
-  if (!Number.isFinite(n)) return value;
-  return Math.round(n / 1000).toLocaleString();
-};
-
 // 値セルの並べ替え比較。セル値は「1,234」「10.0%」等の整形済み文字列のため、
 // 数値へ戻して比較する。算出しない「–」は数値化できないため常に末尾へ寄せる。
 const compareValueCells = (a: string, b: string): number => {
@@ -614,11 +602,12 @@ export function AggregationPane({
     for (const r of rows) {
       const vals: Record<string, string> = {};
       for (const c of COLS) {
-        vals[c.key] = convertCell(
+        vals[c.key] = convertSummaryCell(
           r.kind,
           !!c.convertible,
           r.vals[c.key] ?? '',
-          displayUnit
+          displayUnit,
+          r.raw?.[c.key]
         );
       }
       map.set(r.key, vals);

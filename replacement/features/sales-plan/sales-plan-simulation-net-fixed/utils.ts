@@ -318,3 +318,24 @@ export const withTargetYear = (
 // ===== 変更前 / 変更後 / 増減 比較 ヘルパー =====
 // 文字列→数値（カンマ・%除去）。空は NaN。
 export const parseMetric = parseSimMetric;
+
+// 行を写して、売上高・マージン率・管理利益などを計算し直した行を返す（セル編集と同じ計算。比べる基準の値は変えない）。
+// 明細追加・行のコピー・明細編集ペイン・ギフトのセットの更新のように、セル編集を通らずに行を変えるときに使う
+export const withRecomputed = (row: ProductData): ProductData => {
+  const d = { ...row };
+  recomputeDerived(d);
+  return d;
+};
+
+// 追加・コピーしたギフトの行：比べる項目の変更前を今の値、変更後を空にし、売上高・マージン率などを計算して
+// マージン率の基準をその値にそろえる（初期行の withBaseline と同じ）
+export const withGiftBaseline = (row: ProductData): ProductData => {
+  const copy = { ...row } as unknown as Record<string, string | undefined>;
+  COMPARISON_FIELDS.forEach((f) => {
+    copy[`${f}Before`] = copy[f] ?? '';
+    copy[`${f}After`] = '';
+  });
+  recomputeDerived(copy);
+  copy.marginBefore = copy.margin;
+  return copy as unknown as ProductData;
+};

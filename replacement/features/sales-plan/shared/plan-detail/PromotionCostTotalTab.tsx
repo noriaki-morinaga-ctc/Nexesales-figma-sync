@@ -1801,7 +1801,7 @@ export function PromotionCostTotalTab({
             .annual-total-grid .ag-row { border: none; }
             .annual-total-grid .ag-row-even,
             .annual-total-grid .ag-row-odd { background-color: transparent; }
-            .annual-total-grid .ag-row-hover .ag-cell { background-color: var(--grid-row-hover) !important; }
+            /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
             .annual-total-grid .ag-root-wrapper { border: 1px solid var(--grid-grid-line); border-radius: 4px; }
             .annual-total-grid .ag-pinned-left-header { box-shadow: none; z-index: 1; }
             .annual-total-grid .ag-pinned-left-cols-container { box-shadow: none; z-index: 1; }

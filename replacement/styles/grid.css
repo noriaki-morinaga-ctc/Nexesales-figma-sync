@@ -43,12 +43,20 @@
   transition: background-color 150ms ease-in-out;
 }
 
-/* セルが cellStyle のインライン背景色を持つ場合、行ホバー色がセル背景に隠れて
-   一部の列しか色が変わらない。ホバー時は対象行の全セルを薄い青で上書きする（全グリッド共通）。
-   特定セル色を維持したいグリッドは、より詳細なセレクタ（クラス＋属性）で個別に上書きする。
-   色は --grid-row-hover（GRID_COLORS.rowHover。GRID_THEME の rowHoverColor と同じ色）。 */
+/* 行ホバー（全グリッド共通。UX-117 → 02 §7「行ホバー」）：背景は塗らず（セルの編集可否の白・灰を変えない）、
+   行の上下に青い線、先頭の列の左端に青い帯（0.25rem）を出す。セルの inset の影で描く（行の背景は
+   セルの背景に隠れるため）。色は --grid-row-hover-line（GRID_COLORS.rowHoverLine）。 */
 .ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned) .ag-cell {
-  background-color: var(--grid-row-hover) !important;
+  box-shadow:
+    inset 0 1px 0 var(--grid-row-hover-line),
+    inset 0 -1px 0 var(--grid-row-hover-line);
+}
+.ag-row-hover:not(.ag-full-width-row):not(.ag-row-pinned)
+  .ag-cell[aria-colindex='1'] {
+  box-shadow:
+    inset 0.25rem 0 0 var(--grid-row-hover-line),
+    inset 0 1px 0 var(--grid-row-hover-line),
+    inset 0 -1px 0 var(--grid-row-hover-line);
 }
 
 /* ============================================

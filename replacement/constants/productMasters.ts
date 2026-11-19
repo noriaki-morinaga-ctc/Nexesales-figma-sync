@@ -1884,10 +1884,6 @@ export const SUMMARY_PRODUCT_OPTIONS: SummaryProductOption[] = [
   },
 ];
 
-// サマリ商品名（シミュレーション画面用：全件を共通利用）
-export const SUMMARY_PRODUCT_OPTIONS_SIMULATION: SummaryProductOption[] =
-  SUMMARY_PRODUCT_OPTIONS;
-
 // サマリ商品名（value）→ 明細連動情報 の逆引きマップ。
 // 表内グリッド・明細フォームでサマリ商品名選択時に
 // メタブランド／容器容量G／一般卸メッシュ等を自動補完する用途。重複値は先勝ち。

@@ -14,6 +14,8 @@ import {
   planCountFormatter,
   formatPlanCount,
   formatPlanCountText,
+  formatPlanRate,
+  formatPlanAmount,
 } from './planDetailNumberFormat';
 
 // valueFormatter / valueParser には AG Grid の params のうち
@@ -174,5 +176,14 @@ describe('formatPlanCountText', () => {
   it('空欄・数値以外はそのまま返す', () => {
     expect(formatPlanCountText('')).toBe('');
     expect(formatPlanCountText(undefined)).toBe('');
+  });
+});
+
+describe('計算できない値（分母が 0 など）', () => {
+  it('NaN・Infinity は「-」と表示する', () => {
+    expect(formatPlanRate(NaN, PLAN_DETAIL_DIGITS.rate)).toBe('-');
+    expect(formatPlanRate(Infinity, PLAN_DETAIL_DIGITS.rate)).toBe('-');
+    expect(formatPlanAmount(NaN, PLAN_DETAIL_DIGITS.amount)).toBe('-');
+    expect(formatPlanCount(-Infinity)).toBe('-');
   });
 });

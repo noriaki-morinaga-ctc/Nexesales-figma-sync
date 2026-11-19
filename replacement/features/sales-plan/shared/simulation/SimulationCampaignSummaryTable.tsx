@@ -13,6 +13,7 @@ import { ExpandCollapseButton } from '@/features/sales-plan/shared/common/Expand
 import {
   GRID_BASE_PROPS,
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_EMPTY_TEXT,
   GRID_STATUS_BAR,
@@ -161,22 +162,21 @@ export function SimulationCampaignSummaryTable({
   // 合計行（ピン留め）かどうかの判定
   const isTotalRow = (params: any) => !!params.node?.rowPinned;
 
-  // 数値セルのスタイル（マイナス赤字・合計行は薄青：gridStyles準拠）
+  // 数値セルのスタイル（マイナス赤字・合計行は白・太字・下の濃い線：gridStyles準拠）
   const numberCellStyle = useCallback((params: any) => {
     const style: any = { textAlign: 'right' };
     if (isTotalRow(params)) {
-      style.backgroundColor = GRID_COLORS.total;
-      style.fontWeight = 'bold';
+      Object.assign(style, totalCellStyle());
     }
     if (toNum(params.value) < 0) style.color = GRID_COLORS.overText;
     return style;
   }, []);
 
-  // テキストセルのスタイル（合計行は薄青：gridStyles準拠）
+  // テキストセルのスタイル（合計行は白・太字・下の濃い線：gridStyles準拠）
   const textCellStyle = asCellStyle(
     useCallback((params: any) => {
       if (isTotalRow(params)) {
-        return { backgroundColor: GRID_COLORS.total, fontWeight: 'bold' };
+        return totalCellStyle();
       }
       return {};
     }, [])
@@ -289,7 +289,7 @@ export function SimulationCampaignSummaryTable({
       numCol('拡売費①金額', 'exp1PlannedAmount'),
       numCol('拡売費②金額', 'exp2PlannedAmount'),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列は書式・表示単位・一般卸メッシュの表示の切替のときだけ作り直す（numCol・textCol は描画のたびに作られる）
     [
       numberCellStyle,
       textCellStyle,

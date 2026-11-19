@@ -12,7 +12,7 @@ import {
   PROMOTION_CODE,
   SUMMARY_PRODUCT_CODE,
   WHOLESALE_MESH_CODE,
-} from '@/constants/comboFieldOptions';
+} from '@/constants/comboFieldCodes';
 import type { SingleComboboxOption } from '@/components/ui/single-combobox';
 import {
   CONTAINER_CAPACITY_MASTER,
@@ -20,7 +20,6 @@ import {
   META_BRAND_MASTER,
 } from '@/constants/productMasters';
 import { expenseSummaryProductOptionCode } from '@/utils/common/summaryProductSearch';
-import { joinCodeName } from '@/utils/common/nameCode';
 
 // 一覧に無い商品名（拡売費版や新規行）でも決定的にコードを返すフォールバック。
 export const productCodeFromValue = (value: string): string => {
@@ -110,36 +109,6 @@ export const containerComboOptions = (): SingleComboboxOption[] =>
     label: c.name,
     code: c.code,
   }));
-
-// ── 削除ペイン等の「コード:名称」表示ヘルパー ─────────────────
-// 計画詳細の削除確認ペインは、基本情報エリア（joinCodeName）と同じ「コード:名称」表記で揃える。
-// 名称が空なら「-」、コードが引けなければ名称のみを返す。
-const codeWithName = (code: string, name: string): string => {
-  const trimmedName = name.trim();
-  if (!trimmedName) return '-';
-  return joinCodeName(code.trim(), trimmedName);
-};
-
-// サマリ商品名：商品コード:名称。
-export const summaryProductCodeName = (value?: string): string =>
-  codeWithName(productCodeFromValue(String(value ?? '')), String(value ?? ''));
-
-// メタブランド：コード:名称（マスタ実値）。
-export const metaBrandCodeName = (value?: string): string => {
-  const name = String(value ?? '');
-  const code = META_BRAND_MASTER.find((b) => b.value === name)?.code ?? '';
-  return codeWithName(code, name);
-};
-
-// 販促区分：販促コード:名称。特殊商品・ギフトは区分名で固定表示（区分名の販促コードを付与）。
-export const promotionCodeName = (data: any): string => {
-  const category = data?.productCategory ?? '';
-  const name =
-    category === '特殊商品' || category === 'ギフト'
-      ? category
-      : String(data?.promotion ?? '').trim();
-  return codeWithName(PROMOTION_CODE[name] ?? '', name);
-};
 
 // ── 名称からコード値・区分値を引く（計画詳細の明細グリッドのコード列で使う） ──
 // PJルール（6/4 共通セッション 決定事項15）：コード値・区分値を持つ項目は、

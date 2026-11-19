@@ -24,6 +24,8 @@ import {
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
   GRID_COLORS,
+  totalCellStyle,
+  editableBg,
   changedCellStyle,
   gridFilterContextMenuItems,
   useRevealNewRows,
@@ -626,10 +628,10 @@ export function QuoteNonProductExpensePane({
   };
 
   // グループ合計行（未承認NET拡売費合計・その他拡売費合計）・総合計行＋非活性セルのスタイル。
-  // 合計行は薄い青（gridStyles の total）、通常データ行（非活性列）は灰（readonly）。
+  // 合計行は合計行のスタイル（gridStyles の totalCellStyle）、通常データ行（非活性列）は灰（readonly）。
   const groupStyle = asCellStyle((params: any) =>
     params.data?.isGroup || params.data?.isTotal
-      ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+      ? totalCellStyle()
       : { backgroundColor: GRID_COLORS.readonly }
   );
 
@@ -639,11 +641,9 @@ export function QuoteNonProductExpensePane({
   }));
 
   // 操作ウィジェット列（追加口へ戻す・販売計画選択・費用分割）用：データ行は白背景。
-  // 合計行（グループ合計・総合計）は薄い青。
+  // 合計行（グループ合計・総合計）は groupStyle と同じ合計行のスタイル。
   const widgetStyle = asCellStyle((params: any) =>
-    params.data?.isGroup || params.data?.isTotal
-      ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
-      : { backgroundColor: GRID_COLORS.editable }
+    editableExceptSummary(params) ? editableBg(true) : groupStyle(params)
   );
 
   // 手入力可能セル（数値・右寄せ）。データ行は白（editable）、

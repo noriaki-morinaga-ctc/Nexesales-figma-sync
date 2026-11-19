@@ -256,9 +256,3 @@ export function FieldGroup({ title, description, children }: FieldGroupProps) {
     </section>
   );
 }
-
-// 文字列を数値へ（カンマ区切りも許容）。数値にできなければ null。
-export const toFormNumber = (value: string): number | null => {
-  const n = Number.parseFloat(String(value ?? '').replace(/,/g, ''));
-  return Number.isFinite(n) ? n : null;
-};

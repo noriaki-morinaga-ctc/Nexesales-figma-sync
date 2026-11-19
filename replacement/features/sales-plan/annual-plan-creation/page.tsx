@@ -23,6 +23,7 @@ import { PlanSearchPane } from '@/features/sales-plan/shared/plan-detail/PlanSea
 import {
   viewportGridHeight,
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_BASE_PROPS,
   GRID_EMPTY_TEXT,
@@ -52,7 +53,10 @@ import {
 } from '@/constants/promotionCategories';
 import { getPromotionLabels } from '@/utils/sales-plan/common/promotionCategories';
 import { ScreenTitle } from '@/components/ui/screen-title';
-import { useAppNavigation } from '@/components/ui/use-app-navigation';
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
 import { planBasicInfoOf } from '@/mocks/common/planBasicInfo';
 
 // 函数（月次計画）列。年間合計・全商品合計の再集計にも使用する。
@@ -329,18 +333,13 @@ const giftSetMergeKey = (row: any) =>
 const giftSetRowSpan = (params: any) =>
   getMergeRowSpan(params, giftSetMergeKey);
 
-interface AnnualPlanCreationProps {
-  // 遷移元の計画詳細から引き継ぐ取引制度。基本情報の表示内容（取引制度・販売店・
-  // 三次店企業）がこの値で切り替わるため、遷移元と一致させる必要がある。
-  // メニューから直接開いた場合は既定のマージン率固定とする。
-  tradingSystem?: string;
-}
-
-export default function AnnualPlanCreation({
-  tradingSystem = 'マージン率固定',
-}: AnnualPlanCreationProps) {
+export default function AnnualPlanCreation() {
   // 画面の切り替え（→ ui/use-app-navigation）
   const navigate = useAppNavigation();
+  // 遷移元の計画詳細から引き継ぐ取引制度（遷移のパラメータ）。基本情報の表示内容（取引制度・販売店・
+  // 三次店企業）がこの値で切り替わるため、遷移元と一致させる必要がある。
+  // メニューから直接開いた場合は既定のマージン率固定とする。
+  const tradingSystem = useRouteParams().tradingSystem ?? 'マージン率固定';
   // 対象年（条件）。対象計画（計画／実績・前年実績）の表示対象を決める。
   const [selectedYear, setSelectedYear] = useState<string>('2024');
   // 確定済みの条件（プルダウンを閉じて反映された値）。グリッドの絞り込みに使う。
@@ -389,7 +388,7 @@ export default function AnnualPlanCreation({
     setDraftMetaBrands(selectedMetaBrands);
     setDraftContainerCapacities(selectedContainerCapacities);
     // 開いた時点の確定値のみを取り込むため、確定値は依存に含めない
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた時点の確定値だけを取り込む（確定値の変化では下書きを上書きしない）
   }, [isConditionPaneShown]);
 
   // 下書きを確定値へ反映してペインを閉じる。条件が更新されるのはこのタイミングのみ。
@@ -506,7 +505,7 @@ export default function AnnualPlanCreation({
         cellStyle: asCellStyle((params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return {
-              backgroundColor: GRID_COLORS.total,
+              ...totalCellStyle(),
               fontWeight: 'bold',
             };
           }
@@ -536,9 +535,7 @@ export default function AnnualPlanCreation({
             : 'cell-left-vmiddle',
         cellStyle: (params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-            return {
-              backgroundColor: GRID_COLORS.total,
-            };
+            return totalCellStyle();
           }
           return {
             backgroundColor: GRID_COLORS.readonly,
@@ -564,7 +561,7 @@ export default function AnnualPlanCreation({
         cellStyle: asCellStyle((params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
             return {
-              backgroundColor: GRID_COLORS.total,
+              ...totalCellStyle(),
               fontWeight: 'bold',
             };
           }
@@ -592,9 +589,7 @@ export default function AnnualPlanCreation({
             : 'cell-left-vmiddle',
         cellStyle: (params) => {
           if (params.data?.metaBrand === GRAND_TOTAL_LABEL) {
-            return {
-              backgroundColor: GRID_COLORS.total,
-            };
+            return totalCellStyle();
           }
           return { backgroundColor: GRID_COLORS.readonly };
         },
@@ -614,7 +609,7 @@ export default function AnnualPlanCreation({
           // 合計行は集計色（薄青）
           if (params.data.metaBrand === GRAND_TOTAL_LABEL) {
             return {
-              backgroundColor: GRID_COLORS.total,
+              ...totalCellStyle(),
               fontWeight: 'bold',
             };
           }
@@ -891,7 +886,7 @@ export default function AnnualPlanCreation({
               const isTotalRow = params.data.metaBrand === GRAND_TOTAL_LABEL;
               if (isTotalRow) {
                 return {
-                  backgroundColor: GRID_COLORS.total,
+                  ...totalCellStyle(),
                   fontWeight: 'bold',
                 };
               }
@@ -1010,7 +1005,7 @@ export default function AnnualPlanCreation({
       return [];
     }
     // totalsToken は値を使わず、函数編集時の再計算のきっかけとしてのみ依存に置く
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- totalsToken は値を使わず、函数の編集で再計算するきっかけとして置く
   }, [
     displayedRowData,
     isConditionSelected,

@@ -19,6 +19,7 @@ import { Plus, Copy } from 'lucide-react';
 import {
   viewportGridHeight,
   GRID_COLORS,
+  totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_WRAP_HEADER_COL_DEF,
   GRID_EMPTY_TEXT,
@@ -486,8 +487,7 @@ export const NonProductExpensePane = forwardRef<
     (params: any) => {
       if (params.data?.isTotal) {
         return {
-          fontWeight: 'bold',
-          backgroundColor: GRID_COLORS.total,
+          ...totalCellStyle(),
           ...totalExtra,
         };
       }
@@ -497,7 +497,7 @@ export const NonProductExpensePane = forwardRef<
   // 導出列（区分値・名称）用の読取専用セルスタイル。
   const derivedCellStyle = (params: any): Record<string, string> =>
     params.data?.isTotal
-      ? { fontWeight: 'bold', backgroundColor: GRID_COLORS.total }
+      ? totalCellStyle()
       : { backgroundColor: GRID_COLORS.readonly };
 
   // 合計行を計算（拡売費の計画金額・前年実績を集計）
@@ -589,10 +589,7 @@ export const NonProductExpensePane = forwardRef<
       cellClass: 'cell-right',
       cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
-          ? {
-              fontWeight: 'bold',
-              backgroundColor: GRID_COLORS.total,
-            }
+          ? totalCellStyle()
           : { backgroundColor: GRID_COLORS.readonly }
       ),
     },
@@ -609,10 +606,7 @@ export const NonProductExpensePane = forwardRef<
       cellClass: 'cell-right',
       cellStyle: asCellStyle((params: any) =>
         params.data?.isTotal
-          ? {
-              fontWeight: 'bold',
-              backgroundColor: GRID_COLORS.total,
-            }
+          ? totalCellStyle()
           : { backgroundColor: GRID_COLORS.readonly }
       ),
     },
@@ -932,11 +926,9 @@ export const NonProductExpensePane = forwardRef<
         maxWidth: 45,
         cellRenderer: CopyDeleteCellRenderer,
         cellRendererParams: COPY_DELETE_PARAMS,
-        // 合計行は操作列も含めてブルー背景に揃える
+        // 合計行は操作列も含めて合計行のスタイル（白・太字・下の濃い線）に揃える
         cellStyle: (params: any) =>
-          params.data?.isTotal
-            ? { backgroundColor: GRID_COLORS.total }
-            : undefined,
+          params.data?.isTotal ? totalCellStyle() : undefined,
         suppressHeaderMenuButton: true,
         sortable: false,
         filter: false,

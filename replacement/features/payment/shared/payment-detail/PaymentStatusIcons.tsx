@@ -210,6 +210,7 @@ interface PlanLinkStatusIconsProps {
 // 計画紐付ステータスの3連アイコン（案A：1列・区分は左から支払／分割／振替の固定位置）。
 // 区分名はヘッダー2行目の副見出しが凡例を兼ねるため、セル内には文字を置かない。
 // 対象なしは「未紐付」と確実に見分けられるようアイコンにせず「－」で表す。
+// 規約例外（公開の部品）：02 の部品一覧（PaymentStatusIcons）に載せた計画紐付ステータスの表示。使う画面はまだ無い
 export function PlanLinkStatusIcons({
   payment,
   split,
@@ -249,6 +250,7 @@ interface PlanLinkStatusMarksProps {
 
 // 計画紐付ステータス（支払・分割・振替の3区分）。
 // フォーム項目ではグリッドのようなヘッダー副見出しを置けないため、区分を文字で示して誤読を防ぐ。
+// 規約例外（公開の部品）：02 の部品一覧（PaymentStatusIcons）に載せた計画紐付ステータスの表示（フォーム用）。使う画面はまだ無い
 export function PlanLinkStatusMarks({
   payment,
   split,

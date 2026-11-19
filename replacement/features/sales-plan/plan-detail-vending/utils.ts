@@ -1,5 +1,9 @@
 // 計画詳細(自販機)：画面の状態に依存しない処理（計算式の解析・セルの位置の変換・ヘッダーの差分・行の書式など）
-import { GRID_COLORS } from '@/components/grid';
+import {
+  GRID_COLORS,
+  totalCellStyle,
+  GRID_EMPTY_TEXT,
+} from '@/components/grid';
 import { PREV_YEAR_SHIPPING_WORKING_DAYS } from '@/mocks/sales-plan/plan-detail-vending/salesPlan';
 import {
   EXPENSE_BRANCH_NAMES,
@@ -496,9 +500,25 @@ export const getRowStyle = (params: any) => {
   // 合計行（rowIndex === 0）の場合
   if (!params.node?.rowPinned && params.node?.rowIndex === 0) {
     return {
-      backgroundColor: GRID_COLORS.total,
+      ...totalCellStyle(),
       fontWeight: 'bold',
     };
   }
   return undefined;
+};
+
+// 前年比などの比率(%)を小数第1位まで表示（小数第2位を四捨五入）。
+// 値が無い（空・"－"）ときは半角「-」、非数値はそのまま返す。AG Grid の valueFormatter で使用。
+export const formatRatioDecimal1 = (value: unknown): string => {
+  if (value === null || value === undefined) return GRID_EMPTY_TEXT;
+  const str = String(value);
+  if (str === '' || str === '－') return GRID_EMPTY_TEXT;
+  const num = parseFloat(str.replace(/[,%\s]/g, ''));
+  if (isNaN(num)) return str;
+  return (
+    (Math.round(num * 10) / 10).toLocaleString(undefined, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }) + '%'
+  );
 };

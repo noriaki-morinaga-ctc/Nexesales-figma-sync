@@ -180,7 +180,7 @@ export function SingleCombobox({
     const idx = items.findIndex((o) => o.value === value);
     setActiveIndex(idx >= 0 ? idx : 0);
     // open の変化時のみ。items/value は開いた瞬間の値で十分。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた瞬間の items・value で足りる（開いたときだけ選択位置を合わせる）
   }, [open]);
 
   // ハイライト位置を候補一覧の中だけでスクロールして見せる（表・画面は動かさない）

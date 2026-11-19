@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from 'lucide-react';
+import { readStoredJson, writeStoredJson } from '@/utils/common/browserStorage';
 import {
   GRID_BASE_PROPS,
   GRID_DEFAULT_COL_DEF,
@@ -140,22 +141,13 @@ const expandStorageKeyOf = (baseKey: string, auxShown: boolean): string =>
 
 // 展開中の項目パスを localStorage から読む（未保存・パース失敗時は null＝既定の全折りたたみ）。
 const readExpandedPaths = (storageKey: string): Set<string> | null => {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (!saved) return null;
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? new Set(parsed.map(String)) : null;
-  } catch {
-    return null;
-  }
+  const parsed = readStoredJson(storageKey);
+  return Array.isArray(parsed) ? new Set(parsed.map(String)) : null;
 };
 
 const writeExpandedPaths = (storageKey: string, paths: string[]): void => {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(paths));
-  } catch {
-    // 保存できない環境（プライベートモード等）では永続化を諦める
-  }
+  // 保存できない環境（プライベートモード等）では永続化を諦める
+  writeStoredJson(storageKey, paths);
 };
 
 // 行が保持する木メタ情報（constants/aggregationTree.ts の AggTreeRow と対応）

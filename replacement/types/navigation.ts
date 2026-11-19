@@ -1,12 +1,9 @@
-import type { QuoteBasicInfo } from '@/utils/payment/quote/quoteBasicInfo';
+/**
+ * 遷移先へ引き継ぐパラメータ。値は文字列だけ（ID・区分などの小さな値）にする。
+ * Next.js へ移すときは URL のクエリ（`?id=…`）になるため、行のオブジェクトや関数は載せない。
+ * 画面をまたいで共有する業務のデータは、業務の Provider（例：BillingEdiProvider）で持つ。
+ */
+export type RouteParams = Record<string, string>;
 
-/** 年間計画作成へ引き継ぐ遷移元情報（計画詳細2画面の取引制度）。 */
-export interface AnnualPlanCreationContext {
-  tradingSystem: string;
-}
-
-/** 画面遷移のペイロード。遷移元によって引用の基本情報か取引制度のいずれかを載せる。 */
-export type MenuChangePayload = QuoteBasicInfo | AnnualPlanCreationContext;
-
-/** 画面を切り替える関数（遷移先のルート ID と、遷移先へ引き継ぐペイロード）。 */
-export type NavigateFn = (menuId: string, payload?: MenuChangePayload) => void;
+/** 画面を切り替える関数（遷移先のルート ID と、遷移先へ引き継ぐパラメータ）。 */
+export type NavigateFn = (routeId: string, params?: RouteParams) => void;

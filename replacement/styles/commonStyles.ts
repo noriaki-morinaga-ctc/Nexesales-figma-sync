@@ -95,5 +95,3 @@ export const CARD_TITLE_CLASS = 'text-base font-bold text-brand-navy-900';
 // 下ペイン（BottomPane）が開いている間、ペインの高さ（rem）を入れる CSS 変数の名前（<html> に付ける）。
 // 画面の縦幅に合わせる親画面のグリッドは、この分だけ低くして、下ペインの上に収める（→ 02 BottomPane・viewportGridHeight）。
 export const BOTTOM_PANE_HEIGHT_VAR = '--bottom-pane-height';
-
-export type ButtonStyleKey = keyof typeof BUTTON_STYLES;

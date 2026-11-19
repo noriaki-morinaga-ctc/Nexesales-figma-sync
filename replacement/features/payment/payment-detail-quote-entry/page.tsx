@@ -66,7 +66,10 @@ import {
   campaignClassComboOptions,
   campaignCodeComboOptions,
 } from '@/constants/comboFieldOptions';
-import { useAppNavigation } from '@/components/ui/use-app-navigation';
+import {
+  useAppNavigation,
+  useRouteParams,
+} from '@/components/ui/use-app-navigation';
 import { resolveQuoteBasicInfo } from '@/utils/payment/quote/quoteBasicInfo';
 import {
   DEFAULT_QUOTE_BASIC_INFO,
@@ -384,11 +387,6 @@ const EMPTY_EXPENSE_EDIT_FORM: ExpenseEditFormValues = {
   matchType: '',
 };
 
-interface PaymentDetailQuoteEntryProps {
-  // 支払一覧の引用ペインで入力された基本情報（基本情報エリアのプリフィル用）
-  basicInfo?: QuoteBasicInfo;
-}
-
 // 税区分の選択肢（値をそのまま表示名にする。SingleCombobox は表示名が必須）
 const TAX_CLASS_COMBO_OPTIONS = EXPENSE_TAX_CLASS_OPTIONS.map((o) => ({
   value: o.value,
@@ -399,11 +397,18 @@ const TAX_CLASS_COMBO_OPTIONS = EXPENSE_TAX_CLASS_OPTIONS.map((o) => ({
 // 最下部までスクロールした状態で、表が画面にちょうど収まる値（UX-099。実測で決めた値）。
 const SPLIT_FROM_OTHER_GRID_OFFSET_REM = 8.25;
 
-export default function PaymentDetailQuoteEntry({
-  basicInfo,
-}: PaymentDetailQuoteEntryProps) {
+export default function PaymentDetailQuoteEntry() {
   // 画面の切り替え（→ ui/use-app-navigation）
   const navigate = useAppNavigation();
+  // 引用元で入力された基本情報（基本情報エリアのプリフィル用）。遷移のパラメータの
+  // targetMonth・dealer・thirdStore・firstStore で受け取り、無い項目は既定値にする
+  const params = useRouteParams();
+  const basicInfo: Partial<QuoteBasicInfo> = {
+    targetMonth: params.targetMonth,
+    dealer: params.dealer,
+    thirdStore: params.thirdStore,
+    firstStore: params.firstStore,
+  };
   // 追加口一覧から連動する「未承認NET拡売費」データ（拡売費一覧へ渡す）
   const [netUnapproved] = useState<{
     total: number;
@@ -715,7 +720,7 @@ export default function PaymentDetailQuoteEntry({
             columnStateKey="支払詳細(見積入力).計画明細選択.columnState"
             // 対象年月の初期値は引用元から引き継いだ基本情報の対象年月。
             initialTargetMonth={
-              basicInfo?.targetMonth ?? DEFAULT_QUOTE_BASIC_INFO.targetMonth
+              basicInfo.targetMonth ?? DEFAULT_QUOTE_BASIC_INFO.targetMonth
             }
             onSelect={() => {
               // TODO: 選択された計画明細を支払明細に紐づける（未実装）

@@ -165,7 +165,7 @@ export function SimulationAggregationPane({
     setDraftContainerCapacities(selectedContainerCapacities);
     setDraftExcludePairs(excludePairs);
     // 開いた時点の確定値のみを取り込むため、確定値は依存に含めない
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた時点の確定値だけを取り込む（確定値の変化では下書きを上書きしない）
   }, [showAggFilterPane]);
   // 集計単位①②・除外ペアの編集値をすべて初期化する（確認ダイアログなしで即時リセット）。
   // 確定値は変わらないため、確定を押すまで集計対象は変化しない。
@@ -2201,10 +2201,7 @@ export function SimulationAggregationPane({
                       }
                       /* ヘッダ背景・罫線・セル背景は共通テーマ（支払申請一覧参照と同一）に統一。
                          合計行のみ getRowStyle で薄青（GRID_COLORS.total）にする。 */
-                      /* 販売計画(詳細)に合わせ行ホバーをGRID_COLORS.rowHoverに統一 */
-                      .sales-plan-aggregation-monthly .ag-row-hover .ag-cell {
-                        background-color: var(--grid-row-hover) !important;
-                      }
+                      /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
                       .sales-plan-aggregation-monthly [col-id="label"].ag-cell {
                         z-index: 2;
                         overflow: visible;
@@ -2220,7 +2217,7 @@ export function SimulationAggregationPane({
                         background-color: var(--grid-tree-level2-bg) !important;
                       }
                       .sales-plan-aggregation-monthly .ag-row-highlight .ag-cell-left-pinned {
-                        background-color: var(--grid-row-hover) !important;
+                        background-color: var(--grid-highlight-border-bg) !important;
                       }
                       .sales-plan-aggregation-monthly .ag-pinned-left-header .ag-header-cell:first-child {
                         border-right: none !important;
@@ -2261,10 +2258,7 @@ export function SimulationAggregationPane({
                       }
                       /* ヘッダ背景・罫線・セル背景は共通テーマ（支払申請一覧参照と同一）に統一。
                          合計行のみ getRowStyle で薄青（GRID_COLORS.total）にする。 */
-                      /* 販売計画(詳細)に合わせ行ホバーをGRID_COLORS.rowHoverに統一 */
-                      .sales-plan-aggregation-cumulative .ag-row-hover .ag-cell {
-                        background-color: var(--grid-row-hover) !important;
-                      }
+                      /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
                       .sales-plan-aggregation-cumulative [col-id="label"].ag-cell {
                         z-index: 2;
                         overflow: visible;
@@ -2280,7 +2274,7 @@ export function SimulationAggregationPane({
                         background-color: var(--grid-tree-level2-bg) !important;
                       }
                       .sales-plan-aggregation-cumulative .ag-row-highlight .ag-cell-left-pinned {
-                        background-color: var(--grid-row-hover) !important;
+                        background-color: var(--grid-highlight-border-bg) !important;
                       }
                       .sales-plan-aggregation-cumulative .ag-pinned-left-header .ag-header-cell:first-child {
                         border-right: none !important;
@@ -2319,10 +2313,7 @@ export function SimulationAggregationPane({
                       }
                       /* ヘッダ背景・罫線・セル背景は共通テーマ（支払申請一覧参照と同一）に統一。
                          合計行のみ getRowStyle で薄青（GRID_COLORS.total）にする。 */
-                      /* 販売計画(詳細)に合わせ行ホバーをGRID_COLORS.rowHoverに統一 */
-                      .sales-plan-aggregation-yearly .ag-row-hover .ag-cell {
-                        background-color: var(--grid-row-hover) !important;
-                      }
+                      /* ホバーは共通（grid.css）の上下の青い線と左端の青い帯。背景は塗らない（UX-117） */
                       .sales-plan-aggregation-yearly [col-id="label"].ag-cell {
                         z-index: 2;
                         overflow: visible;
@@ -2338,7 +2329,7 @@ export function SimulationAggregationPane({
                         background-color: var(--grid-tree-level2-bg) !important;
                       }
                       .sales-plan-aggregation-yearly .ag-row-highlight .ag-cell-left-pinned {
-                        background-color: var(--grid-row-hover) !important;
+                        background-color: var(--grid-highlight-border-bg) !important;
                       }
                       .sales-plan-aggregation-yearly .ag-pinned-left-header .ag-header-cell:first-child {
                         border-right: none !important;

@@ -63,6 +63,8 @@ export {
   GRID_COLORS,
   rowKindColor,
   rowKindBg,
+  totalCellStyle,
+  sectionRowCellStyle,
   editableBg,
   rateCellStyle,
   rateOverTextColor,

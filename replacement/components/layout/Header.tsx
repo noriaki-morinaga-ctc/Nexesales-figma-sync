@@ -228,7 +228,7 @@ export const MENU_ITEMS = [
       },
       {
         id: 'new-product-unit-price-master',
-        label: '新商品・新価格用単価マスタ',
+        label: '単価マスタ',
       },
       {
         id: 'new-product-bulk-change-master',

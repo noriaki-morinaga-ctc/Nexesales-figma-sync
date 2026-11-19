@@ -41,6 +41,7 @@ import {
   GRID_BASE_PROPS,
   GRID_STATUS_BAR,
   GRID_COLORS,
+  totalCellStyle,
   gridFilterContextMenuItems,
   useChangedCells,
   CellColorLegend,
@@ -279,7 +280,7 @@ export const AdditionalEntrySplitPane = forwardRef<
     rowsRef.current = rows;
     return rows;
     // 列（分割先）と明細は開いた時点で確定する。rebuildToken の変化時のみ作り直す。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列（分割先）と明細は開いた時点で確定し、rebuildToken の変化のときだけ作り直す
   }, [rebuildToken]);
 
   // 計の行とアラート（入力のたびに更新）。
@@ -333,14 +334,11 @@ export const AdditionalEntrySplitPane = forwardRef<
   );
 
   // ── セルのスタイル ──
-  const totalStyle = { fontWeight: 'bold', backgroundColor: GRID_COLORS.total };
   const readonlyStyle = useCallback(
     (p: CellClassParams<SplitRow>) =>
       p.data?.isTotal
-        ? { ...totalStyle, textAlign: 'right' }
+        ? totalCellStyle({ textAlign: 'right' })
         : { backgroundColor: GRID_COLORS.readonly, textAlign: 'right' },
-    // totalStyle は定数
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
   // 入力セル：編集可＝白／参照のみ＝灰。編集したセルの黄色ハイライトは共通の仕組み
@@ -348,13 +346,12 @@ export const AdditionalEntrySplitPane = forwardRef<
   // 任せ、ここでは付けない（→ 02 §7.2）。
   const inputStyle = useCallback(
     (p: CellClassParams<SplitRow>) => {
-      if (p.data?.isTotal) return { ...totalStyle, textAlign: 'right' };
+      if (p.data?.isTotal) return totalCellStyle({ textAlign: 'right' });
       return {
         backgroundColor: readOnly ? GRID_COLORS.readonly : GRID_COLORS.editable,
         textAlign: 'right',
       };
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [readOnly]
   );
 
@@ -398,7 +395,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           cellClass: 'ag-cell-left-pinned',
           cellStyle: (p) =>
             p.data?.isTotal
-              ? totalStyle
+              ? totalCellStyle()
               : { backgroundColor: GRID_COLORS.readonly },
         },
         {
@@ -407,7 +404,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           width: 96,
           cellStyle: (p) =>
             p.data?.isTotal
-              ? totalStyle
+              ? totalCellStyle()
               : { backgroundColor: GRID_COLORS.readonly },
         },
         {
@@ -416,7 +413,7 @@ export const AdditionalEntrySplitPane = forwardRef<
           width: 176,
           cellStyle: (p) =>
             p.data?.isTotal
-              ? totalStyle
+              ? totalCellStyle()
               : { backgroundColor: GRID_COLORS.readonly },
         },
         {
@@ -613,7 +610,7 @@ export const AdditionalEntrySplitPane = forwardRef<
       return [...fixedCols, selfGroup, ...destGroups];
     },
     // 列は開いた時点で確定する（表示中に参照を変えない → 02 §7.1）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 列は開いた時点で確定する（表示中に参照を変えない → 02 §7.1）
     []
   );
 
