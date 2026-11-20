@@ -20,6 +20,7 @@ import {
   gridHeaderStyle,
   GRID_SORT_ICONS,
 } from './gridCommon';
+import { applyGridColorVariables } from '@/styles/gridStyles';
 
 let isAgGridSetUp = false;
 
@@ -27,6 +28,11 @@ export function setupAgGrid(): void {
   // 2回目以降は何もしない（開発時の再読み込み等で二重に登録しない）
   if (isAgGridSetUp) return;
   isAgGridSetUp = true;
+
+  // グリッドの色（gridStyles.ts が正）を CSS 変数として登録する（grid.css が参照する）。main.tsx でも呼ぶが、
+  // Figma Make は自分の起動ファイルを使い main.tsx を通らないため、App から必ず呼ばれるここでも呼ぶ
+  // （2回目は何もしない）。登録されないと grid.css の色（プルダウンの ▼ など）が透明になる（UX-123）
+  applyGridColorVariables();
 
   // AG Grid Enterprise モジュールをグローバルに登録（全コンポーネントで利用可能にする）
   ModuleRegistry.registerModules([AllCommunityModule, AllEnterpriseModule]);
