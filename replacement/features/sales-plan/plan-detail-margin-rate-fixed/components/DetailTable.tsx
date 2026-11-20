@@ -93,16 +93,12 @@ import {
 } from '@/features/sales-plan/plan-detail-margin-rate-fixed/utils';
 
 import { buildDetailColumnDefs } from '@/features/sales-plan/plan-detail-margin-rate-fixed/utilsDetailColumns';
-import {
-  insertEdiRows,
-  withoutEdiMatch,
-} from '@/features/sales-plan/plan-detail-margin-rate-fixed/utilsEdiMatching';
+import { withoutEdiMatch } from '@/features/sales-plan/plan-detail-margin-rate-fixed/utilsEdiMatching';
 import {
   useEdiMatching,
   type DetailSections,
 } from '@/features/sales-plan/plan-detail-margin-rate-fixed/useEdiMatching';
 import { EdiMatchBanner } from '@/features/sales-plan/plan-detail-margin-rate-fixed/components/EdiMatchBanner';
-import type { EdiMatchGridContext } from '@/features/sales-plan/plan-detail-margin-rate-fixed/utilsEdiColumns';
 import { usePlanDetailRowHandlers } from '@/features/sales-plan/shared/plan-detail/usePlanDetailRowHandlers';
 import { makeEmptyProduct } from '@/utils/sales-plan/plan-detail/planDetailEmptyRow';
 import { CHAIN_STORES } from '@/mocks/common/chainStore';
@@ -117,8 +113,9 @@ import {
   mockEdiActualsOf,
   withMockAutoEdi,
 } from '@/mocks/sales-plan/plan-detail-margin-rate-fixed';
+import { withDetailItemCounts } from '@/features/sales-plan/shared/common/countDetailItems';
 
-// 突合する行の選択の列（未突合の実販EDIがあるときだけ出る。補足8-7）。
+// 突合する行の選択の列（実販EDIの反映で追加した行があるときだけ出る。補足8-7）。
 // 他画面の選択の列（請求EDI取込結果詳細のエラー一覧など）と同じ構成にそろえる。
 const EDI_SELECTION_COLUMN_DEF: SelectionColumnDef = {
   width: 48,
@@ -126,7 +123,7 @@ const EDI_SELECTION_COLUMN_DEF: SelectionColumnDef = {
   suppressMovable: true,
   suppressHeaderMenuButton: true,
   cellClass: 'cell-center',
-  headerTooltip: '突合する行の選択（計画行1行とEDI行1行）',
+  headerTooltip: '突合する行の選択（計画行1行と、行頭が「追加」の行1行）',
 };
 
 // 明細の表の操作と props は計画詳細の骨組みと共通（→ types/planDetailPattern）
@@ -158,12 +155,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     ref
   ) {
     // 計算式セルのクリック中、算出元セルの枠線を強調するフック。
-    // 未突合のEDI行は計画行ではないため、計算式の算出元の強調の対象にしない。
     const formulaHL = useFormulaSourceHighlight<ProductData>(
       RETAIL_FORMULA_DEFS,
       {
-        isEligibleRow: (r) =>
-          !r._isHeader && !r._ediRow && r.metaBrand !== '合計',
+        isEligibleRow: (r) => !r._isHeader && r.metaBrand !== '合計',
       }
     );
 
@@ -457,7 +452,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         bumpGridRebuild();
         setTimeout(() => gridApiRef.current?.refreshCells({ force: true }), 0);
       },
-      addUnmatchedEdiRows: () => ediMatching.addUnmatchedAsRows(),
     }));
 
     // 明細コピー：ペインを開かず、明細グリッドへ直接行を複製する。
@@ -500,7 +494,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
     );
 
     // ── 実販EDI（実販FACT）の突合（補足8-7.EDI反映 マッチングUI）──
-    // 明細表の枠。EDI行をドラッグ中に、突合できる計画行へ枠を出すための属性を付ける。
+    // 明細表の枠。追加の行をドラッグ中に、突合できる計画行へ枠を出すための属性を付ける。
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const markUnsaved = useCallback(() => {
       hasUnsavedRef.current = true;
@@ -526,7 +520,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       setGiftProductsData(next['ギフト'] ?? []);
     }, []);
     const ediMatching = useEdiMatching({
-      // 実販EDIの一覧（モック）：自動で反映済みの分（当月実績がある行）と未突合の分
+      // 実販EDIの一覧（モック）：自動で反映済みの分（当月実績がある行）と、反映で追加した行の分
       initialActuals: () =>
         mockEdiActualsOf([
           ...regularProductsData,
@@ -536,13 +530,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         ]),
       sections,
       setSections,
-      syncPlanRow: syncRowBySection,
       bumpGridRebuild,
       markUnsaved,
       gridApiRef,
       gridContainerRef,
     });
-    const { unmatchedEdiRows } = ediMatching;
 
     // 商品区分の変更（グリッド内のセル編集）。
     // タブ振り分けに使う section・販促区分を連動させ、ギフト⇄他区分では
@@ -799,11 +791,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         ...defaultColDef,
         menuTabs: ['generalMenuTab', 'columnsMenuTab'],
         // 計算式セルは計算式テキスト、それ以外は従来どおりセル値を表示する。
-        // 未突合のEDI行は、一致する計画納価が無いことと突合先の候補を出す（補足8-7 図1-1 の案内）。
         tooltipValueGetter: (params: ITooltipParams<ProductData>) =>
-          params.data?._ediRow && !params.node?.rowPinned
-            ? (params.context as EdiMatchGridContext).ediRowHintOf(params.data)
-            : formulaTooltip(params),
+          formulaTooltip(params),
         // 算出元セルの枠線ハイライト（計算式セルのクリック中のみ付与）
         cellClassRules: {
           // 共通の既定列設定のルール（値が無いセルの「-」をグレー等）を引き継ぐ
@@ -860,19 +849,10 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // 新規・下ペインのコピーは最下行へ追加した順、行コピーはコピー元の行のすぐ下
       // （ギフトは3行1セットで動かす）。既存行は元の順序を維持（→ 02 §8・UX-112）。
       const sorted = orderAddedRows(byTab, productRowBlockKey);
-      // 未突合の実販EDIを、同じサマリ商品の計画行の直下に EDI行として差し込む（補足8-7 3.）。
-      // 「全て」以外のタブでは、そのタブに同じサマリ商品の計画行があるEDI行だけを出す。
-      const visibleEdiRows =
-        activeTab === 'all'
-          ? unmatchedEdiRows
-          : unmatchedEdiRows.filter((edi) =>
-              sorted.some((row) => row.summaryProduct === edi.summaryProduct)
-            );
-      const withEdiRows = insertEdiRows(sorted, visibleEdiRows);
       // ギフトの3行1セットをセル結合するため、セット単位で
       // 先頭行(_giftFirst＋行数_giftSpan)・中央行(_giftMiddle：操作アイコン表示)・
       // 最終行(_giftLast：操作列の下罫線)を付与する。
-      const annotated = withEdiRows.map((row) => ({
+      const annotated = sorted.map((row) => ({
         ...row,
         _giftFirst: false,
         _giftSpan: 1,
@@ -905,15 +885,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // Undo 履歴を維持するため、再生成は構造シグネチャ／再構築トークンの変化時のみに限定）。
       // 構造変化・非セル編集の値更新時は allData が最新のため rebuild に必要な値も最新。
       // isRowInActiveTab は activeTab・heldRowKeys から決まるため、それらを依存に置く。
-      // EDI行は突合・取消・保存で増減するため、未突合のEDI行も依存に置く。
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 値の編集で行データの参照を変えない（Undo 履歴を保つ → 02 §7.1）。構造が変わったときだけ作り直す
-    }, [
-      rowStructureSignature,
-      activeTab,
-      heldRowKeys,
-      gridRebuildToken,
-      unmatchedEdiRows,
-    ]);
+    }, [rowStructureSignature, activeTab, heldRowKeys, gridRebuildToken]);
 
     const getRowStyle = asRowStyle(
       useCallback((params: RowClassParams) => {
@@ -935,7 +908,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {/* 販売計画(詳細)のタブの中身（カードの枠・見出しは親の開閉カード〔CollapsibleCard〕が持つため、ここでは枠を付けない → 05「白カード」・UX-065） */}
         <div className="mb-4">
           {/* 見出しの行（1行。UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus）。
-              左：販売計画(詳細)｜拡売費計画 › 商品区分 ｜ 総店舗数。右：凡例・一括操作・率設定・関連画面・明細追加。
+              左：販売計画(詳細)｜拡売費計画 › 商品区分 ｜ 総店舗数。右：一括操作・率設定・関連画面・明細追加。
+              色の凡例は見出しの行に入れず、表の右上に置く（件数を出しても見出しを1行に収める → 02 §10.4・UI/UX UX-118）。
               入りきらない幅では折り返す（flex-wrap） */}
           <div className="flex flex-wrap items-center gap-2 pb-3 text-left text-gray-900">
             {sectionSwitch}
@@ -945,16 +919,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 aria-hidden="true"
               />
             )}
-            {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090） */}
+            {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090）。
+                各区分の明細件数を名前の右に出す（ギフトは1セット1件 → 02 §6・UI/UX UX-118） */}
             <SegmentToggle
               ariaLabel="商品区分"
-              options={[
-                { value: 'all', label: '全て' },
-                { value: '定番商品', label: '定番商品' },
-                { value: '新商品', label: '新商品' },
-                { value: '特売', label: '特売' },
-                { value: 'ギフト', label: 'ギフト' },
-              ]}
+              options={withDetailItemCounts(
+                [
+                  { value: 'all', label: '全て' },
+                  { value: '定番商品', label: '定番商品' },
+                  { value: '新商品', label: '新商品' },
+                  { value: '特売', label: '特売' },
+                  { value: 'ギフト', label: 'ギフト' },
+                ],
+                allData
+              )}
               value={activeTab}
               onChange={(tab) => switchTab(tab)}
             />
@@ -978,8 +956,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             />
 
             <div className="ml-auto flex items-center gap-2">
-              {/* コピー由来カラーバーの凡例（この画面は参照ペイン無し＝販売計画コピー元は出ない） */}
-              <CopySourceLegend showReference={false} />
               {/* 一括操作：前月計画コピー・本部計画コピー（右ペインで実行）・函数反映 */}
               <PlanBulkActionsMenu
                 onPlanCopy={() => onOpenPlanCopy?.()}
@@ -1045,15 +1021,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               </button>
             </div>
 
-            {/* 実販EDIの突合の帯：直前の突合［取消］（図1-2）と未突合の案内・「選択した2行を突合」（図1-1） */}
+            {/* 実販EDIの突合の帯：直前の突合［取消］（図1-2）と追加の行の案内・「選択した2行を突合」（図1-1） */}
             <EdiMatchBanner
-              unmatchedCount={ediMatching.unmatchedCount}
+              addedCount={ediMatching.addedCount}
               selectedCount={ediMatching.selectedCount}
               lastMatch={ediMatching.lastMatch}
               onClearSelection={ediMatching.handleClearSelection}
               onMatchSelected={ediMatching.handleMatchSelected}
               onCancelLastMatch={ediMatching.requestCancelLastMatch}
             />
+          </div>
+
+          {/* コピー由来カラーバーの凡例は表の右上に置く（この画面は参照ペイン無し＝販売計画コピー元は出ない → 02 §10.4・UI/UX UX-118） */}
+          <div className="flex justify-end pb-1">
+            <CopySourceLegend showReference={false} />
           </div>
 
           {/* AG Grid Table（1920x1080 のPCで画面いっぱいに表示）
@@ -1094,7 +1075,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                       background-color: var(--grid-editing-bg) !important;
                       box-shadow: 0 0 0 2px var(--grid-editing-border) inset;
                     }
-                    /* EDI行をドラッグ中、突合できる計画行に破線の枠を出す（補足8-7） */
+                    /* 追加の行をドラッグ中、突合できる計画行に破線の枠を出す（補足8-7） */
                     ${ediMatching.dragHighlightCss}
                   `}</style>
             <AgGridReact
@@ -1133,8 +1114,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
               }}
               getRowId={getRowIdCallback}
               ensureDomOrder={true}
-              // 実販EDIの突合（補足8-7）：未突合があるときだけ行選択（計画行1行＋EDI行1行）を出し、
-              // EDI行を計画行へドラッグして突合する（公式の行選択・行のドラッグ。行は動かさない）。
+              // 実販EDIの突合（補足8-7）：追加の行があるときだけ行選択（計画行1行＋追加の行1行）を出し、
+              // 追加の行を計画行へドラッグして突合する（公式の行選択・行のドラッグ。行は動かさない）。
               rowSelection={ediMatching.rowSelection}
               selectionColumnDef={EDI_SELECTION_COLUMN_DEF}
               onSelectionChanged={ediMatching.handleSelectionChanged}
@@ -1197,7 +1178,7 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
           confirmLabel="取消"
           description={`${
             ediMatching.cancelTarget?.summaryProduct ?? ''
-          }の突合を取り消します。計画行は実販EDIを反映する前に戻り、EDI行は未突合に戻ります。よろしいですか？`}
+          }の突合を取り消します。計画行は実販EDIを反映する前に戻り、実販EDIは追加の行に戻ります。よろしいですか？`}
           onConfirm={ediMatching.confirmCancel}
           onCancel={ediMatching.closeCancel}
         />

@@ -49,9 +49,6 @@ export interface PlanDetailTableHandle {
   ) => { base: ProductData; plans: [string, string, string] } | null;
   // 計画保存時：明細コピー・明細追加の帯と編集セルの強調を消し、未保存状態を解除する
   clearSavedMarks: () => void;
-  // 計画保存時：未突合のまま残った実販EDIを、計画納価が空欄の明細として追加する（追加した件数を返す）。
-  // マージン率固定の明細の表だけが持つ（補足8-7。パターンの onSave から呼ぶ）
-  addUnmatchedEdiRows?: () => number;
 }
 
 // 明細の表に親の画面が渡すもの

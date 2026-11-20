@@ -1,13 +1,14 @@
 // 計画詳細(マージン率固定)：実販EDI（実販FACT）と計画行の突合（補足8-7.EDI反映 マッチングUI）。
 // 画面の状態を持たない処理だけを置く（状態と操作は useEdiMatching.ts、列は utilsEdiColumns.tsx）。
 //
-// 前提（補足8-1 マージン率固定の反映ルール。上から順に判定する）：
+// 前提（補足8-1 マージン率固定の反映ルール。実販EDIの反映のときに上から順に判定する）：
 //   ① 同じサマリ商品で、反映済みの同じEDI納価の行に加算する
 //   ② ①が無ければ、同じサマリ商品・同じ計画納価の行に反映する
 //   ③ ②が複数あれば、商品区分・販促区分の優先順位の順で選んだ1行に反映する
-//   ④ ①〜③のいずれにも当てはまらなければ、計画納価が空欄の行を追加する
-// ①〜③で反映先が決まらなかった実販EDI（未突合）を、④で行を追加する前に担当者が
-// 計画行へ寄せられるようにする（手動の突合）のが本画面の処理。
+//   ④ ①〜③のいずれにも当てはまらなければ、計画行を追加する（入力・選択欄は空欄。突合の状態「追加」）
+// ④で追加された行を、担当者が同じサマリ商品の元の計画行へ寄せる（手動の突合）のが本画面の処理。
+// 追加された行への入力と元の行の削除を、1回の操作で済ませるため（課題 No.0596・決定事項 No.565）。
+// 突合しなければ、追加された行は計画行のまま残り、担当者が入力して使う。
 
 import { SUMMARY_PRODUCT_BY_VALUE } from '@/constants/productMasters';
 import type {
@@ -23,7 +24,6 @@ import { makeEmptyProduct } from '@/utils/sales-plan/plan-detail/planDetailEmpty
 
 // 行頭マーカーの文言（補足8-7 ②：突合の状態をそのまま出す。自動はルール①〜③をまとめて「自動」）
 export const EDI_MARKER_LABELS: Record<EdiMatchStatus, string> = {
-  unmatched: '未突合',
   auto1: '自動',
   auto2: '自動',
   auto3: '自動',
@@ -33,8 +33,6 @@ export const EDI_MARKER_LABELS: Record<EdiMatchStatus, string> = {
 
 // 行頭マーカーのツールチップ（どのように成立したか。補足8-7 ②）
 export const EDI_STATUS_DESCRIPTIONS: Record<EdiMatchStatus, string> = {
-  unmatched:
-    '未突合：一致する計画納価が無い実販EDI。計画行へドラッグするか、計画行と一緒に選んで突合する',
   auto1:
     '自動（ルール①）：同じサマリ商品で、反映済みの同じEDI納価の行に加算した',
   auto2: '自動（ルール②）：同じサマリ商品・同じ計画納価の行に反映した',
@@ -42,7 +40,7 @@ export const EDI_STATUS_DESCRIPTIONS: Record<EdiMatchStatus, string> = {
     '自動（ルール③）：同じ計画納価の行が複数あるため、商品区分・販促区分の優先順位で選んだ行に反映した',
   manual: '手動：担当者が突合した行（行頭の取消で突合の前に戻せる）',
   added:
-    '追加：未突合のまま保存したため、計画納価が空欄の明細として追加した行（商品区分・販促区分・計画函数・納価・売価を入力する）',
+    '追加（ルール④）：一致する計画納価が無いため、実販EDIの反映で追加した行。商品区分・販促区分・計画函数・納価・売価を入力するか、同じサマリ商品の計画行へ突合する',
 };
 
 const toNumber = (value: unknown): number => {
@@ -88,14 +86,18 @@ export function ediPriceDiffText(
   return abs;
 }
 
+// 実販EDIの反映で追加された行か（反映ルール④。突合の元になる行）
+export const isAddedByEdiRow = (row: ProductData | undefined): boolean =>
+  row?.ediMatchStatus === 'added';
+
 // 突合先の候補になる計画行か（補足8-7 ⑤）：同じサマリ商品で、まだ実販EDIを反映していない計画行。
-// 反映済みの行は外す（同じEDI納価の実績はルール①で自動で加算されるため、未突合の寄せ先にはしない）。
+// 反映済みの行（追加の行を含む）は外す（同じEDI納価の実績はルール①で自動で加算されるため）。
 // ギフトは上旬・中旬・下旬の3行で当月実績を1つ持つため、1行を選ぶ突合の対象にしない。
 export function isEdiMatchCandidate(
   row: ProductData | undefined,
   summaryProduct: string
 ): boolean {
-  if (!row || row._ediRow || row._isHeader) return false;
+  if (!row || row._isHeader) return false;
   if (row.section === 'ギフト') return false;
   return row.summaryProduct === summaryProduct && !hasValue(row.ediPrice);
 }
@@ -105,10 +107,10 @@ export function ediMatchErrorOf(
   planRow: ProductData | undefined,
   edi: EdiActual | undefined
 ): string | null {
-  if (!edi || edi.status !== 'unmatched') {
-    return '未突合のEDI行を1行選んでください。';
+  if (!edi || edi.status !== 'added') {
+    return '実販EDIで追加した行（行頭が「追加」の行）を1行選んでください。';
   }
-  if (!planRow || planRow._ediRow || planRow._isHeader) {
+  if (!planRow || planRow._isHeader || isAddedByEdiRow(planRow)) {
     return '突合先の計画行を1行選んでください。';
   }
   if (planRow.summaryProduct !== edi.summaryProduct) {
@@ -164,35 +166,16 @@ export function withoutEdiMatch<T extends Partial<ProductData>>(row: T): T {
   };
 }
 
-// 未突合の実販EDIを出す表示専用の行（EDI行）。サマリ商品名・入数・実販函数・EDI納価だけを持ち、
-// 計画側の項目は空にする（補足8-7 図1-1 の注記）。容器容量Gはサマリ商品を見分けるために出す。
-export function ediRowOf(edi: EdiActual): ProductData {
-  const master = SUMMARY_PRODUCT_BY_VALUE.get(edi.summaryProduct);
-  return {
-    ...makeEmptyProduct(''),
-    id: `edi-${edi.id}`,
-    productCategory: '',
-    summaryProduct: edi.summaryProduct,
-    containerCapacityG: master?.containerCapacityG ?? '',
-    quantity: master?.quantity ?? '',
-    actual: edi.count,
-    ediPrice: formatEdiPrice(edi.ediPrice),
-    _ediRow: true,
-    _ediActualId: edi.id,
-  };
-}
+// 実販EDIの反映で追加する計画行の id
+export const addedRowIdOf = (edi: EdiActual): string => `edi-added-${edi.id}`;
 
-// 未突合のまま保存した実販EDIから作る計画行（補足8-1 ルール④）。
+// 実販EDIの反映で追加する計画行（補足8-1 ルール④）。突合を取り消したときに作り直すのにも使う。
 // 入力・選択欄（商品区分・販促区分・計画函数・納価・売価）は空欄のまま追加し、担当者が入力する。
-export function addedPlanRowOf(
-  edi: EdiActual,
-  section: string,
-  id: string
-): ProductData {
+export function addedPlanRowOf(edi: EdiActual, section: string): ProductData {
   const master = SUMMARY_PRODUCT_BY_VALUE.get(edi.summaryProduct);
   return {
     ...makeEmptyProduct(section),
-    id,
+    id: addedRowIdOf(edi),
     productCategory: '',
     metaBrand: master?.metaBrand ?? '',
     containerCapacityG: master?.containerCapacityG ?? '',
@@ -202,66 +185,65 @@ export function addedPlanRowOf(
     actual: edi.count,
     ediPrice: formatEdiPrice(edi.ediPrice),
     ediMatchStatus: 'added',
+    _ediActualId: edi.id,
   };
 }
 
-// 行の並びの中で、指定したサマリ商品の最後の行の位置（無ければ -1）
-const lastIndexOfProduct = (
-  rows: ProductData[],
-  summaryProduct: string
-): number => {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    if (rows[i].summaryProduct === summaryProduct) return i;
-  }
-  return -1;
-};
+type Sections = Record<string, ProductData[]>;
 
-// EDI行を、同じサマリ商品の計画行の直下に差し込む（補足8-7 3.）。同じサマリ商品の行が
-// 複数あるときは最後の行の下（ギフトは3行のセットの下）。同じサマリ商品の計画行が無いEDI行は先頭に置く。
-export function insertEdiRows(
-  planRows: ProductData[],
-  ediRows: ProductData[]
-): ProductData[] {
-  const result = [...planRows];
-  const heads: ProductData[] = [];
-  ediRows.forEach((ediRow) => {
-    const last = lastIndexOfProduct(result, ediRow.summaryProduct);
-    if (last < 0) {
-      heads.push(ediRow);
-      return;
-    }
-    result.splice(last + 1, 0, ediRow);
-  });
-  return [...heads, ...result];
+// 突合した後の商品区分ごとの行：突合先の計画行を置き換え、追加の行を消す（1行にまとめる）。
+export function sectionsAfterMatch(
+  sections: Sections,
+  matchedRow: ProductData,
+  addedRowId: string
+): Sections {
+  return Object.fromEntries(
+    Object.entries(sections).map(([section, rows]) => [
+      section,
+      rows
+        .filter((row) => row.id !== addedRowId)
+        .map((row) => (row.id === matchedRow.id ? matchedRow : row)),
+    ])
+  );
 }
 
-// 未突合のまま保存した実販EDIを、どの区分の配列のどこに追加するか。
-// 同じサマリ商品の計画行の最後の行と同じ区分の、その行の直下に置く（EDI行があった位置で行に変わる）。
-// 同じサマリ商品の計画行が無ければ定番商品の先頭。
-export function addedRowPlacementOf(
-  sections: Record<string, ProductData[]>,
-  summaryProduct: string
-): { section: string; index: number } {
-  const entries = Object.entries(sections);
-  for (let s = entries.length - 1; s >= 0; s -= 1) {
-    const [section, rows] = entries[s];
-    const last = lastIndexOfProduct(rows, summaryProduct);
-    if (last >= 0) return { section, index: last + 1 };
-  }
-  return { section: '定番商品', index: 0 };
+// 突合を取り消した後の商品区分ごとの行：計画行を反映の前に戻し、その直下に追加の行を作り直す。
+export function sectionsAfterCancel(
+  sections: Sections,
+  restoredRow: ProductData,
+  edi: EdiActual
+): Sections {
+  return Object.fromEntries(
+    Object.entries(sections).map(([section, rows]) => {
+      const index = rows.findIndex((row) => row.id === restoredRow.id);
+      if (index < 0) return [section, rows];
+      return [
+        section,
+        [
+          ...rows.slice(0, index),
+          restoredRow,
+          addedPlanRowOf(edi, section),
+          ...rows.slice(index + 1),
+        ],
+      ];
+    })
+  );
 }
 
-// EDI行のツールチップ：一致する計画納価が無いことと、突合先の候補（補足8-7 図1-1 の案内）。
-export function ediRowHintOf(edi: EdiActual, planRows: ProductData[]): string {
+// 追加の行のツールチップ：一致する計画納価が無いことと、突合先の候補（補足8-7 図1-1 の案内）。
+export function addedRowHintOf(
+  edi: EdiActual,
+  planRows: ProductData[]
+): string {
   const price = formatEdiPrice(edi.ediPrice);
   const candidates = planRows.filter((row) =>
     isEdiMatchCandidate(row, edi.summaryProduct)
   );
-  const head = `実販EDI（EDI納価 ${price}／実販函数 ${edi.count}）：一致する計画納価がありません。`;
-  const onSave =
-    '突合しないまま保存すると、計画納価が空欄の明細として追加されます。';
+  const head = `実販EDI（EDI納価 ${price}／実販函数 ${edi.count}）：一致する計画納価が無いため、行を追加しました。`;
+  const onInput =
+    '商品区分・販促区分・計画函数・納価・売価を入力してください。';
   if (candidates.length === 0) {
-    return `${head}\n突合できる計画行がありません。${onSave}`;
+    return `${head}\n${onInput}（突合できる計画行はありません）`;
   }
   const list = candidates
     .map(
@@ -271,5 +253,5 @@ export function ediRowHintOf(edi: EdiActual, planRows: ProductData[]): string {
         }／差 ${ediPriceDiffText(row.planPrice, edi.ediPrice) || '-'}）`
     )
     .join('、');
-  return `${head}\n突合先の候補：${list}\n計画行へドラッグするか、計画行と一緒に選んで「選択した2行を突合」を押すと反映します。${onSave}`;
+  return `${head}\n突合先の候補：${list}\n計画行へドラッグするか、計画行と一緒に選んで「選択した2行を突合」を押すと、その計画行へまとめます。突合しない場合は、${onInput}`;
 }

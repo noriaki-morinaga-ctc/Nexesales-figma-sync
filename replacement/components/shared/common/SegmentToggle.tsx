@@ -8,6 +8,8 @@ export interface SegmentToggleOption<T extends string> {
   label: ReactNode;
   // マウスを乗せたときの説明（何を表示するかが名前だけで分からないとき → 02 §6「表示の切替ボタンの説明」）
   title?: string;
+  // 件数（明細の件数など）。渡すと名前の右に小さい文字（text-xs）で添える（→ 02 §6「切替に件数を出す」・UI/UX UX-118）
+  count?: number;
 }
 
 interface SegmentToggleProps<T extends string> {
@@ -52,6 +54,13 @@ export function SegmentToggle<T extends string>({
             }`}
           >
             {option.label}
+            {/* 件数は名前より小さい文字で右に添える（見出しの行の幅を取りすぎないよう括弧は付けない） */}
+            {option.count !== undefined && (
+              <span className="ml-1 text-xs font-normal tabular-nums">
+                {option.count}
+                <span className="sr-only">件</span>
+              </span>
+            )}
           </button>
         );
       })}

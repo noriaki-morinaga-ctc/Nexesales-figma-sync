@@ -16,7 +16,8 @@ import {
   GridApi,
   RowDataUpdatedEvent,
 } from 'ag-grid-community';
-import { ChevronRight, Plus, Copy } from 'lucide-react';
+import { Plus, Copy } from 'lucide-react';
+import { HeaderDivider } from '@/components/shared/common/HeaderDivider';
 
 import {
   viewportGridHeight,
@@ -1080,12 +1081,11 @@ export const PlanNonProductExpensePane = forwardRef<
     // 拡売費計画のタブの中身（カードの枠・見出しは親の開閉カード〔CollapsibleCard〕が持つため、ここでは枠を付けない → 05「白カード」・UX-065）
     <div className="mb-4">
       {/* 見出しの行（1行。UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus）。
-          左：販売計画(詳細)｜拡売費計画 › 拡売費計画(コピー元)・凡例。右：率設定・拡売費追加 */}
+          左：販売計画(詳細)｜拡売費計画 ｜ 拡売費計画(コピー元)・凡例。右：率設定・拡売費追加。
+          右の拡売費計画(コピー元)は左の内訳ではないため、「›」でなく縦の区切り線でつなぐ（→ 02 §10.4・UI/UX UX-119） */}
       <div className="flex flex-wrap items-center gap-2 pb-3">
         {sectionSwitch}
-        {sectionSwitch && (
-          <ChevronRight className="h-5 w-5 text-gray-400" aria-hidden="true" />
-        )}
+        {sectionSwitch && <HeaderDivider />}
         {/* 参照用ボタン（押下で対象期間の自計画を下ペインに表示。対象期間は下ペイン内で指定） */}
         <button
           type="button"

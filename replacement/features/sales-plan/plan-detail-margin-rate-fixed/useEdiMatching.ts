@@ -1,13 +1,15 @@
 // 計画詳細(マージン率固定)：実販EDI（実販FACT）と計画行の突合の状態と操作（補足8-7.EDI反映 マッチングUI）。
 // 明細の行（商品区分ごとの配列）は明細表 DetailTable が持ち、本フックは実販EDIの一覧と突合の操作を持つ。
 //
-// 突合のしかた（補足8-7 3.）：
-//   ・EDI行（未突合の実販EDI）を計画行へドラッグする（AG Grid 公式の行のドラッグ。行は動かさない）
-//   ・計画行1行とEDI行1行のチェックを付けて「選択した2行を突合」を押す（AG Grid 公式の行選択）
+// 実販EDIの反映（バッチ）で反映ルール①〜③に当たらなかった実績は、ルール④で計画行として追加され、
+// 行頭に「追加」が付く（補足8-1）。突合は、この追加の行を同じサマリ商品の元の計画行へまとめる操作：
+//   ・追加の行を計画行へドラッグする（AG Grid 公式の行のドラッグ。行は動かさない）
+//   ・計画行1行と追加の行1行のチェックを付けて「選択した2行を突合」を押す（AG Grid 公式の行選択）
+// 突合すると、追加の行の実販函数・EDI納価が計画行へ移り、追加の行は無くなる（課題 No.0596・決定事項 No.565）。
+// 突合しなければ、追加の行は計画行のまま残る（保存しても変わらない）。
 // 突合は確認を出さず、明細の上の帯で「突合しました。…［取消］」と知らせる（補足8-7 図1-2 のとおり。仮：
 // 規約 02 §5 は完了をトーストで知らせるとしており、図・本文 X80 とあわせて UI は議論中）。
-// 取消（帯・行頭）は確認ダイアログを出す（補足8-7 ④）。
-// 突合しないまま保存すると、計画納価が空欄の明細として追加する（補足8-1 ルール④）。
+// 取消（帯・行頭）は確認ダイアログを出す（補足8-7 ④）。取り消すと追加の行に戻る。
 
 import { useCallback, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
@@ -27,15 +29,16 @@ import type { EdiActual, ProductData } from '@/types/salesPlanRetail';
 
 import type { EdiMatchGridContext } from './utilsEdiColumns';
 import {
-  addedPlanRowOf,
-  addedRowPlacementOf,
+  addedRowHintOf,
+  addedRowIdOf,
   ediMatchErrorOf,
   ediPriceDiffText,
-  ediRowHintOf,
-  ediRowOf,
   formatEdiPrice,
+  isAddedByEdiRow,
   isEdiMatchCandidate,
   matchedPlanRowOf,
+  sectionsAfterCancel,
+  sectionsAfterMatch,
   unmatchedPlanRowOf,
 } from './utilsEdiMatching';
 
@@ -47,11 +50,9 @@ interface UseEdiMatchingOptions {
   initialActuals: () => EdiActual[];
   // 商品区分ごとの明細の行（明細表の状態）
   sections: DetailSections;
-  // 未突合のまま保存したEDIを明細として追加したときに、商品区分ごとの行をまとめて置き換える
+  // 突合・取消で行が増減するため、商品区分ごとの行をまとめて置き換える
   setSections: (next: DetailSections) => void;
-  // 突合・取消した計画行を明細表の状態へ反映する（id の一致で置き換える）
-  syncPlanRow: (row: ProductData) => void;
-  // セル編集を通らない値の変更のため、明細表の行を作り直す（→ 02 §7.1）
+  // 行を作り直す（→ 02 §7.1）
   bumpGridRebuild: () => void;
   // 未保存の状態にする（画面を移るときの確認に使う）
   markUnsaved: () => void;
@@ -69,7 +70,7 @@ export interface LastEdiMatch {
   diff: string;
 }
 
-// ドラッグ中のEDI行のサマリ商品（未突合の一覧の位置）を明細表の枠に付ける属性
+// ドラッグ中の追加の行のサマリ商品（追加の行のサマリ商品の一覧の位置）を明細表の枠に付ける属性
 const DRAG_ATTRIBUTE = 'data-edi-drag';
 
 // 突合先の計画行の枠（青い破線。補足8-7 図1-1）
@@ -89,7 +90,6 @@ export function useEdiMatching({
   initialActuals,
   sections,
   setSections,
-  syncPlanRow,
   bumpGridRebuild,
   markUnsaved,
   gridApiRef,
@@ -97,21 +97,16 @@ export function useEdiMatching({
 }: UseEdiMatchingOptions) {
   const [ediActuals, setEdiActuals] = useState<EdiActual[]>(initialActuals);
 
-  // 未突合の実販EDI と、その表示用の行（EDI行）
-  const unmatchedActuals = useMemo(
-    () => ediActuals.filter((edi) => edi.status === 'unmatched'),
+  // 反映ルール④で計画行として追加した実販EDI（突合の元になる）
+  const addedActuals = useMemo(
+    () => ediActuals.filter((edi) => edi.status === 'added'),
     [ediActuals]
   );
-  const unmatchedEdiRows = useMemo(
-    () => unmatchedActuals.map(ediRowOf),
-    [unmatchedActuals]
-  );
 
-  // 未突合の実販EDIのサマリ商品（重複なし）。ドラッグ中の枠のクラス名の番号に使う
-  const unmatchedProducts = useMemo(
-    () =>
-      Array.from(new Set(unmatchedActuals.map((edi) => edi.summaryProduct))),
-    [unmatchedActuals]
+  // 追加の行のサマリ商品（重複なし）。ドラッグ中の枠のクラス名の番号に使う
+  const addedProducts = useMemo(
+    () => Array.from(new Set(addedActuals.map((edi) => edi.summaryProduct))),
+    [addedActuals]
   );
 
   // 選択中の行の数（「選択した2行を突合」「選択解除」の活性に使う）
@@ -130,29 +125,45 @@ export function useEdiMatching({
     [ediActuals]
   );
 
+  // 明細表の行は編集で値が変わっているため、状態の行ではなく最新の行（node.data）を使う
+  const latestRowOf = useCallback(
+    (row: ProductData): ProductData =>
+      ((row.id && gridApiRef.current?.getRowNode(row.id)?.data) as
+        | ProductData
+        | undefined) ?? row,
+    [gridApiRef]
+  );
+
   // 行を作り直した後に、全セルの書式を描き直す。計画納価の塗り（EDI納価と違うか）は計画納価の値が
   // 変わらなくても変わるため、値が変わったセルだけを描き直す既定の更新では反映されない。
   const refreshCellStylesAfterRebuild = useCallback(() => {
     setTimeout(() => gridApiRef.current?.refreshCells({ force: true }), 0);
   }, [gridApiRef]);
 
-  // 計画行1行とEDI行1行を突合する（ドラッグ・選択した2行の突合で共通）
+  // 計画行1行と追加の行1行を突合する（ドラッグ・選択した2行の突合で共通）
   const matchRows = useCallback(
-    (planRow: ProductData | undefined, ediRow: ProductData | undefined) => {
-      const edi = actualOf(ediRow?._ediActualId);
+    (planRow: ProductData | undefined, addedRow: ProductData | undefined) => {
+      const edi = actualOf(addedRow?._ediActualId);
       const error = ediMatchErrorOf(planRow, edi);
-      if (error || !planRow || !edi) {
+      if (error || !planRow || !addedRow || !edi) {
         toast.error(error ?? '突合できませんでした。');
         return;
       }
-      syncPlanRow(matchedPlanRowOf(planRow, edi));
+      const latest = latestRowOf(planRow);
+      setSections(
+        sectionsAfterMatch(
+          sections,
+          matchedPlanRowOf(latest, edi),
+          addedRow.id ?? ''
+        )
+      );
       setEdiActuals((prev) =>
         prev.map((item) =>
           item.id === edi.id
             ? {
                 ...item,
                 status: 'manual',
-                planRowId: planRow.id,
+                planRowId: latest.id,
                 matchedAt: nowText(),
                 matchedBy: CURRENT_USER_NAME,
               }
@@ -164,16 +175,18 @@ export function useEdiMatching({
       bumpGridRebuild();
       refreshCellStylesAfterRebuild();
       setLastMatch({
-        planRowId: planRow.id ?? '',
-        summaryProduct: planRow.summaryProduct,
-        planPrice: formatEdiPrice(planRow.planPrice) || '-',
+        planRowId: latest.id ?? '',
+        summaryProduct: latest.summaryProduct,
+        planPrice: formatEdiPrice(latest.planPrice) || '-',
         ediPrice: formatEdiPrice(edi.ediPrice),
-        diff: ediPriceDiffText(planRow.planPrice, edi.ediPrice) || '-',
+        diff: ediPriceDiffText(latest.planPrice, edi.ediPrice) || '-',
       });
     },
     [
       actualOf,
-      syncPlanRow,
+      latestRowOf,
+      sections,
+      setSections,
       gridApiRef,
       markUnsaved,
       bumpGridRebuild,
@@ -184,13 +197,13 @@ export function useEdiMatching({
   // 「選択した2行を突合」
   const handleMatchSelected = useCallback(() => {
     const rows = (gridApiRef.current?.getSelectedRows() ?? []) as ProductData[];
-    const ediRows = rows.filter((row) => row._ediRow);
-    const planRows = rows.filter((row) => !row._ediRow);
-    if (rows.length !== 2 || ediRows.length !== 1 || planRows.length !== 1) {
-      toast.error('計画行1行とEDI行1行を選んでください。');
+    const addedRows = rows.filter(isAddedByEdiRow);
+    const planRows = rows.filter((row) => !isAddedByEdiRow(row));
+    if (rows.length !== 2 || addedRows.length !== 1 || planRows.length !== 1) {
+      toast.error('計画行1行と、行頭が「追加」の行1行を選んでください。');
       return;
     }
-    matchRows(planRows[0], ediRows[0]);
+    matchRows(planRows[0], addedRows[0]);
   }, [gridApiRef, matchRows]);
 
   // 「選択解除」
@@ -216,24 +229,25 @@ export function useEdiMatching({
     if (row) setCancelTarget(row);
   }, [lastMatch, gridApiRef]);
 
-  // 取消の確定：計画行は実販EDIを反映する前に、EDI実績は未突合に戻す（補足8-7 ④。削除・復元ではなく参照を外す）
+  // 取消の確定：計画行は実販EDIを反映する前に戻し、その直下に追加の行を作り直す
+  // （補足8-7 ④。実販EDIは削除・復元ではなく、反映先の参照を追加の行へ戻す）
   const confirmCancel = useCallback(() => {
     const target = cancelTarget;
     setCancelTarget(null);
     if (!target) return;
-    // 明細表の行は編集で値が変わっているため、状態の行ではなく最新の行（node.data）を使う
-    const latest =
-      (target.id && gridApiRef.current?.getRowNode(target.id)?.data) || target;
+    const latest = latestRowOf(target);
     const edi = actualOf(latest._ediActualId);
     if (!edi) return;
-    syncPlanRow(unmatchedPlanRowOf(latest, edi));
+    setSections(
+      sectionsAfterCancel(sections, unmatchedPlanRowOf(latest, edi), edi)
+    );
     setEdiActuals((prev) =>
       prev.map((item) =>
         item.id === edi.id
           ? {
               ...item,
-              status: 'unmatched',
-              planRowId: undefined,
+              status: 'added',
+              planRowId: addedRowIdOf(edi),
               matchedAt: undefined,
               matchedBy: undefined,
             }
@@ -248,50 +262,18 @@ export function useEdiMatching({
     toast.success('突合を取り消しました。');
   }, [
     cancelTarget,
-    gridApiRef,
-    refreshCellStylesAfterRebuild,
+    latestRowOf,
     actualOf,
-    syncPlanRow,
+    sections,
+    setSections,
     markUnsaved,
     bumpGridRebuild,
+    refreshCellStylesAfterRebuild,
   ]);
 
   const closeCancel = useCallback(() => setCancelTarget(null), []);
 
-  // 保存時：未突合のまま残った実販EDIを、計画納価が空欄の明細として追加する（補足8-1 ルール④）。
-  // 追加した件数を返す（0件なら何もしない）。
-  const addUnmatchedAsRows = useCallback((): number => {
-    if (unmatchedActuals.length === 0) return 0;
-    const working: DetailSections = Object.fromEntries(
-      Object.entries(sections).map(([section, rows]) => [section, [...rows]])
-    );
-    const addedIds = new Map<string, string>();
-    unmatchedActuals.forEach((edi) => {
-      const { section, index } = addedRowPlacementOf(
-        working,
-        edi.summaryProduct
-      );
-      const id = `edi-added-${edi.id}-${Date.now()}`;
-      addedIds.set(edi.id, id);
-      working[section] = [
-        ...(working[section] ?? []).slice(0, index),
-        addedPlanRowOf(edi, section, id),
-        ...(working[section] ?? []).slice(index),
-      ];
-    });
-    setSections(working);
-    setEdiActuals((prev) =>
-      prev.map((item) =>
-        addedIds.has(item.id)
-          ? { ...item, status: 'added', planRowId: addedIds.get(item.id) }
-          : item
-      )
-    );
-    bumpGridRebuild();
-    return unmatchedActuals.length;
-  }, [unmatchedActuals, sections, setSections, bumpGridRebuild]);
-
-  // ── 行のドラッグ（EDI行 → 計画行）──
+  // ── 行のドラッグ（追加の行 → 計画行）──
   const setDragAttribute = useCallback(
     (value: string | null) => {
       const el = gridContainerRef.current;
@@ -302,26 +284,27 @@ export function useEdiMatching({
     [gridContainerRef]
   );
 
-  // ドラッグを始めたら、そのEDI行と同じサマリ商品の突合先の候補へ枠を出す（行は描き直さず属性だけ変える）
+  // ドラッグを始めたら、その追加の行と同じサマリ商品の突合先の候補へ枠を出す（行は描き直さず属性だけ変える）
   const handleRowDragEnter = useCallback(
     (event: RowDragEnterEvent<ProductData>) => {
       const row = event.node.data;
-      if (!row?._ediRow) return;
-      const index = unmatchedProducts.indexOf(row.summaryProduct);
+      if (!row || !isAddedByEdiRow(row)) return;
+      const index = addedProducts.indexOf(row.summaryProduct);
       setDragAttribute(index >= 0 ? String(index) : null);
     },
-    [unmatchedProducts, setDragAttribute]
+    [addedProducts, setDragAttribute]
   );
 
-  // ドロップした計画行へ突合する（EDI行の外・同じ行へのドロップは何もしない）
+  // ドロップした計画行へ突合する（行の外・同じ行へのドロップは何もしない）
   const handleRowDragEnd = useCallback(
     (event: RowDragEndEvent<ProductData>) => {
       setDragAttribute(null);
-      const ediRow = event.node.data;
+      const addedRow = event.node.data;
       const target = event.overNode?.data;
-      if (!ediRow?._ediRow || !target || target.id === ediRow.id) return;
+      if (!addedRow || !isAddedByEdiRow(addedRow)) return;
+      if (!target || target.id === addedRow.id) return;
       if (event.overNode?.rowPinned) return;
-      matchRows(target, ediRow);
+      matchRows(target, addedRow);
     },
     [setDragAttribute, matchRows]
   );
@@ -331,52 +314,52 @@ export function useEdiMatching({
     [setDragAttribute]
   );
 
-  // 突合先の候補の計画行に、ドラッグ中の枠のクラスを付ける（EDI行のサマリ商品ごとに番号を分ける）。
-  // EDI行には edi-row を付け、選択中の枠（計画行だけ）の対象から外す。
+  // 突合先の候補の計画行に、ドラッグ中の枠のクラスを付ける（追加の行のサマリ商品ごとに番号を分ける）。
+  // 追加の行には edi-row を付け、選択中の枠（突合先の計画行だけ）の対象から外す。
   const getRowClass = useCallback(
     (params: RowClassParams<ProductData>): string | undefined => {
       const row = params.data;
       if (!row || params.node.rowPinned) return undefined;
-      if (row._ediRow) return 'edi-row';
-      const index = unmatchedProducts.indexOf(row.summaryProduct);
+      if (isAddedByEdiRow(row)) return 'edi-row';
+      const index = addedProducts.indexOf(row.summaryProduct);
       return index >= 0 && isEdiMatchCandidate(row, row.summaryProduct)
         ? `edi-drop-candidate-${index}`
         : undefined;
     },
-    [unmatchedProducts]
+    [addedProducts]
   );
 
   // 突合の枠の CSS（明細表の <style> に足す）。色は gridStyles の CSS 変数で参照する。
-  // ・チェックを付けた突合先の計画行（EDI行は除く）に青い破線の枠を出す（補足8-7 図1-1 の P2）
-  // ・ドラッグ中は、そのEDI行と同じサマリ商品の突合先の候補に同じ枠を出す
+  // ・チェックを付けた突合先の計画行（追加の行は除く）に青い破線の枠を出す（補足8-7 図1-1 の P2）
+  // ・ドラッグ中は、その追加の行と同じサマリ商品の突合先の候補に同じ枠を出す
   // 行に枠を付けるとセルの背景色で隠れるため、図1-1 と同じくセルごとに囲む。
   const dragHighlightCss = useMemo(
     () =>
       [
         `.sales-detail-grid .ag-row.ag-row-selected:not(.edi-row):not(.ag-row-pinned) .ag-cell { ${EDI_FRAME_CSS} }`,
-        ...unmatchedProducts.map(
+        ...addedProducts.map(
           (_product, i) =>
             `.sales-detail-grid[${DRAG_ATTRIBUTE}="${i}"] .ag-row.edi-drop-candidate-${i} .ag-cell { ${EDI_FRAME_CSS} }`
         ),
       ].join('\n'),
-    [unmatchedProducts]
+    [addedProducts]
   );
 
-  // 突合できる行か（チェックボックスを出す行）：EDI行と、未突合の実販EDIの突合先の候補の計画行
+  // 突合できる行か（チェックボックスを出す行）：追加の行と、その突合先の候補の計画行
   const isSelectableForMatch = useCallback(
     (row: ProductData | undefined): boolean =>
       !!row &&
-      (!!row._ediRow ||
-        unmatchedProducts.some((product) => isEdiMatchCandidate(row, product))),
-    [unmatchedProducts]
+      (isAddedByEdiRow(row) ||
+        addedProducts.some((product) => isEdiMatchCandidate(row, product))),
+    [addedProducts]
   );
 
-  // 行選択は未突合の実販EDIがあるときだけ使う（無いときは選択の列を出さない＝登録系の明細表の既定 → 02 §8）。
-  // チェックボックスは突合に関わる行（EDI行と突合先の候補）にだけ出す（図1-1・1-2 は全行だが、
+  // 行選択は追加の行があるときだけ使う（無いときは選択の列を出さない＝登録系の明細表の既定 → 02 §8）。
+  // チェックボックスは突合に関わる行（追加の行と突合先の候補）にだけ出す（図1-1・1-2 は全行だが、
   // 2026-11-17 に関わる行だけでよいと決めた）。行のクリックでは選択しない（セルを編集するため）。
   const rowSelection = useMemo<RowSelectionOptions<ProductData> | undefined>(
     () =>
-      unmatchedActuals.length === 0
+      addedActuals.length === 0
         ? undefined
         : {
             mode: 'multiRow',
@@ -386,24 +369,23 @@ export function useEdiMatching({
             isRowSelectable: (node) => isSelectableForMatch(node.data),
             hideDisabledCheckboxes: true,
           },
-    [unmatchedActuals.length, isSelectableForMatch]
+    [addedActuals.length, isSelectableForMatch]
   );
 
   // 明細表の context に渡す操作
   const gridContext: EdiMatchGridContext = useMemo(
     () => ({
       onRequestCancelEdiMatch: requestCancel,
-      ediRowHintOf: (row: ProductData) => {
+      addedRowHintOf: (row: ProductData) => {
         const edi = actualOf(row._ediActualId);
-        return edi ? ediRowHintOf(edi, allPlanRows) : '';
+        return edi ? addedRowHintOf(edi, allPlanRows) : '';
       },
     }),
     [requestCancel, actualOf, allPlanRows]
   );
 
   return {
-    unmatchedEdiRows,
-    unmatchedCount: unmatchedActuals.length,
+    addedCount: addedActuals.length,
     selectedCount,
     cancelTarget,
     lastMatch,
@@ -420,6 +402,5 @@ export function useEdiMatching({
     handleRowDragCancel,
     confirmCancel,
     closeCancel,
-    addUnmatchedAsRows,
   };
 }

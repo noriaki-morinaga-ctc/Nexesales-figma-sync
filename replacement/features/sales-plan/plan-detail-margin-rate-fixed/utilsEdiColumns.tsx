@@ -26,6 +26,7 @@ import {
   EDI_STATUS_DESCRIPTIONS,
   ediPriceDiffText,
   formatEdiPrice,
+  isAddedByEdiRow,
   isEdiPriceDifferent,
 } from './utilsEdiMatching';
 
@@ -39,16 +40,12 @@ type TooltipFn = (params: ITooltipParams<ProductData>) => string | undefined;
 export interface EdiMatchGridContext {
   // 行頭の「取消」：突合の取消の確認を出す
   onRequestCancelEdiMatch: (row: ProductData) => void;
-  // EDI行のツールチップ（一致する計画納価が無いことと突合先の候補）
-  ediRowHintOf: (row: ProductData) => string;
+  // 追加の行のツールチップ（一致する計画納価が無いことと突合先の候補）
+  addedRowHintOf: (row: ProductData) => string;
 }
 
 // 行頭マーカーのバッジの色（文字と枠。白地）。自動＝緑／手動＝紫／追加＝赤（補足8-7 図1-1・1-2）。
-// 未突合（EDI行）はマーカーを出さず、行の背景色で示す（補足8-7 ②：マーカーは自動・手動・追加だけ）。
-const EDI_MARKER_BADGE_CLASS: Record<
-  Exclude<EdiMatchStatus, 'unmatched'>,
-  string
-> = {
+const EDI_MARKER_BADGE_CLASS: Record<EdiMatchStatus, string> = {
   auto1: 'border-green-600 bg-white text-green-700',
   auto2: 'border-green-600 bg-white text-green-700',
   auto3: 'border-green-600 bg-white text-green-700',
@@ -58,19 +55,8 @@ const EDI_MARKER_BADGE_CLASS: Record<
 
 const hasValue = (value: unknown): boolean => String(value ?? '').trim() !== '';
 
-// 行の突合の状態（EDI行は未突合）。実販EDIを反映していない計画行は undefined。
-const ediStatusOf = (
-  row: ProductData | undefined
-): EdiMatchStatus | undefined =>
-  row?._ediRow ? 'unmatched' : row?.ediMatchStatus;
-
-// EDI行（未突合）のセル：行全体を薄い藍にし、編集できないことを示す（補足8-7 図1-1）
-export const ediRowCellStyle = (): CellStyle => ({
-  backgroundColor: GRID_COLORS.ediUnmatchedRowBg,
-});
-
 // 行頭マーカーの列（補足8-7 ②）。計画行は突合の状態（自動・手動・追加）を出し、手動の行には「取消」を置く。
-// EDI行は計画行へドラッグするためのハンドル（AG Grid 公式の rowDrag）だけを出す（未突合は行の背景色で示す）。
+// 追加の行には、計画行へドラッグして突合するためのハンドル（AG Grid 公式の rowDrag）も出す。
 // コピー由来カラーバー（明細コピー・明細追加の左端の帯）も左端のこの列に付ける（→ 02 §10.1）。
 export const buildEdiMarkerColumn = (
   baseCellStyle: CellStyleFn
@@ -81,10 +67,10 @@ export const buildEdiMarkerColumn = (
   cellClass: 'cell-center',
   sortable: false,
   headerTooltip:
-    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（取消で戻せる）／追加＝未突合のまま保存して追加した明細。印の無い薄い藍の行は、一致する計画納価が無いEDI行（計画行へドラッグして突合する）',
-  // EDI行だけドラッグできる（ドロップした計画行へ突合する。行は動かさない＝rowDragManaged なし）
+    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（取消で戻せる）／追加＝一致する計画納価が無いため、実販EDIの反映で追加した行（入力するか、同じサマリ商品の計画行へドラッグして突合する）',
+  // 追加の行だけドラッグできる（ドロップした計画行へ突合する。行は動かさない＝rowDragManaged なし）
   rowDrag: (params: RowDragCallbackParams<ProductData>) =>
-    !!params.data?._ediRow && !params.node.rowPinned,
+    isAddedByEdiRow(params.data) && !params.node.rowPinned,
   rowDragText: (params: IRowDragItem) => {
     const row = params.rowNode?.data as ProductData | undefined;
     return `${row?.summaryProduct ?? ''}（EDI納価 ${formatEdiPrice(
@@ -94,15 +80,17 @@ export const buildEdiMarkerColumn = (
   // 文言をセルの値にしてフィルタ・コピー・出力でも使えるようにする
   valueGetter: (params: ValueGetterParams<ProductData>) => {
     if (params.node?.rowPinned) return '';
-    const status = ediStatusOf(params.data);
-    return status && status !== 'unmatched' ? EDI_MARKER_LABELS[status] : '';
+    const status = params.data?.ediMatchStatus;
+    return status ? EDI_MARKER_LABELS[status] : '';
   },
   tooltipValueGetter: (params: ITooltipParams<ProductData>) => {
     if (params.node?.rowPinned || !params.data) return undefined;
-    if (params.data._ediRow) {
-      return (params.context as EdiMatchGridContext).ediRowHintOf(params.data);
+    if (isAddedByEdiRow(params.data)) {
+      return (params.context as EdiMatchGridContext).addedRowHintOf(
+        params.data
+      );
     }
-    const status = ediStatusOf(params.data);
+    const status = params.data.ediMatchStatus;
     return status ? EDI_STATUS_DESCRIPTIONS[status] : undefined;
   },
   cellStyle: (params: CellClassParams<ProductData>) => ({
@@ -112,8 +100,8 @@ export const buildEdiMarkerColumn = (
   cellRenderer: (params: ICellRendererParams<ProductData>) => {
     const row = params.data;
     if (!row || params.node.rowPinned) return null;
-    const status = ediStatusOf(row);
-    if (!status || status === 'unmatched') return null;
+    const status = row.ediMatchStatus;
+    if (!status) return null;
     const badge = (
       <Badge variant="outline" className={EDI_MARKER_BADGE_CLASS[status]}>
         {EDI_MARKER_LABELS[status]}
@@ -139,13 +127,13 @@ export const buildEdiMarkerColumn = (
   },
 });
 
-// 突合できていないEDI納価のセルか（未突合のEDI行と、計画納価が空欄のまま実販EDIを反映した追加行）。
+// 突合できていないEDI納価のセルか（計画納価が空欄のまま実販EDIを反映した行＝追加の行など）。
 // 赤の塗りと、行ホバー中の文字の色（cell-edi-mismatch）で共通に使う。
 export const isEdiPriceMismatch = (row: ProductData | undefined): boolean =>
-  hasValue(row?.ediPrice) && (!!row?._ediRow || !hasValue(row?.planPrice));
+  hasValue(row?.ediPrice) && !hasValue(row?.planPrice);
 
 // EDI反映のセル（補足8-7 図1-1・1-2）：
-// ・未突合のEDI行と、計画納価が空欄のまま実販EDIを反映した行（追加行）は、赤の塗りで突合できていないことを知らせる
+// ・計画納価が空欄のまま実販EDIを反映した行（追加の行）は、赤の塗りで計画納価と結び付いていないことを知らせる
 // ・計画行に反映済みのEDI納価は薄い緑（反映済み）。計画納価と違う（手動で突合した）ときは太字にする
 export const ediPriceCellStyle =
   (baseCellStyle: CellStyleFn): CellStyleFn =>
@@ -178,7 +166,7 @@ export const withEdiPriceDiffFill =
   (baseCellStyle: CellStyleFn): CellStyleFn =>
   (params) => {
     const base = baseCellStyle(params);
-    if (!base || params.data?._ediRow) return base;
+    if (!base) return base;
     return isEdiPriceDifferent(params.data?.planPrice, params.data?.ediPrice)
       ? {
           ...base,
@@ -195,7 +183,6 @@ export const planPriceEdiTooltip =
     const row = params.data;
     if (
       !params.node?.rowPinned &&
-      !row?._ediRow &&
       isEdiPriceDifferent(row?.planPrice, row?.ediPrice)
     ) {
       return `計画納価 ${formatEdiPrice(row?.planPrice)}／EDI納価 ${formatEdiPrice(
@@ -205,7 +192,7 @@ export const planPriceEdiTooltip =
     return fallback(params);
   };
 
-// 未突合のまま保存して追加した行（追加行）の入力・選択欄が空欄のときは、必須未入力の強調を付ける
+// 実販EDIの反映で追加した行（追加の行）の入力・選択欄が空欄のときは、必須未入力の強調を付ける
 // （補足8-1 ルール④：商品区分・販促区分・計画函数・納価・売価は空欄で追加され、担当者が入力する → 02 §7.1.5）。
 export const withAddedRowRequired =
   (field: keyof ProductData, baseCellStyle: CellStyleFn): CellStyleFn =>

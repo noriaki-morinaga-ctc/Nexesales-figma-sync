@@ -5,15 +5,15 @@ import { makeEmptyProduct } from '@/utils/sales-plan/plan-detail/planDetailEmpty
 
 import {
   addedPlanRowOf,
-  addedRowPlacementOf,
+  addedRowHintOf,
   ediMatchErrorOf,
   ediPriceDiffText,
-  ediRowHintOf,
-  ediRowOf,
-  insertEdiRows,
+  isAddedByEdiRow,
   isEdiMatchCandidate,
   isEdiPriceDifferent,
   matchedPlanRowOf,
+  sectionsAfterCancel,
+  sectionsAfterMatch,
   unmatchedPlanRowOf,
   withoutEdiMatch,
 } from './utilsEdiMatching';
@@ -29,13 +29,14 @@ const planRow = (over: Partial<ProductData> = {}): ProductData => ({
   ...over,
 });
 
-// テスト用の未突合の実販EDI
+// テスト用の実販EDI（反映ルール④で計画行として追加したもの）
 const edi = (over: Partial<EdiActual> = {}): EdiActual => ({
   id: 'E2',
   summaryProduct: 'カルピスウォーター５００ｍＬ２４本',
   ediPrice: '87.35',
   count: '900',
-  status: 'unmatched',
+  status: 'added',
+  planRowId: 'edi-added-E2',
   ...over,
 });
 
@@ -64,25 +65,47 @@ describe('ediPriceDiffText', () => {
   });
 });
 
+describe('addedPlanRowOf', () => {
+  it('追加の行は入力・選択欄を空欄にし、突合の状態を「追加」にする', () => {
+    const row = addedPlanRowOf(edi(), '定番商品');
+    expect(row.id).toBe('edi-added-E2');
+    expect(row.ediMatchStatus).toBe('added');
+    expect(isAddedByEdiRow(row)).toBe(true);
+    expect(row._ediActualId).toBe('E2');
+    expect(row.section).toBe('定番商品');
+    expect(row.productCategory).toBe('');
+    expect(row.promotion).toBe('');
+    expect(row.plan).toBe('');
+    expect(row.planPrice).toBe('');
+    expect(row.price).toBe('');
+    expect(row.actual).toBe('900');
+    expect(row.ediPrice).toBe('87.35');
+    expect(row.metaBrand).toBe('カルピス');
+  });
+});
+
 describe('isEdiMatchCandidate', () => {
   it('同じサマリ商品で実販EDIを反映していない計画行は候補', () => {
     expect(isEdiMatchCandidate(planRow(), edi().summaryProduct)).toBe(true);
   });
-  it('実販EDIを反映済みの計画行は候補にしない', () => {
+  it('実販EDIを反映済みの計画行・追加の行は候補にしない', () => {
     expect(
       isEdiMatchCandidate(planRow({ ediPrice: '88.85' }), edi().summaryProduct)
     ).toBe(false);
+    expect(
+      isEdiMatchCandidate(
+        addedPlanRowOf(edi(), '定番商品'),
+        edi().summaryProduct
+      )
+    ).toBe(false);
   });
-  it('サマリ商品が違う計画行・EDI行・ギフトは候補にしない', () => {
+  it('サマリ商品が違う計画行・ギフトは候補にしない', () => {
     expect(
       isEdiMatchCandidate(
         planRow({ summaryProduct: '十六茶６６０ｍＬ２４本' }),
         edi().summaryProduct
       )
     ).toBe(false);
-    expect(isEdiMatchCandidate(ediRowOf(edi()), edi().summaryProduct)).toBe(
-      false
-    );
     expect(
       isEdiMatchCandidate(planRow({ section: 'ギフト' }), edi().summaryProduct)
     ).toBe(false);
@@ -93,7 +116,7 @@ describe('ediMatchErrorOf', () => {
   it('同じサマリ商品・双方が未突合なら突合できる（null）', () => {
     expect(ediMatchErrorOf(planRow(), edi())).toBeNull();
   });
-  it('EDIが未突合でなければ突合できない', () => {
+  it('追加の行の実販EDIでなければ突合できない', () => {
     expect(
       ediMatchErrorOf(planRow(), edi({ status: 'manual' }))
     ).not.toBeNull();
@@ -111,8 +134,10 @@ describe('ediMatchErrorOf', () => {
       '反映済み'
     );
   });
-  it('EDI行どうしは突合できない', () => {
-    expect(ediMatchErrorOf(ediRowOf(edi()), edi())).not.toBeNull();
+  it('追加の行どうしは突合できない', () => {
+    expect(
+      ediMatchErrorOf(addedPlanRowOf(edi(), '定番商品'), edi())
+    ).not.toBeNull();
   });
 });
 
@@ -142,84 +167,48 @@ describe('matchedPlanRowOf / unmatchedPlanRowOf', () => {
   });
 });
 
-describe('ediRowOf / addedPlanRowOf', () => {
-  it('EDI行はサマリ商品・入数・実販函数・EDI納価だけを持ち、計画側は空', () => {
-    const row = ediRowOf(edi());
-    expect(row._ediRow).toBe(true);
-    expect(row.id).toBe('edi-E2');
-    expect(row.actual).toBe('900');
-    expect(row.ediPrice).toBe('87.35');
-    expect(row.quantity).toBe('24');
-    expect(row.plan).toBe('');
-    expect(row.planPrice).toBe('');
-    expect(row.productCategory).toBe('');
+describe('sectionsAfterMatch / sectionsAfterCancel', () => {
+  const other = planRow({ id: 'p0', summaryProduct: 'A' });
+  const target = planRow({ id: 'p1', actual: '1,200' });
+  const added = addedPlanRowOf(edi(), '定番商品');
+
+  it('突合すると突合先の計画行を置き換え、追加の行を消す（1行にまとめる）', () => {
+    const next = sectionsAfterMatch(
+      { 定番商品: [other, target, added] },
+      matchedPlanRowOf(target, edi()),
+      added.id ?? ''
+    );
+    expect(next['定番商品'].map((r) => r.id)).toEqual(['p0', 'p1']);
+    expect(next['定番商品'][1].actual).toBe('2100');
+    expect(next['定番商品'][1].ediMatchStatus).toBe('manual');
   });
-  it('追加行は入力・選択欄を空欄にし、突合の状態を「追加」にする', () => {
-    const row = addedPlanRowOf(edi(), '定番商品', 'added-E2');
-    expect(row.ediMatchStatus).toBe('added');
-    expect(row.section).toBe('定番商品');
-    expect(row.productCategory).toBe('');
-    expect(row.promotion).toBe('');
-    expect(row.plan).toBe('');
-    expect(row.planPrice).toBe('');
-    expect(row.price).toBe('');
-    expect(row.actual).toBe('900');
-    expect(row.metaBrand).toBe('カルピス');
+  it('取り消すと計画行を戻し、その直下に追加の行を作り直す', () => {
+    const matched = matchedPlanRowOf(target, edi());
+    const next = sectionsAfterCancel(
+      { 定番商品: [other, matched], 特売: [planRow({ id: 's1' })] },
+      unmatchedPlanRowOf(matched, edi()),
+      edi()
+    );
+    expect(next['定番商品'].map((r) => r.id)).toEqual([
+      'p0',
+      'p1',
+      'edi-added-E2',
+    ]);
+    expect(next['定番商品'][1].actual).toBe('1200');
+    expect(next['定番商品'][2].ediMatchStatus).toBe('added');
+    expect(next['特売'].map((r) => r.id)).toEqual(['s1']);
   });
 });
 
-describe('insertEdiRows', () => {
-  const a = planRow({ id: 'a', summaryProduct: 'A' });
-  const b1 = planRow({ id: 'b1', summaryProduct: 'B' });
-  const b2 = planRow({ id: 'b2', summaryProduct: 'B' });
-  const c = planRow({ id: 'c', summaryProduct: 'C' });
-  const ediB = ediRowOf(edi({ id: 'EB', summaryProduct: 'B' }));
-  const ediB2 = ediRowOf(edi({ id: 'EB2', summaryProduct: 'B' }));
-  const ediZ = ediRowOf(edi({ id: 'EZ', summaryProduct: 'Z' }));
-
-  it('同じサマリ商品の最後の計画行の直下に差し込む', () => {
-    const ids = insertEdiRows([a, b1, b2, c], [ediB]).map((r) => r.id);
-    expect(ids).toEqual(['a', 'b1', 'b2', 'edi-EB', 'c']);
-  });
-  it('同じサマリ商品のEDI行が複数あれば受け取った順に並べる', () => {
-    const ids = insertEdiRows([a, b1, c], [ediB, ediB2]).map((r) => r.id);
-    expect(ids).toEqual(['a', 'b1', 'edi-EB', 'edi-EB2', 'c']);
-  });
-  it('同じサマリ商品の計画行が無いEDI行は先頭に置く', () => {
-    const ids = insertEdiRows([a, c], [ediZ]).map((r) => r.id);
-    expect(ids).toEqual(['edi-EZ', 'a', 'c']);
-  });
-});
-
-describe('addedRowPlacementOf', () => {
-  it('同じサマリ商品の最後の計画行と同じ区分の、その直下', () => {
-    const sections = {
-      定番商品: [planRow({ id: 'r1', summaryProduct: 'B' })],
-      特売: [
-        planRow({ id: 'p1', summaryProduct: 'A' }),
-        planRow({ id: 'p2', summaryProduct: 'B' }),
-      ],
-    };
-    expect(addedRowPlacementOf(sections, 'B')).toEqual({
-      section: '特売',
-      index: 2,
-    });
-  });
-  it('同じサマリ商品の計画行が無ければ定番商品の先頭', () => {
-    expect(addedRowPlacementOf({ 定番商品: [planRow()] }, 'Z')).toEqual({
-      section: '定番商品',
-      index: 0,
-    });
-  });
-});
-
-describe('ediRowHintOf', () => {
+describe('addedRowHintOf', () => {
   it('突合先の候補と差を出す', () => {
-    const hint = ediRowHintOf(edi(), [planRow()]);
+    const hint = addedRowHintOf(edi(), [planRow()]);
     expect(hint).toContain('定番商品・ポイント販促（計画88.85／差 −1.50）');
   });
-  it('候補が無ければ、保存すると明細が追加されることを出す', () => {
-    const hint = ediRowHintOf(edi(), [planRow({ ediPrice: '88.85' })]);
-    expect(hint).toContain('突合できる計画行がありません');
+  it('候補が無ければ、入力を促す（保存で追加される案内は出さない）', () => {
+    const hint = addedRowHintOf(edi(), [planRow({ ediPrice: '88.85' })]);
+    expect(hint).toContain('突合できる計画行はありません');
+    expect(hint).toContain('商品区分・販促区分・計画函数・納価・売価を入力');
+    expect(hint).not.toContain('保存');
   });
 });

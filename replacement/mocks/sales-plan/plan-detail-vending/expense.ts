@@ -19,6 +19,21 @@ export const EXPENSE_BASELINE: Record<number, Record<string, any>> = {
     catZennenJisseki: 76812500,
     catZennenHi: 109.5,
   },
+  // 営業経費 小計（経費金額合計 − 自販機関係費 小計。UI/UX UX-120）
+  1: {
+    catPlan: 83438174,
+    // 拠点列は自販機関係費が「－」のため、経費金額合計と同じ
+    catHonsha: 220000,
+    catShishaA: 230000,
+    catShishaBKyotsu: 150000,
+    catShishaBKaitaku: 50000,
+    catZengetsuJisseki: 79833000,
+    catZengetsuHi: 104.5,
+    catYosan: 0,
+    catYosanHi: 0,
+    catZennenJisseki: 76252500,
+    catZennenHi: 109.4,
+  },
   // 条件口（合計）
   2: {
     catPlan: 46208237,
@@ -210,6 +225,20 @@ export const EXPENSE_BASELINE: Record<number, Record<string, any>> = {
     catZennenJisseki: '－',
     catZennenHi: '－',
   },
+  // 自販機関係費 小計（コラム料 + リース料 + 販売器具費。UI/UX UX-120）
+  15: {
+    catPlan: 685000,
+    catHonsha: '－',
+    catShishaA: '－',
+    catShishaBKyotsu: '－',
+    catShishaBKaitaku: '－',
+    catZengetsuJisseki: 595000,
+    catZengetsuHi: 115.1,
+    catYosan: 0,
+    catYosanHi: 0,
+    catZennenJisseki: 560000,
+    catZennenHi: 122.3,
+  },
   // コラム料
   16: {
     catPlan: 35000,
@@ -289,22 +318,36 @@ export const createExpensePlanInitialRows = () => [
     catZennenHi_formula: '=B2/K2',
   },
   {
-    // データ種の区切り（見出し行）：条件口〜ロケ契約料他前払い金(償却)
-    // 値は持たず、経費項目名だけを表示する（isParent により各列は空表示）。
-    category: '営業経費',
-    unit: '',
+    // データ種の区切り（見出し行）：条件口〜ロケ契約料他前払い金(償却)。Excel3
+    // 配下の小計（条件口 + ロケ運転費 + オペ協力金〜前払金(償却)）を表示する（→ 02 §7・UI/UX UX-120）。
+    // 値は画面で算出するため null。前払金(償却)(14) は子行(15・16)の小計のため、子行は含めない。
+    category: '営業経費 小計',
+    unit: '円',
     catPlan: null,
+    catPlan_formula: '=B4+B9+SUM(B11:B14)',
     catHonsha: null,
+    catHonsha_formula: '=SUM(C11:C14)',
     catShishaA: null,
+    catShishaA_formula: '=SUM(D11:D14)',
     catShishaBKyotsu: null,
+    catShishaBKyotsu_formula: '=SUM(E11:E14)',
     catShishaBKaitaku: null,
+    catShishaBKaitaku_formula: '=SUM(F11:F14)',
     catZengetsuJisseki: null,
-    catZengetsuHi: null,
+    catZengetsuJisseki_formula: '=G4+G9+SUM(G11:G14)',
+    catZengetsuHi: '0%',
+    catZengetsuHi_formula: '=B3/G3',
     catYosan: null,
-    catYosanHi: null,
+    catYosan_formula: '=I4+I9+SUM(I11:I14)',
+    catYosanHi: '0%',
+    catYosanHi_formula: '=B3/I3',
     catZennenJisseki: null,
-    catZennenHi: null,
+    catZennenJisseki_formula: '=K4+K9+SUM(K11:K14)',
+    catZennenHi: '0%',
+    catZennenHi_formula: '=B3/K3',
     isParent: true,
+    // 値を持つ親の行（条件口と同じ扱い。編集はできない）
+    showAsValue: true,
     isGroupHeaderRow: true,
   },
   {
@@ -623,22 +666,32 @@ export const createExpensePlanInitialRows = () => [
     isChild: true,
   },
   {
-    // データ種の区切り（見出し行）：コラム料〜販売器具費
-    // 値は持たず、経費項目名だけを表示する（isParent により各列は空表示）。
-    category: '自販機関係費',
-    unit: '',
+    // データ種の区切り（見出し行）：コラム料〜販売器具費。Excel17
+    // 配下の小計（コラム料 + リース料 + 販売器具費）を表示する（→ 02 §7・UI/UX UX-120）。
+    // 配下の拠点列は「－」のため、小計の拠点列も「－」。
+    category: '自販機関係費 小計',
+    unit: '円',
     catPlan: null,
-    catHonsha: null,
-    catShishaA: null,
-    catShishaBKyotsu: null,
-    catShishaBKaitaku: null,
+    catPlan_formula: '=SUM(B18:B20)',
+    catHonsha: '－',
+    catShishaA: '－',
+    catShishaBKyotsu: '－',
+    catShishaBKaitaku: '－',
     catZengetsuJisseki: null,
-    catZengetsuHi: null,
+    catZengetsuJisseki_formula: '=SUM(G18:G20)',
+    catZengetsuHi: '0%',
+    catZengetsuHi_formula: '=B17/G17',
     catYosan: null,
-    catYosanHi: null,
+    catYosan_formula: '=SUM(I18:I20)',
+    catYosanHi: '0%',
+    catYosanHi_formula: '=B17/I17',
     catZennenJisseki: null,
-    catZennenHi: null,
+    catZennenJisseki_formula: '=SUM(K18:K20)',
+    catZennenHi: '0%',
+    catZennenHi_formula: '=B17/K17',
     isParent: true,
+    // 値を持つ親の行（条件口と同じ扱い。編集はできない）
+    showAsValue: true,
     isGroupHeaderRow: true,
   },
   {

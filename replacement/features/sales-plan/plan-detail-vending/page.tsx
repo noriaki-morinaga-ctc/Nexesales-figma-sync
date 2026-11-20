@@ -18,6 +18,7 @@ import { PlanDetailFooter } from './components/PlanDetailFooter';
 import {
   GRID_BASE_PROPS,
   GRID_COLORS,
+  sectionRowCellStyle,
   totalCellStyle,
   GRID_DEFAULT_COL_DEF,
   GRID_WRAP_HEADER_COL_DEF,
@@ -241,7 +242,7 @@ const salesPlanBaselineData = SALES_PLAN_BASELINE_ROWS;
 
 // 経費計画差分表示の基準データ（image-4.png のスナップショット）
 // rowIndex は expensePlanData の行インデックスに対応
-// ※ データ種の区切り行（1=営業経費／14=自販機関係費）は値を持たないため基準データも持たない
+// ※ データ種の区切り行（1=営業経費 小計／15=自販機関係費 小計）も配下の小計の基準データを持つ（UI/UX UX-120）
 // 転置後の rowIndex は expensePlanData の行（経費項目）に対応
 // フィールドは各列（catPlan=計画金額, catHonsha=本社, ... catZennenHi=前年同月比）
 const expenseBaselineData = EXPENSE_BASELINE;
@@ -738,7 +739,7 @@ export default function PlanDetailVending() {
       // （起点は率のセル）。
       // 604…(=12)・ロケ契約見込(=13)・ロケ契約中(=14) の計画金額も拠点列の合計で算出する値の
       // ため起点から除外する（起点は拠点列のセル）。
-      // データ種の区切り行（営業経費=1・自販機関係費=15）は値を持たないため除外する。
+      // 区切り行の小計（営業経費 小計=1・自販機関係費 小計=15）は算出値のため起点に含めない（UI/UX UX-120）。
       // コラム料(=16)・リース料(=17)・販売器具費(=18) は入力値のため起点に含める。
       ((field === 'catPlan' && [5, 7, 8, 16, 17, 18].includes(rowIndex)) ||
         // 拠点列（本社〜支社B開発）は、ロケ契約見込(13)・ロケ契約中(14) も対象に含める
@@ -751,9 +752,8 @@ export default function PlanDetailVending() {
           // ロケ運転費(7) の実績列は数式を持たない固定値のため起点に含める
           //（ロケ運転費率(8)・経費金額合計(0) の実績列の算出元になる）。
           rowIndex !== 0 &&
-          // データ種の区切り行（営業経費=1）は値を持たないため除外する
-          //（自販機関係費=15 は下の isParent 判定で除外される）。
-          rowIndex !== 1 &&
+          // 区切り行の小計（営業経費 小計=1・自販機関係費 小計=15）は算出値のため除外する（UI/UX UX-120）
+          ![1, 15].includes(rowIndex) &&
           // オペ金銭口/オペ条件口(手出票)(5) は入力値のため、前月実績・前年同月実績を
           // 起点にする（予算は従来どおり起点にしない）。
           !(rowIndex === 5 && field === 'catYosan') &&
@@ -1390,12 +1390,8 @@ export default function PlanDetailVending() {
       : GRID_COLORS.readonly;
     // 親行も標準の編集不可色（灰）に統一する
     if (isParent && !params.data?.showAsValue) bgColor = GRID_COLORS.readonly;
-    // データ種の区切り（見出し）行は共通の区切り行色。太字にはしない（→ 02 §7）
-    if (params.data?.isGroupHeaderRow) bgColor = GRID_COLORS.sectionRowBg;
     // 強調（青/緑/オレンジ）は枠線だけで示すため、背景は上書きしない。
-
-    return {
-      backgroundColor: bgColor,
+    const style = {
       cursor: isEditable ? 'pointer' : 'default',
       border: isClicked
         ? CLICK_HIGHLIGHT_BORDER
@@ -1405,6 +1401,10 @@ export default function PlanDetailVending() {
             ? REF_HIGHLIGHT_BORDER
             : undefined,
     };
+    // データ種の区切り（見出し）行は共通の区切り行の体裁（グレー・濃いグレーの太字）。
+    // 配下の小計を出すため、値のセルも項目名と同じ体裁にする（→ 02 §7・UI/UX UX-117・UX-120）
+    if (params.data?.isGroupHeaderRow) return sectionRowCellStyle(style);
+    return { ...style, backgroundColor: bgColor };
   };
 
   // セルのスタイルを取得する関数（編集可能なセルは白背景）
@@ -1867,19 +1867,16 @@ export default function PlanDetailVending() {
     const koramu = num(getData(16).catPlan);
     const lease = num(getData(17).catPlan);
     const kigu = num(getData(18).catPlan);
-    // 前払金(償却)(12) が子行(13・14)の小計のため、合計には 12 のみを加える
-    const keihiTotal =
-      gokei +
-      locAmount +
-      ope +
-      ichiji +
-      locKeiyaku +
-      maebaraiSyokyaku +
-      koramu +
-      lease +
-      kigu;
+    // 前払金(償却)(12) が子行(13・14)の小計のため、小計・合計には 12 のみを加える
+    // 営業経費 小計(1)・自販機関係費 小計(15)は区切り行に出す配下の小計（→ 02 §7・UI/UX UX-120）
+    const eigyoSubtotal =
+      gokei + locAmount + ope + ichiji + locKeiyaku + maebaraiSyokyaku;
+    const jihankiSubtotal = koramu + lease + kigu;
+    const keihiTotal = eigyoSubtotal + jihankiSubtotal;
     return {
       0: keihiTotal, // 経費金額合計
+      1: eigyoSubtotal, // 営業経費 小計
+      15: jihankiSubtotal, // 自販機関係費 小計
       2: gokei, // 条件口（合計）
       3: opeJoken, // オペ条件口
       4: chogai, // 帳合料
@@ -1915,24 +1912,22 @@ export default function PlanDetailVending() {
           : num(sales0.col2);
     // 条件口(2)＝オペ条件口(3)+帳合料(4)+オペ金銭口(5)
     const joken = () => raw(3) + raw(4) + raw(5);
+    // 営業経費 小計(1)＝条件口 + ロケ運転費(7) + オペ協力金〜前払金(償却)(9〜12)
+    // ※ 前払金(償却)(12) は子行(13・14)の小計行のため、12 のみを加える（→ UI/UX UX-120）
+    const eigyoSubtotal = () =>
+      joken() + raw(7) + raw(9) + raw(10) + raw(11) + raw(12);
+    // 自販機関係費 小計(15)＝コラム料・リース料・販売器具費(16〜18)
+    const jihankiSubtotal = () => raw(16) + raw(17) + raw(18);
     switch (rowIndex) {
+      case 1:
+        return eigyoSubtotal();
+      case 15:
+        return jihankiSubtotal();
       case 2:
         return joken();
       case 0:
-        // 経費金額合計＝条件口 + ロケ運転費(7・固定値) + オペ協力金〜販売器具費(9〜18)
-        // ※ 区切り行（15=自販機関係費）は値を持たないため加算対象に含めない。
-        // ※ 前払金(償却)(12) は子行(13・14)の小計行のため、12 のみを加える。
-        return (
-          joken() +
-          raw(7) +
-          raw(9) +
-          raw(10) +
-          raw(11) +
-          raw(12) +
-          raw(16) +
-          raw(17) +
-          raw(18)
-        );
+        // 経費金額合計＝営業経費 小計(1) + 自販機関係費 小計(15)
+        return eigyoSubtotal() + jihankiSubtotal();
       case 6:
         // 条件口率＝条件口 ÷ 各列売上ベース ×100（分母0は0%）
         return salesBase === 0 ? 0 : Math.round((joken() / salesBase) * 100);

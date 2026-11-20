@@ -98,6 +98,7 @@ import type {
   PlanDetailTableHandle,
   PlanDetailTableProps,
 } from '@/types/planDetailPattern';
+import { withDetailItemCounts } from '@/features/sales-plan/shared/common/countDetailItems';
 
 // 明細の表の操作と props は計画詳細の骨組みと共通（→ types/planDetailPattern）
 type DetailTableHandle = PlanDetailTableHandle;
@@ -811,7 +812,8 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
         {/* 販売計画(詳細)のタブの中身（カードの枠・見出しは親の開閉カード〔CollapsibleCard〕が持つため、ここでは枠を付けない → 05「白カード」・UX-065） */}
         <div className="mb-4">
           {/* 見出しの行（1行。UI/UX UX-106 → 02 §10.4 PlanDetailHeaderMenus）。
-              左：販売計画(詳細)｜拡売費計画 › 商品区分 ｜ 総間口数。右：凡例・一括操作・率設定・関連画面・明細追加。
+              左：販売計画(詳細)｜拡売費計画 › 商品区分 ｜ 総間口数。右：一括操作・率設定・関連画面・明細追加。
+              色の凡例は見出しの行に入れず、表の右上に置く（件数を出しても見出しを1行に収める → 02 §10.4・UI/UX UX-118）。
               入りきらない幅では折り返す（flex-wrap） */}
           <div className="flex flex-wrap items-center gap-2 pb-3 text-left text-gray-900">
             {sectionSwitch}
@@ -821,16 +823,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 aria-hidden="true"
               />
             )}
-            {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090） */}
+            {/* 商品区分の切替（自販機と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090）。
+                各区分の明細件数を名前の右に出す（ギフトは1セット1件 → 02 §6・UI/UX UX-118） */}
             <SegmentToggle
               ariaLabel="商品区分"
-              options={[
-                { value: 'all', label: '全て' },
-                { value: '定番商品', label: '定番商品' },
-                { value: '新商品', label: '新商品' },
-                { value: '特売', label: '特売' },
-                { value: 'ギフト', label: 'ギフト' },
-              ]}
+              options={withDetailItemCounts(
+                [
+                  { value: 'all', label: '全て' },
+                  { value: '定番商品', label: '定番商品' },
+                  { value: '新商品', label: '新商品' },
+                  { value: '特売', label: '特売' },
+                  { value: 'ギフト', label: 'ギフト' },
+                ],
+                allData
+              )}
               value={activeTab}
               onChange={(tab) => switchTab(tab)}
             />
@@ -867,8 +873,6 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
             </span>
 
             <div className="ml-auto flex items-center gap-2">
-              {/* コピー由来カラーバーの凡例（この画面は参照ペイン無し＝販売計画コピー元は出ない） */}
-              <CopySourceLegend showReference={false} />
               {/* 一括操作：前月計画コピー（右ペインで実行。コピー元は前月計画で固定）・函数反映 */}
               <PlanBulkActionsMenu
                 onPlanCopy={() => onOpenPlanCopy?.()}
@@ -927,6 +931,11 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
                 明細追加
               </button>
             </div>
+          </div>
+
+          {/* コピー由来カラーバーの凡例は表の右上に置く（この画面は参照ペイン無し＝販売計画コピー元は出ない → 02 §10.4・UI/UX UX-118） */}
+          <div className="flex justify-end pb-1">
+            <CopySourceLegend showReference={false} />
           </div>
 
           {/* AG Grid Table（1920x1080 のPCで画面いっぱいに表示）

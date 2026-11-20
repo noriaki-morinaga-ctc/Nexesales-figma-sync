@@ -23,14 +23,19 @@ const isAutoReflected = (row: ProductData): boolean =>
 const priceOf = (value: unknown): string =>
   roundPlanNumber(toNumber(value), PLAN_DETAIL_DIGITS.price);
 
+// 実販EDIの反映で追加された行か（反映ルール④。EDI納価と実販函数は入っている）
+const isAddedByEdi = (row: ProductData): boolean =>
+  row.ediMatchStatus === 'added';
+
 // 計画行に、自動で反映済みの実販EDI（EDI納価・突合の状態「自動」）を付ける。
-// 反映していない行のEDI納価は空欄にする。
+// 反映していない行のEDI納価は空欄にする。実販EDIの反映で追加された行はそのまま。
 export const withMockAutoEdi = (rows: ProductData[]): ProductData[] =>
-  rows.map((row) =>
-    isAutoReflected(row)
+  rows.map((row) => {
+    if (isAddedByEdi(row)) return row;
+    return isAutoReflected(row)
       ? { ...row, ediPrice: priceOf(row.planPrice), ediMatchStatus: 'auto2' }
-      : { ...row, ediPrice: '', ediMatchStatus: undefined }
-  );
+      : { ...row, ediPrice: '', ediMatchStatus: undefined };
+  });
 
 // ── 補足8-7 2. の題材（東日本／マージン率固定、2026年8月、当月〆後に実販FACTが届いた時点） ──
 // 計画行 P1〜P3 と実販EDI E1〜E3 を図1-1・1-2 と同じ商品・値で持つ。
@@ -85,7 +90,35 @@ const scenarioRow = (
   ...row,
 });
 
-// 定番の題材行：P1（E1 がルール②で自動反映済み）・P3（E3 と一致する納価が無い）
+// 実販EDIの反映で追加された行（反映ルール④）。①〜③に当たらなかった実販EDIを計画行として追加し、
+// 入力・選択欄（商品区分・販促区分・計画函数・納価・売価）は空欄にする（20260701 P1・P2 ④）。
+const addedByEdiRow = (edi: {
+  id: string;
+  section: string;
+  metaBrand: string;
+  summaryProduct: string;
+  ediPrice: string;
+  count: string;
+}): ProductData =>
+  scenarioRow({
+    id: `edi-added-${edi.id}`,
+    section: edi.section,
+    productCategory: '',
+    metaBrand: edi.metaBrand,
+    summaryProduct: edi.summaryProduct,
+    promotion: '',
+    plan: '',
+    planPrice: '',
+    price: '',
+    margin: '',
+    prevYearPrice: '',
+    actual: edi.count,
+    ediPrice: edi.ediPrice,
+    ediMatchStatus: 'added',
+    _ediActualId: edi.id,
+  });
+
+// 定番の題材行：P1（E1 がルール②で自動反映済み）・P3・E3 の追加行（E3 は一致する納価が無いため追加）
 export const EDI_SCENARIO_REGULAR_ROWS: ProductData[] = [
   scenarioRow({
     section: '定番商品',
@@ -113,9 +146,18 @@ export const EDI_SCENARIO_REGULAR_ROWS: ProductData[] = [
     planPrice: '85.00',
     price: '105',
   }),
+  // 計画外の値引きの実績。突合せず、担当者が追加の行に入力して使う想定
+  addedByEdiRow({
+    id: 'E3',
+    section: '定番商品',
+    metaBrand: 'カルピス',
+    summaryProduct: CALPIS_PET500,
+    ediPrice: '84.00',
+    count: '600',
+  }),
 ];
 
-// 特売の題材行：P2（E2 を手動で突合する先。計画78.00／EDI76.50）
+// 特売の題材行：P2・E2 の追加行（担当者が「特売（計画78.00）で商談した分」と判断し、P2 へ突合する想定）
 export const EDI_SCENARIO_PROMOTION_ROWS: ProductData[] = [
   scenarioRow({
     section: '特売',
@@ -127,30 +169,17 @@ export const EDI_SCENARIO_PROMOTION_ROWS: ProductData[] = [
     planPrice: '78.00',
     price: '98',
   }),
-];
-
-// 未突合の実販EDI：当月〆後に届いた実販FACTのうち、一致する計画納価が無かったもの（題材の E2・E3）。
-// E1 は P1 に自動で反映済みのため、mockEdiActualsOf で P1 から作る。
-export const UNMATCHED_EDI_ACTUALS: EdiActual[] = [
-  // 担当者が「特売（計画78.00）で商談した分」と判断できる実績（手動で突合する想定）
-  {
+  addedByEdiRow({
     id: 'E2',
+    section: '特売',
+    metaBrand: '三ツ矢',
     summaryProduct: MITSUYA_PET500,
     ediPrice: '76.50',
     count: '900',
-    status: 'unmatched',
-  },
-  // 計画外の値引きの実績（突合せずに保存し、計画納価が空欄の明細として追加する想定）
-  {
-    id: 'E3',
-    summaryProduct: CALPIS_PET500,
-    ediPrice: '84.00',
-    count: '600',
-    status: 'unmatched',
-  },
+  }),
 ];
 
-// 実販EDIの一覧：自動で反映済みの分（当月実績がある計画行）と未突合の分。
+// 実販EDIの一覧：自動で反映済みの分（当月実績がある計画行）と、反映で追加した行の分。
 export const mockEdiActualsOf = (allRows: ProductData[]): EdiActual[] => [
   ...allRows.filter(isAutoReflected).map(
     (row): EdiActual => ({
@@ -162,7 +191,16 @@ export const mockEdiActualsOf = (allRows: ProductData[]): EdiActual[] => [
       planRowId: row.id,
     })
   ),
-  ...UNMATCHED_EDI_ACTUALS,
+  ...allRows.filter(isAddedByEdi).map(
+    (row): EdiActual => ({
+      id: row._ediActualId ?? `A-${row.id}`,
+      summaryProduct: row.summaryProduct,
+      ediPrice: priceOf(row.ediPrice),
+      count: String(toNumber(row.actual)),
+      status: 'added',
+      planRowId: row.id,
+    })
+  ),
 ];
 
 // コメント履歴ペイン（shared/common/CommentHistoryPane）のモックデータ。

@@ -56,7 +56,6 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   buildEdiMarkerColumn,
   ediPriceCellStyle,
-  ediRowCellStyle,
   isEdiPriceMismatch,
   planPriceEdiTooltip,
   withAddedRowRequired,
@@ -71,9 +70,9 @@ interface DetailColumnDeps {
   syncRowBySection: (row: ProductData) => void;
 }
 
-// 計画行として編集できる行か（区分の見出し行・合計行・未突合のEDI行は編集しない → 補足8-7 図1-1）
+// 計画行として編集できる行か（区分の見出し行・合計行は編集しない。実販EDIで追加した行は編集できる → 補足8-1 ルール④）
 const isPlanRowEditable = (params: any): boolean =>
-  !params.data?._isHeader && !params.node?.rowPinned && !params.data?._ediRow;
+  !params.data?._isHeader && !params.node?.rowPinned;
 
 export const buildDetailColumnDefs = ({
   formulaHL,
@@ -82,10 +81,8 @@ export const buildDetailColumnDefs = ({
   syncRowBySection,
 }: DetailColumnDeps): (ColDef | ColGroupDef)[] => {
   // 手入力可能セル：白（編集可 / gridStyles準拠）。編集後は黄色＋オレンジ枠で強調。
-  // 未突合のEDI行は計画側の欄をすべて非活性にし、行の色で示す（補足8-7 図1-1）。
   const yellowCellStyle = (params: any) => {
     if (params.data?._isHeader || params.node?.rowPinned) return undefined;
-    if (params.data?._ediRow) return ediRowCellStyle();
     const base = editableBg(true, { cursor: 'pointer' });
     return isCellChanged(params) ? { ...base, ...changedCellStyle() } : base;
   };
@@ -93,7 +90,6 @@ export const buildDetailColumnDefs = ({
   // 自動表示・参照セル：灰（編集不可 / gridStyles準拠）
   const whiteCellStyle = (params: any) => {
     if (params.data?._isHeader || params.node?.rowPinned) return undefined;
-    if (params.data?._ediRow) return ediRowCellStyle();
     return editableBg(false);
   };
 
@@ -108,10 +104,9 @@ export const buildDetailColumnDefs = ({
     return SAMPLE_STORES[idx % SAMPLE_STORES.length];
   };
 
-  // 一次店/三次店 セルの値取得（実データ優先・無ければサンプル）。EDI行は計画側の項目を持たないため空。
+  // 一次店/三次店 セルの値取得（実データ優先・無ければサンプル）。
   const storeValueGetter = (key: 'tier1' | 'tier3') => (params: any) => {
     if (params.data?._isHeader || params.node?.rowPinned) return '';
-    if (params.data?._ediRow) return '';
     return params.data?.[key] || sampleStore(params.node)[key];
   };
 
@@ -139,14 +134,13 @@ export const buildDetailColumnDefs = ({
   // 終売区分のダミー値（決定的擬似ランダムなYYYY/MM）。一部行はデータなし（ー表示）。
   const endSaleDummy = (params: any) => {
     if (params.data?._isHeader || params.node?.rowPinned) return '';
-    if (params.data?._ediRow) return '';
     if (params.data?.endSale) return params.data.endSale;
     const s = rowSeed(params);
     if (s % 7 === 0) return ''; // 一部はデータなし（ー）
     return `${2025 + (s % 3)}/${String((s % 12) + 1).padStart(2, '0')}`;
   };
 
-  // EDI反映：突合した実販EDI（実販FACT）の納価（data.ediPrice）。EDI行は未突合のEDI納価。
+  // EDI反映：突合した実販EDI（実販FACT）の納価（data.ediPrice）。
   const ediPriceValue = (params: any) => {
     if (params.data?._isHeader || params.node?.rowPinned) return '';
     return params.data?.ediPrice ?? '';
@@ -174,7 +168,6 @@ export const buildDetailColumnDefs = ({
     ) =>
     (params: any) => {
       if (params.data?._isHeader || params.node?.rowPinned) return undefined;
-      if (params.data?._ediRow) return ediRowCellStyle();
       const cat: string = params.data?.productCategory ?? '';
       const style = rules[cat] ?? defaultStyle;
       // yellow=編集可（白）／gray・white=編集不可（灰）。gridStyles準拠
@@ -193,7 +186,7 @@ export const buildDetailColumnDefs = ({
   const codeColumns = planDetailCodeColumns(whiteCellStyle);
 
   const columnDefs: (ColDef | ColGroupDef)[] = [
-    // 行頭マーカー：実販EDIの突合の状態（自動・手動・追加・未突合）とEDI行のドラッグハンドル（補足8-7）。
+    // 行頭マーカー：実販EDIの突合の状態（自動・手動・追加）と追加の行のドラッグハンドル（補足8-7）。
     // 左端の列のため、コピー由来カラーバーもこの列に付ける。
     buildEdiMarkerColumn(whiteCellStyle),
     {
@@ -309,7 +302,7 @@ export const buildDetailColumnDefs = ({
       width: 88,
       cellClass: 'cell-left',
       // 商品区分：全区分を活性（編集可＝白／変更後は黄）。ギフトは3行1セットの先頭セルで結合表示する。
-      // 未突合のまま保存して追加した行は空欄のため、必須未入力の強調を付ける（補足8-1 ルール④）。
+      // 実販EDIの反映で追加した行は空欄のため、必須未入力の強調を付ける（補足8-1 ルール④）。
       cellStyle: withAddedRowRequired('productCategory', yellowCellStyle),
       editable: isPlanRowEditable,
       cellEditor: SingleComboboxCellEditor,
@@ -525,7 +518,7 @@ export const buildDetailColumnDefs = ({
           width: 80,
           cellClass: 'cell-right',
           // EDI反映と違う（手動で突合した）行は塗りで残す（補足8-7 ③）。
-          // 未突合のまま保存して追加した行は空欄のため、必須未入力の強調を付ける（補足8-1 ルール④）。
+          // 実販EDIの反映で追加した行は空欄のため、必須未入力の強調を付ける（補足8-1 ルール④）。
           cellStyle: withAddedRowRequired(
             'planPrice',
             withEdiPriceDiffFill(yellowCellStyle)
@@ -554,12 +547,12 @@ export const buildDetailColumnDefs = ({
         {
           headerName: 'EDI反映',
           headerTooltip:
-            '納価-EDI反映[自動表示]突合した実販FACT（実販EDI）の納価を表示（EDI行は未突合のEDI納価）',
+            '納価-EDI反映[自動表示]突合した実販FACT（実販EDI）の納価を表示（実販EDIの反映で追加した行は、その実販EDIの納価）',
           field: 'ediPrice',
           ...GRID_NUMBER_TEXT_FILTER,
           width: 80,
           cellClass: 'cell-right',
-          // 反映済み＝薄い緑／未突合・計画納価が空欄＝赤の塗り（補足8-7 図1-1・1-2）
+          // 反映済み＝薄い緑／計画納価が空欄（追加の行）＝赤の塗り（補足8-7 図1-1・1-2）
           cellStyle: ediPriceCellStyle(whiteCellStyle),
           // 行ホバー中は共通の薄いブルーになり白の文字が読めないため、文字を赤にする（DetailTable の <style>）
           cellClassRules: {
@@ -807,8 +800,6 @@ export const buildDetailColumnDefs = ({
       cellRenderer: (params: ICellRendererParams) => {
         if (params.data._isHeader) return null;
         if (params.node.rowPinned) return null;
-        // EDI行は計画行ではないため、コピー・削除しない（突合するか、保存で明細として追加される）
-        if (params.data._ediRow) return null;
 
         // ギフトは3行1セット。編集・コピー・削除はセット単位で行う。
         // 右固定列は rowSpan が効かないため、セット先頭行(上旬)にのみアイコンを描画し、

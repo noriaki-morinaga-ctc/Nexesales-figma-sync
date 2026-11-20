@@ -1,6 +1,6 @@
 // 計画詳細(マージン率固定)。画面の骨組みは計画詳細(NET固定)と共通の PlanDetailScreen で、
 // ここではマージン率固定の計算のパターン（値・明細の表・明細追加ペインの決まり）と、
-// この画面だけの機能（本部計画コピー・固定マージン率の表示・保存時の実販EDIの追加）を渡す。
+// この画面だけの機能（本部計画コピー・固定マージン率の表示）を渡す。
 import { PlanDetailScreen } from '@/features/sales-plan/shared/plan-detail/PlanDetailScreen';
 import type { PlanDetailPattern } from '@/types/planDetailPattern';
 import { CATEGORY_OPTIONS_MARGIN } from '@/constants/promotionCategories';
@@ -54,14 +54,6 @@ const MARGIN_RATE_FIXED_PATTERN: PlanDetailPattern = {
   },
   hasHeadquartersCopy: true,
   showFixedMarginRate: true,
-  // 未突合のまま残った実販EDIは、計画納価が空欄の明細として追加して保存する
-  // （補足8-1 ルール④・補足8-7。追加した明細は入力・選択欄が空欄のため担当者が入力する）
-  onSave: (table) => {
-    const addedEdiCount = table.addUnmatchedEdiRows?.() ?? 0;
-    return addedEdiCount > 0
-      ? `実販EDIの未突合${addedEdiCount}件を、計画納価が空欄の明細として追加しました。商品区分・販促区分・計画函数・納価・売価を入力してください。`
-      : undefined;
-  },
 };
 
 // 計画1件のデータ（モック。バックエンドをつないだら API から受け取る）

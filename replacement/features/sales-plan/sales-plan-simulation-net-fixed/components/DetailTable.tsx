@@ -86,6 +86,7 @@ import {
   parseMetric,
 } from '@/features/sales-plan/sales-plan-simulation-net-fixed/utils';
 import { buildDetailColumnDefs } from '@/features/sales-plan/sales-plan-simulation-net-fixed/utilsDetailColumns';
+import { withDetailItemCounts } from '@/features/sales-plan/shared/common/countDetailItems';
 // 計画詳細(NET固定)と初期データを揃えるための共通ダミー補完。
 
 import { CURRENT_USER_NAME } from '@/mocks/common/planBasicInfo';
@@ -1025,32 +1026,32 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       [defaultColDef, formulaHL]
     );
 
+    // 対象期間内で、「反映済を除く」「不採用を除く」がチェックされている場合は該当行を除いた行
+    //（商品区分の切替に出す件数もこの行で数える → 02 §6・UI/UX UX-118）
+    const shownPeriodData = useMemo(
+      () =>
+        periodData.filter((item) => {
+          if (shouldExcludeReflected && item.probability === '反映済')
+            return false;
+          if (shouldExcludeRejected && item.probability === '不採用')
+            return false;
+          return true;
+        }),
+      [periodData, shouldExcludeReflected, shouldExcludeRejected]
+    );
+
     // 表示対象の行（タブ・保留行・「反映済を除く」「不採用を除く」・追加順の並べ替えを適用）。
     const visibleRows = useMemo(() => {
       // 商品区分を変更して保留中の行は、別タブへ切り替えるまで表示中のタブに残す
-      const byTab = periodData.filter((item) =>
+      const filtered = shownPeriodData.filter((item) =>
         isRowInActiveTab(item, activeTab, heldRowKeys)
       );
-      // 「反映済を除く」「不採用を除く」がチェックされている場合は該当行を非表示
-      const filtered = byTab.filter((item) => {
-        if (shouldExcludeReflected && item.probability === '反映済')
-          return false;
-        if (shouldExcludeRejected && item.probability === '不採用')
-          return false;
-        return true;
-      });
       // 明細追加・コピーで採番した行（_addedSeq あり）を、商品区分によらず並べ直す。
       // 新規・下ペインのコピーは最下行へ追加した順、行コピーはコピー元の行のすぐ下
       // （ギフトは3行1セットで動かす）。既存行は元の順序を維持（→ 02 §8・UX-112）。
       const sorted = orderAddedRows(filtered, productRowBlockKey);
       return sorted;
-    }, [
-      periodData,
-      activeTab,
-      heldRowKeys,
-      shouldExcludeReflected,
-      shouldExcludeRejected,
-    ]);
+    }, [shownPeriodData, activeTab, heldRowKeys]);
 
     // 列フィルタを通過した行のID（フィルタ無しは null）。合計行を表示中の明細だけで計算し直すために使う
     // （10/27 第4回 決定事項19・画面設計標準 4.4 ③）。公式の onFilterChanged／forEachNodeAfterFilter で取得する。
@@ -1268,16 +1269,20 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
 
             {/* 2段目: セグメントタブ */}
             <div className="flex items-center gap-2 mt-2">
-              {/* 商品区分の切替（自販機・計画詳細と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090） */}
+              {/* 商品区分の切替（自販機・計画詳細と同じ共通部品 SegmentToggle → 02 §6・UI/UX UX-090）。
+                  各区分の明細件数を名前の右に出す（ギフトは1セット1件 → 02 §6・UI/UX UX-118） */}
               <SegmentToggle
                 ariaLabel="商品区分"
-                options={[
-                  { value: 'all', label: '全て' },
-                  { value: '定番商品', label: '定番商品' },
-                  { value: '新商品', label: '新商品' },
-                  { value: '特殊商品', label: '特殊商品' },
-                  { value: 'ギフト', label: 'ギフト' },
-                ]}
+                options={withDetailItemCounts(
+                  [
+                    { value: 'all', label: '全て' },
+                    { value: '定番商品', label: '定番商品' },
+                    { value: '新商品', label: '新商品' },
+                    { value: '特殊商品', label: '特殊商品' },
+                    { value: 'ギフト', label: 'ギフト' },
+                  ],
+                  shownPeriodData
+                )}
                 value={activeTab}
                 onChange={(tab) => switchTab(tab)}
               />

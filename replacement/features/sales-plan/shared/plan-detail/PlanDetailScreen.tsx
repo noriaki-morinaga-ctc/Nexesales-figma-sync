@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PlanSearchPane } from '@/features/sales-plan/shared/plan-detail/PlanSearchPane';
 import { PlanAggregationPane } from '@/features/sales-plan/shared/plan-detail/PlanAggregationPane';
 import { PLAN_DETAIL_SECTION_OPTIONS } from '@/features/sales-plan/shared/plan-detail/PlanDetailHeaderMenus';
+import { countDetailItems } from '@/features/sales-plan/shared/common/countDetailItems';
 import { SegmentToggle } from '@/components/shared/common/SegmentToggle';
 import {
   PlanNonProductExpensePane,
@@ -536,11 +537,19 @@ export function PlanDetailScreen({ pattern, planData }: PlanDetailScreenProps) {
     );
   };
 
-  // 販売計画(詳細)／拡売費計画の切替（それぞれの見出しの行の先頭に置く。UX-106）
+  // 販売計画(詳細)／拡売費計画の切替（それぞれの見出しの行の先頭に置く。UX-106）。
+  // 開く前に明細があるか分かるよう、それぞれの明細件数を名前の右に出す（ギフトは1セット1件 → 02 §6・UI/UX UX-118）
+  const sectionCounts: Record<string, number> = {
+    'sales-detail': countDetailItems(detailRows),
+    'non-product-expense': expenseRows.filter((row) => !row.isTotal).length,
+  };
   const sectionSwitch = (
     <SegmentToggle
       ariaLabel="販売計画の表示"
-      options={[...PLAN_DETAIL_SECTION_OPTIONS]}
+      options={PLAN_DETAIL_SECTION_OPTIONS.map((option) => ({
+        ...option,
+        count: sectionCounts[option.value],
+      }))}
       value={activeTab}
       onChange={setActiveTab}
     />

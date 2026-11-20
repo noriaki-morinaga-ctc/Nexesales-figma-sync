@@ -66,25 +66,16 @@ export interface ProductData {
   _giftLast?: boolean;
   // 計画行に反映した実販EDI（実販FACT）の突合の状態（行頭マーカー：自動・手動・追加）。
   // 実販EDIを反映していない行は持たない（補足8-7 ②）。
-  ediMatchStatus?: Exclude<EdiMatchStatus, 'unmatched'>;
-  // 未突合の実販EDIを計画行の直下に出す表示専用の行（EDI行）。計画行ではないため、
-  // 編集・合計・販売計画(集計)の対象にしない（補足8-7 3.）。
-  _ediRow?: boolean;
-  // EDI行の元の実販EDI・手動で突合した計画行に寄せた実販EDIの ID（EdiActual.id）。
-  // 商品区分の変更で計画行の id が変わっても、突合の取消で元の実販EDIを引けるように行に持つ。
+  ediMatchStatus?: EdiMatchStatus;
+  // 追加の行の元の実販EDI・手動で突合した計画行に寄せた実販EDIの ID（EdiActual.id）。
+  // 商品区分の変更で計画行の id が変わっても、突合・取消で元の実販EDIを引けるように行に持つ。
   _ediActualId?: string;
 }
 
 // 実販EDI（実販FACT）の突合の状態（補足8-7 ②）。
 // 自動はどの反映ルールで決まったかを持つ（補足8-1 マージン率固定のルール①〜③）。
-// unmatched＝未突合／auto1〜3＝自動（ルール①〜③）／manual＝手動で突合／added＝未突合のまま保存して行を追加（ルール④）
-export type EdiMatchStatus =
-  | 'unmatched'
-  | 'auto1'
-  | 'auto2'
-  | 'auto3'
-  | 'manual'
-  | 'added';
+// auto1〜3＝自動（ルール①〜③）／manual＝手動で突合／added＝①〜③に当たらず、反映のときに計画行として追加（ルール④）
+export type EdiMatchStatus = 'auto1' | 'auto2' | 'auto3' | 'manual' | 'added';
 
 // 実販EDI（実販FACT）の実績1件。計画行とは別の実体として持ち、突合しても消さずに
 // 突合先の計画行を参照する（補足8-7 ①：いつ・どの実績を・どの行に・誰が寄せたかを残す）。
@@ -96,7 +87,7 @@ export interface EdiActual {
   // 実販函数
   count: string;
   status: EdiMatchStatus;
-  // 突合先の計画行の id（未突合は無し）
+  // 反映先の計画行の id（追加のときは追加した行、手動で突合したときは突合先の行）
   planRowId?: string;
   // 手動で突合した日時・利用者
   matchedAt?: string;

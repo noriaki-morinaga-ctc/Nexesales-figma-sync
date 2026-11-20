@@ -60,8 +60,9 @@ export const buildExpensePlanColumnDefs = ({
 
   // 拠点列の算出値を返す。
   //   604:ロケ契約料他前払い金(償却)(12) ＝ ロケ契約中(14) + ロケ契約見込(13)
-  //   経費金額合計(0) ＝ オペ協力金(9)〜前払金(償却)(12) の合算
-  //     （12 は小計行のため、その子 13・14 は二重計上を避けて含めない）
+  //   経費金額合計(0)・営業経費 小計(1) ＝ オペ協力金(9)〜前払金(償却)(12) の合算
+  //     （12 は小計行のため、その子 13・14 は二重計上を避けて含めない。
+  //       自販機関係費(16〜18)の拠点列は「－」のため、0 と 1 は同じ値になる → UI/UX UX-120）
   const branchValue = (api: any, rowIndex: number, field: string): number => {
     const rawAt = (i: number) => {
       const node = api?.getDisplayedRowAtIndex(i);
@@ -69,7 +70,7 @@ export const buildExpensePlanColumnDefs = ({
       return num((data as any)?.[field]);
     };
     if (rowIndex === 12) return rawAt(14) + rawAt(13);
-    if (rowIndex === 0) {
+    if (rowIndex === 0 || rowIndex === 1) {
       return rawAt(9) + rawAt(10) + rawAt(11) + branchValue(api, 12, field);
     }
     return rawAt(rowIndex);
@@ -92,8 +93,9 @@ export const buildExpensePlanColumnDefs = ({
       if (params.node?.rowPinned) return params.data[field];
       if (params.data?.isParent && !params.data?.showAsValue) return '';
       const r = params.node?.rowIndex ?? -1;
-      // 経費金額合計(0)・前払金(償却)(12) は算出行のため合算値を返す
-      if (r === 0 || r === 12) return branchValue(params.api, r, field);
+      // 経費金額合計(0)・営業経費 小計(1)・前払金(償却)(12) は算出行のため合算値を返す
+      if (r === 0 || r === 1 || r === 12)
+        return branchValue(params.api, r, field);
       return params.data[field];
     },
     valueFormatter: (params: any) => formatExpenseNumber(params.value),
@@ -111,11 +113,11 @@ export const buildExpensePlanColumnDefs = ({
       if (params.node?.rowPinned) return params.data[field];
       if (params.data?.isParent && !params.data?.showAsValue) return '';
       const r = params.node?.rowIndex ?? -1;
-      // 計算行（経費金額合計=0・条件口=2・条件口率=6・ロケ運転費率=8）の
-      // 前月実績・予算・前年同月実績は、設定数式に基づく計算値を表示する。
+      // 計算行（経費金額合計=0・営業経費 小計=1・条件口=2・条件口率=6・ロケ運転費率=8・
+      // 自販機関係費 小計=15）の前月実績・予算・前年同月実績は、設定数式に基づく計算値を表示する。
       // ロケ運転費(7)は数式を削除し固定値のため生データをそのまま表示する。
       if (
-        (r === 0 || r === 2 || r === 6 || r === 8) &&
+        [0, 1, 2, 6, 8, 15].includes(r) &&
         (field === 'catZengetsuJisseki' ||
           field === 'catYosan' ||
           field === 'catZennenJisseki')
