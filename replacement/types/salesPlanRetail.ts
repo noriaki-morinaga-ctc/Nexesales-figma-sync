@@ -70,6 +70,9 @@ export interface ProductData {
   // 追加の行の元の実販EDI・手動で突合した計画行に寄せた実販EDIの ID（EdiActual.id）。
   // 商品区分の変更で計画行の id が変わっても、突合・取消で元の実販EDIを引けるように行に持つ。
   _ediActualId?: string;
+  // 保存前に手動で突合した行（画面には出さない）。突合の取消は保存するまでとし、この行だけ取消を出す。
+  // 突合したときに付け、取消・保存で外す（手動の状態は保存後も残る）。
+  _ediMatchUnsaved?: boolean;
 }
 
 // 実販EDI（実販FACT）の突合の状態（補足8-7 ②）。

@@ -979,8 +979,6 @@ export default function LocationContractAmortizationList() {
         headerName: '販売店',
         field: 'retailer',
         cellClass: 'cell-left',
-        // 横スクロール時も左端に固定表示する
-        lockPinned: true,
         lockPosition: 'left',
       },
       {

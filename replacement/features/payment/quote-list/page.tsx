@@ -377,7 +377,7 @@ export default function QuoteList() {
         cellClass: 'cell-left',
       },
       {
-        headerName: '支払金額(税抜)',
+        headerName: '支払金額',
         field: 'paymentAmount',
         cellClass: 'cell-right',
         valueFormatter: (params) =>

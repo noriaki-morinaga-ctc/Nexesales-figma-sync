@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import type { CellMouseOverEvent } from 'ag-grid-community';
+import type { CellMouseOverEvent, CellRange, GridApi } from 'ag-grid-community';
 import { Check, Copy } from 'lucide-react';
 
 import { GRID_EMPTY_TEXT } from '@/components/grid';
@@ -9,6 +9,8 @@ import { copyText } from '@/components/ui/copyable-area';
 // セルにマウスを乗せるとセルの右端にコピーのボタンを出し、押すとセルの表示値をコピーする（試作）。
 // UI/UX 確認用モックのコメント #22「コンテキストメニュー経由でなくても値をコピーできるように」への案。
 // ・コピーする値は画面に見えている文字（セル内の文字）。Ctrl+C（範囲コピー）・右クリック「コピー」はそのまま使える。
+// ・マウスを乗せたセルが範囲選択（2セル以上）の中にあるときは、範囲すべてを Ctrl+C と同じ形でコピーする
+//   （AG Grid 公式 api.copySelectedRangeToClipboard）。範囲の外のセルでは、そのセルの文字だけをコピーする。
 // ・対象は入力できないセルで、値があるもの。空欄（「-」）・値を持たない操作ボタンやチェックボックスの列には出さない。
 // ・コピーできたらボタンを1秒チェックの印にする（トーストは出さない。失敗時だけ copyText がトーストで知らせる）。
 // ・マウス操作の補助のため、ボタンは Tab で止まらない（キーボードは Ctrl+C で同じことができる）。
@@ -19,6 +21,11 @@ import { copyText } from '@/components/ui/copyable-area';
 
 interface HoverTarget {
   text: string;
+  /** 範囲選択のコピーに使う（マウスを乗せたセルの位置とグリッド） */
+  api: GridApi;
+  rowIndex: number | null;
+  rowPinned: string | null | undefined;
+  colId: string;
   /** セルの縦の中央（rem。画面の左上から） */
   top: number;
   /** セルの右端（rem。画面の左上から） */
@@ -89,9 +96,39 @@ const resolveTarget = (e: CellMouseOverEvent): HoverTarget | null => {
   const rect = cell.getBoundingClientRect();
   return {
     text,
+    api: e.api,
+    rowIndex: e.node.rowIndex,
+    rowPinned: e.node.rowPinned,
+    colId: e.column.getColId(),
     top: (rect.top + rect.height / 2) / PX_PER_REM,
     left: rect.right / PX_PER_REM,
   };
+};
+
+/** 範囲の中の行の数・列の数（2セル以上かを見る） */
+const rangeCellCount = (r: CellRange): number =>
+  r.startRow && r.endRow
+    ? (Math.abs(r.endRow.rowIndex - r.startRow.rowIndex) + 1) * r.columns.length
+    : 0;
+
+/** マウスを乗せたセルが、2セル以上の範囲選択の中にあるか */
+const isInMultiCellRange = (target: HoverTarget): boolean => {
+  const ranges = target.api.getCellRanges() ?? [];
+  const total = ranges.reduce((sum, r) => sum + rangeCellCount(r), 0);
+  if (total < 2 || target.rowIndex == null) return false;
+  return ranges.some((r) => {
+    if (!r.startRow || !r.endRow) return false;
+    // 固定行（合計行など）と明細の行は別に数える
+    if ((r.startRow.rowPinned ?? null) !== (target.rowPinned ?? null))
+      return false;
+    const top = Math.min(r.startRow.rowIndex, r.endRow.rowIndex);
+    const bottom = Math.max(r.startRow.rowIndex, r.endRow.rowIndex);
+    return (
+      target.rowIndex! >= top &&
+      target.rowIndex! <= bottom &&
+      r.columns.some((c) => c.getColId() === target.colId)
+    );
+  });
 };
 
 interface HoverCopyButtonProps {
@@ -119,6 +156,12 @@ function HoverCopyButton({ store }: HoverCopyButtonProps) {
   const copied = copiedText === target.text;
 
   const handleClick = async () => {
+    // 範囲選択の中のセルなら、範囲すべてをコピーする（Ctrl+C と同じ）
+    if (isInMultiCellRange(target)) {
+      target.api.copySelectedRangeToClipboard();
+      setCopiedText(target.text);
+      return;
+    }
     if (await copyText(target.text)) setCopiedText(target.text);
   };
 

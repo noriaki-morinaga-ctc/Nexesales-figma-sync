@@ -605,10 +605,10 @@ export default function PaymentDetailWithoutInvoice() {
   const [expenseBreakdown, setExpenseBreakdown] = useState<AmountBreakdown>(
     createEmptyAmountBreakdown
   );
-  // 支払情報カードの合計表。税抜金額計＝追加口計＋拡売費計（セルごとに足す）。
+  // 支払情報カードの合計表。金額　計＝追加口計＋拡売費計（セルごとに足す）。
   // 本画面はセンターフィを扱わないため、請求書有にあるセンターフィの項目は持たない。
   // 追加口は請求書を受領しないため、請求・差額の行を「-」で表示する。
-  // 税抜金額計の請求は、請求のある拡売費計の請求だけを足した値になる。
+  // 金額　計の請求は、請求のある拡売費計の請求だけを足した値になる。
   // 支払情報エリアの下に税率ごとの合計金額（税抜）を出す（→ 20260710_第16回 決定事項12）。
   const paymentBreakdownItems = useMemo(
     () =>

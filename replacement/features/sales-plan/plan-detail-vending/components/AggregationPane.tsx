@@ -1139,7 +1139,6 @@ export function AggregationPane() {
         headerName: '項目',
         field: 'label',
         width: 192,
-        lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         flex: 0,
         suppressAutoSize: true, // 幅を決めてある列のため自動調整から外す

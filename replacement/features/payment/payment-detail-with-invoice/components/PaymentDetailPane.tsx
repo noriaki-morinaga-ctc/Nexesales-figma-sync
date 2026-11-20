@@ -50,7 +50,7 @@ interface PaymentDetailPaneProps {
   onStoreEvidence?: () => void;
   // 表示する支払情報（支払回数ごとのデータセット）。未指定時は既定値を使う。
   initialValues?: PaymentDetailPaneValues;
-  // 支払回全体の合計表（追加口計・センターフィ・拡売費計・税抜金額計）。
+  // 支払回全体の合計表（追加口計・センターフィ・拡売費計・金額　計）。
   // 選択中の支払回数の値を親が集計して渡す。未指定なら表を出さない。
   breakdownItems?: PaymentAmountBreakdownItem[];
 }
@@ -383,7 +383,7 @@ export const PaymentDetailPane = forwardRef<
         </div>
 
         {/* 5行目: 支払回全体の合計表（Excel「支払情報エリア」B22:K34）。
-            追加口計・センターフィ・拡売費計と、3つを足した税抜金額計を出す。
+            追加口計・センターフィ・拡売費計と、3つを足した金額　計を出す。
             （→ 20260710_第16回 決定事項12）。値は明細と同じ分割前で、分割後の自部署負担分は
             支払情報サマリで見せる（→ 20260901_第33回 決定事項15・17）。長い場合は表だけを横スクロールさせる。 */}
         {breakdownItems && (

@@ -503,7 +503,6 @@ export function AggregationItemTreeTable({
         field: 'label',
         colId: 'label',
         width: 192,
-        lockPinned: true,
         // 中身は左寄せ（grid.css の ag-cell-left-pinned）。ヘッダ色・罫線は共通テーマに準拠。
         cellClass: 'ag-cell-left-pinned',
         cellRenderer: AggregationTreeCell,

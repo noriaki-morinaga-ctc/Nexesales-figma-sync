@@ -10,6 +10,7 @@
 // 突合は確認を出さず、明細の上の帯で「突合しました。…［取消］」と知らせる（補足8-7 図1-2 のとおり。仮：
 // 規約 02 §5 は完了をトーストで知らせるとしており、図・本文 X80 とあわせて UI は議論中）。
 // 取消（帯・行頭）は確認ダイアログを出す（補足8-7 ④）。取り消すと追加の行に戻る。
+// 取消できるのは保存するまで（保存前に突合した行の印 _ediMatchUnsaved で判定する）。
 
 import { useCallback, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
@@ -120,6 +121,18 @@ export function useEdiMatching({
 
   const allPlanRows = useMemo(() => Object.values(sections).flat(), [sections]);
 
+  // 帯に出す直前の突合。取消は保存するまでのため、保存して行の印が外れたら帯も出さない
+  const visibleLastMatch = useMemo(
+    () =>
+      lastMatch &&
+      allPlanRows.some(
+        (row) => row.id === lastMatch.planRowId && row._ediMatchUnsaved
+      )
+        ? lastMatch
+        : null,
+    [lastMatch, allPlanRows]
+  );
+
   const actualOf = useCallback(
     (id: string | undefined) => ediActuals.find((edi) => edi.id === id),
     [ediActuals]
@@ -222,12 +235,11 @@ export function useEdiMatching({
 
   // 帯の［取消］：直前の突合の計画行を対象に、行頭の取消と同じ確認ダイアログを出す
   const requestCancelLastMatch = useCallback(() => {
-    if (!lastMatch) return;
-    const row = gridApiRef.current?.getRowNode(lastMatch.planRowId)?.data as
-      | ProductData
-      | undefined;
+    if (!visibleLastMatch) return;
+    const row = gridApiRef.current?.getRowNode(visibleLastMatch.planRowId)
+      ?.data as ProductData | undefined;
     if (row) setCancelTarget(row);
-  }, [lastMatch, gridApiRef]);
+  }, [visibleLastMatch, gridApiRef]);
 
   // 取消の確定：計画行は実販EDIを反映する前に戻し、その直下に追加の行を作り直す
   // （補足8-7 ④。実販EDIは削除・復元ではなく、反映先の参照を追加の行へ戻す）
@@ -388,7 +400,7 @@ export function useEdiMatching({
     addedCount: addedActuals.length,
     selectedCount,
     cancelTarget,
-    lastMatch,
+    lastMatch: visibleLastMatch,
     requestCancelLastMatch,
     rowSelection,
     getRowClass,

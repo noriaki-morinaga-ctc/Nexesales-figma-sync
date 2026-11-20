@@ -41,7 +41,7 @@ export function EdiMatchBanner({
               <span>
                 {lastMatch.summaryProduct}／計画{lastMatch.planPrice}円 ⇔ EDI
                 {lastMatch.ediPrice}円（差 {lastMatch.diff}
-                ）。誤りがあれば行頭の「取消」で戻せます。
+                ）。誤りがあれば、保存するまでは行頭の「取消」で戻せます。
               </span>
               <button
                 type="button"

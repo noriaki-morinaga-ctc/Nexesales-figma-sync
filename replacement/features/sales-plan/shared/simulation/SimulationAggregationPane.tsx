@@ -1329,7 +1329,6 @@ export function SimulationAggregationPane({
         headerName: 'メタブランド',
         field: 'metaBrand',
         width: 128,
-        lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
         // ここでは1文字インデントのみ付与する。
@@ -1417,7 +1416,6 @@ export function SimulationAggregationPane({
         headerName: 'メタブランド',
         field: 'metaBrand',
         width: 128,
-        lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
         // ここでは1文字インデントのみ付与する。
@@ -1505,7 +1503,6 @@ export function SimulationAggregationPane({
         headerName: 'メタブランド',
         field: 'metaBrand',
         width: 128,
-        lockPinned: true,
         cellClass: 'ag-cell-left-pinned',
         // 1列目左寄せは cellClass 'ag-cell-left-pinned'（grid.css）で担保。
         // ここでは1文字インデントのみ付与する。

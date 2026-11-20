@@ -1118,7 +1118,7 @@ export default function PaymentDetailOther() {
     };
   }, [expenseData]);
 
-  // サマリーバーの表示項目（計画合計金額・支払合計金額(税抜)を強調し、税率別の税抜内訳を並べる）
+  // サマリーバーの表示項目（計画合計金額・支払合計金額を強調し、税率別の税抜内訳を並べる）
   const summaryItems = useMemo(
     () => [
       {
@@ -1127,7 +1127,7 @@ export default function PaymentDetailOther() {
         emphasize: true,
       },
       {
-        label: '支払合計金額(税抜)',
+        label: '支払合計金額',
         value: totalSummary.exclTax,
         emphasize: true,
       },

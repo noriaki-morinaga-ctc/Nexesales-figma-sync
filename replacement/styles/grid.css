@@ -593,20 +593,22 @@
 /* 入力できるプルダウンのセル（cellClassRules の cell-pulldown。GRID_DEFAULT_COL_DEF が付ける）：
    右端に小さな ▼（グレー GRID_COLORS.pulldownMark）を出し、プルダウンだと分かるようにする（UI/UX UX-103）。
    文字が ▼ に重ならないよう右の余白を 1.25rem 取る。編集中（選択肢を開いている間）は出さない。
-   content の ▼ は文字コード（\25BC）で書く。文字そのものを書くと、CSS を UTF-8 として読まない環境
-   （Figma Make など）で文字化けする（UI/UX UX-109 → 01 注意事項「CSS の content は ASCII で書く」） */
+   ▼ は文字ではなく枠線で描く下向きの三角（幅 0.5rem・高さ 0.3125rem）。文字（▼）も文字コード（\25BC）も、
+   Figma Make では文字化けしたため（UI/UX UX-109・UX-123 → 01 注意事項「CSS の content に記号を書かない」） */
 .ag-cell.cell-pulldown {
   padding-right: 1.25rem;
 }
 .ag-cell.cell-pulldown::after {
-  content: '\25BC';
+  content: '';
   position: absolute;
   top: 50%;
   right: 0.5rem;
   transform: translateY(-50%);
-  font-size: 0.5625rem;
-  line-height: 1;
-  color: var(--grid-pulldown-mark);
+  width: 0;
+  height: 0;
+  border-left: 0.25rem solid transparent;
+  border-right: 0.25rem solid transparent;
+  border-top: 0.3125rem solid var(--grid-pulldown-mark);
   pointer-events: none;
 }
 .ag-cell.cell-pulldown.ag-cell-inline-editing::after,

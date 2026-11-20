@@ -1805,7 +1805,6 @@ export const NonProductExpensePane = forwardRef<
         suppressColumnsToolPanel: true,
         headerComponent: TransferBranchCollapseHeader,
         colId: 'branchCollapse',
-        lockPinned: true,
         sortable: false,
         filter: false,
         resizable: false,

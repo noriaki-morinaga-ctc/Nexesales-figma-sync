@@ -38,7 +38,8 @@ export const EDI_STATUS_DESCRIPTIONS: Record<EdiMatchStatus, string> = {
   auto2: '自動（ルール②）：同じサマリ商品・同じ計画納価の行に反映した',
   auto3:
     '自動（ルール③）：同じ計画納価の行が複数あるため、商品区分・販促区分の優先順位で選んだ行に反映した',
-  manual: '手動：担当者が突合した行（行頭の取消で突合の前に戻せる）',
+  manual:
+    '手動：担当者が突合した行（保存するまでは行頭の取消で突合の前に戻せる）',
   added:
     '追加（ルール④）：一致する計画納価が無いため、実販EDIの反映で追加した行。商品区分・販促区分・計画函数・納価・売価を入力するか、同じサマリ商品の計画行へ突合する',
 };
@@ -137,6 +138,7 @@ export function matchedPlanRowOf(
     ediPrice: formatEdiPrice(edi.ediPrice),
     ediMatchStatus: 'manual',
     _ediActualId: edi.id,
+    _ediMatchUnsaved: true,
   };
 }
 
@@ -152,6 +154,7 @@ export function unmatchedPlanRowOf(
     ediPrice: '',
     ediMatchStatus: undefined,
     _ediActualId: undefined,
+    _ediMatchUnsaved: undefined,
   };
 }
 
@@ -163,6 +166,7 @@ export function withoutEdiMatch<T extends Partial<ProductData>>(row: T): T {
     ediPrice: '',
     ediMatchStatus: undefined,
     _ediActualId: undefined,
+    _ediMatchUnsaved: undefined,
   };
 }
 

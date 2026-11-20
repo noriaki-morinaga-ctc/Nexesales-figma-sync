@@ -548,7 +548,6 @@ export const SPLIT_SOURCE_INFO_EXTRA_COLUMN_DEFS: ColDef[] = [
 export const ID_COLUMN_DEF: ColDef = {
   headerName: 'No.',
   field: 'id',
-  lockPinned: true,
   editable: false,
   sortable: false,
   filter: false,

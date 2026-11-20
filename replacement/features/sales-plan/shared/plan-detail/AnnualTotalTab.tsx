@@ -1046,7 +1046,6 @@ export function AnnualTotalTab({
             // 無いため、絞り込みの値は全行で項目名にする（AG Grid 公式 filterValueGetter。UX-097）
             filterValueGetter: aggItemFilterValue,
             width: ANNUAL_ITEM_COL_WIDTH,
-            lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: GroupCellRenderer,
             // 項目のセルのクリックで項目階層を開閉する（chevron 以外でも開閉可）。
@@ -1086,7 +1085,6 @@ export function AnnualTotalTab({
             headerName: 'サブ項目',
             field: 'subItem',
             width: 88,
-            lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: SubItemCellRenderer,
             // 予算／前年実績のサブ項目のセルのクリックで、差・比の行を開閉する（数値のセルでは開閉しない → UX-111）

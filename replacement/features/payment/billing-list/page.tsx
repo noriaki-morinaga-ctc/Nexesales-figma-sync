@@ -408,7 +408,7 @@ export default function BillingList() {
       {
         // 支払処理の確定（検印）まで進んだ明細だけを集計した支払金額（税抜）。
         // 明細の支払金額合計とは名称で区別する（→ 同 決定事項20）。
-        headerName: '確定(検印)済 支払金額合計(税抜)',
+        headerName: '確定(検印)済 支払金額合計',
         field: 'sealedPayAmount',
         headerTooltip: '支払処理検印済の明細の支払金額合計（税抜）',
         valueFormatter: (params) =>

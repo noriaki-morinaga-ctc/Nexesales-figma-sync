@@ -1238,7 +1238,6 @@ export const PaymentNonProductExpensePane = forwardRef<
         suppressColumnsToolPanel: true,
         headerComponent: BranchCollapseHeader,
         colId: 'branchCollapse',
-        lockPinned: true,
         sortable: false,
         filter: false,
         resizable: false,
@@ -2367,7 +2366,6 @@ export const PaymentNonProductExpensePane = forwardRef<
             //（全てチェック／全て解除）を描き替える。
             onSelectionChanged={() => gridApiRef.current?.refreshHeader()}
             selectionColumnDef={{
-              lockPinned: true,
               // 幅はチェックボックス（1rem）とセル左右の余白が収まる最小限にとどめる。
               width: 29,
               maxWidth: 29,

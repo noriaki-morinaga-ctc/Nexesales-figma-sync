@@ -209,7 +209,7 @@ const expenseLines = (rows: ExpenseRow[], side: 'bill' | 'pay'): Line[] =>
 const withoutEntryLines = (rows: WithoutEntryRow[]): Line[] =>
   rows.map((r) => ({ amount: num(r.payAmount), tax: '8%', source: '' }));
 
-// 請求書有の合計表の期待値（追加口　計・センターフィ・拡売費　計・税抜金額　計）。
+// 請求書有の合計表の期待値（追加口　計・センターフィ・拡売費　計・金額　計）。
 const expectedWithInvoice = (
   entries: AdditionalEntryData[],
   expenses: ExpenseRow[],
@@ -319,7 +319,7 @@ const assertWithInvoiceTables = (
     '追加口　計',
     'センターフィ',
     '拡売費　計',
-    '税抜金額　計',
+    '金額　計',
   ]);
   expectItem(items.payment[0], exp.entry, S, `${label} 支払情報 追加口　計`);
   expectItem(
@@ -329,7 +329,7 @@ const assertWithInvoiceTables = (
     `${label} 支払情報 センターフィ`
   );
   expectItem(items.payment[2], exp.expense, S, `${label} 支払情報 拡売費　計`);
-  expectItem(items.payment[3], exp.total, S, `${label} 支払情報 税抜金額　計`);
+  expectItem(items.payment[3], exp.total, S, `${label} 支払情報 金額　計`);
   return exp;
 };
 
@@ -347,11 +347,11 @@ const assertWithoutInvoiceTables = (
   expect(items.payment.map((i) => i.label)).toEqual([
     '追加口　計',
     '拡売費　計',
-    '税抜金額　計',
+    '金額　計',
   ]);
   expectItem(items.payment[0], exp.entry, S, `${label} 支払情報 追加口　計`);
   expectItem(items.payment[1], exp.expense, S, `${label} 支払情報 拡売費　計`);
-  expectItem(items.payment[2], exp.total, S, `${label} 支払情報 税抜金額　計`);
+  expectItem(items.payment[2], exp.total, S, `${label} 支払情報 金額　計`);
   return exp;
 };
 
@@ -447,7 +447,7 @@ describe.each(WITH_INVOICE_PAYMENT_ROUNDS)(
       );
     });
 
-    it('センターフィの差額は全セル「-」、税抜金額　計＝追加口　計＋センターフィ＋拡売費　計', () => {
+    it('センターフィの差額は全セル「-」、金額　計＝追加口　計＋センターフィ＋拡売費　計', () => {
       const { entries, expenses, centerFees } = withInvoiceRound(round);
       const items = withInvoiceItems(entries, expenses, centerFees);
       const cf = breakdownCellValues(
@@ -589,7 +589,7 @@ describe('支払詳細(追加口請求書有)：合計表のセンターフィ�
       }
     });
 
-    it('税抜金額　計＝追加口　計＋センターフィ＋拡売費　計（請求・支払の全セル）', () => {
+    it('金額　計＝追加口　計＋センターフィ＋拡売費　計（請求・支払の全セル）', () => {
       const { entries, expenses, centerFees } = withInvoiceRound(round);
       const cells = withInvoiceItems(entries, expenses, centerFees).payment.map(
         (i) => breakdownCellValues(i, S)

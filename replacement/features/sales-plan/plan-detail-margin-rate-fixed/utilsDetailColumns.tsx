@@ -193,7 +193,6 @@ export const buildDetailColumnDefs = ({
       headerName: 'メタブランド',
       field: 'metaBrand',
       width: 112,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       cellStyle: whiteCellStyle,
       filter: true,
@@ -206,7 +205,6 @@ export const buildDetailColumnDefs = ({
       headerName: '容器容量G',
       field: 'containerCapacityG',
       width: 112,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       cellStyle: whiteCellStyle,
       filter: true,
@@ -217,7 +215,6 @@ export const buildDetailColumnDefs = ({
       headerName: 'サマリ商品',
       field: 'summaryProduct',
       width: 264,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       // サマリ商品名：商品区分によらず全行を活性（編集可・黄）
       cellStyle: yellowCellStyle,

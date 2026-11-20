@@ -49,6 +49,12 @@ export type {
   GridExportAllSource,
   GridExportAllFetchParams,
 } from './gridExportAll';
+// 数値のセルを数字だけ打ち込める入力欄にする（UX-122）
+export {
+  numberOnlyCellEditorProps,
+  withNumberOnlyCellEditor,
+  withNumberOnlyCellEditors,
+} from './numberOnlyCellEditor';
 export { useRevealNewRows } from './useRevealNewRows';
 export { viewportGridHeight } from './gridHeight';
 export type {

@@ -745,7 +745,7 @@ export default function PaymentDetailWithInvoice() {
     () => computeBilledCenterFeeBreakdown(activeBilledCenterFeeRows ?? []),
     [activeBilledCenterFeeRows]
   );
-  // 支払情報カードの合計表。税抜金額計＝追加口計＋センターフィ＋拡売費計（セルごとに足す）。
+  // 支払情報カードの合計表。金額　計＝追加口計＋センターフィ＋拡売費計（セルごとに足す）。
   // 未承認NET分は追加口計と拡売費計の両方に含まれるが、別軸の支払のため二重計上としない
   //（追加口金額＝販売数に対する支払、拡売費金額＝広告宣伝に対する支払）。
   // 支払情報エリアの下に税率ごとの合計金額（税抜）を出す（→ 20260710_第16回 決定事項12）。

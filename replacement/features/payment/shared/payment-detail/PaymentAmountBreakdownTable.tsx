@@ -11,7 +11,7 @@
 // 請求書無＝AIC入力・手入力。→ constants/dataSource.ts）。
 //
 // 罫線・配色は画面イメージ（Excel）に合わせる。
-//   ・セルの罫線は点線。項目の区切りは実線、税抜金額計の上は二重線
+//   ・セルの罫線は点線。項目の区切りは実線、金額　計の上は二重線
 //   ・「合計」列の左は実線・右は二重線、税率別とデータ元別の間は実線
 //   ・区分の行の背景は 請求＝薄い青／支払＝薄い灰／差額＝薄い赤
 //   ・差額は区分名・値とも赤の太字。0以外の差額のセルは濃いめの赤系の背景で目立たせる
@@ -44,7 +44,7 @@ import {
 } from '@/utils/payment/payment-detail/paymentBreakdownItems';
 
 // 表に並べる1項目（項目名と合計表）。項目の定義は utils/payment/payment-detail/paymentBreakdownItems の BreakdownItem。
-//   isGrandTotal      … 支払情報カードの税抜金額計。直前の項目との区切りを二重線にする
+//   isGrandTotal      … 支払情報カードの金額　計。直前の項目との区切りを二重線にする
 //   isBillUnavailable … 請求・差額の行を「-」で表示する（支払詳細(追加口請求書無)の全項目）
 //   isDiffUnavailable … 差額の行を「-」で表示する（支払詳細(追加口請求書有)のセンターフィ）
 export type PaymentAmountBreakdownItem = BreakdownItem;
@@ -231,7 +231,7 @@ export function PaymentAmountBreakdownTable({
           {items.map((item, itemIndex) => {
             // 請求・支払・差額の行の値（請求書無の請求・差額、センターフィの差額は null＝「-」）。
             const cells = breakdownCellValues(item, dataSourceColumns);
-            // 項目の区切り（差額の行の下）。次が税抜金額計なら二重線、最後の項目は引かない。
+            // 項目の区切り（差額の行の下）。次が金額　計なら二重線、最後の項目は引かない。
             const nextItem = items[itemIndex + 1];
             const separatorClass = !nextItem
               ? 'border-b-0'

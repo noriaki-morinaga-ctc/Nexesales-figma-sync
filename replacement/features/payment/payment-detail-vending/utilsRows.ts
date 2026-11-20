@@ -106,9 +106,10 @@ export const parseDateString = (dateStr: string): Date | null => {
 };
 
 // 金額は文字列（カンマ付き）で保持するため、計算時は数値へ、表示時は3桁区切りへ変換する。
-export const parseNumber = (str: string): number => {
+// 数値の入力欄（UX-122）が確定した直後は値が数値で届くため、数値も受け取る。
+export const parseNumber = (str: string | number): number => {
   if (!str) return 0;
-  const num = parseFloat(str.replace(/,/g, ''));
+  const num = parseFloat(String(str).replace(/,/g, ''));
   return isNaN(num) ? 0 : num;
 };
 
@@ -134,7 +135,7 @@ export const buildTotalSummaryItems = (data: ExpenseItemData[]) => {
   // 税抜合計のみ強調表示にする。
   return [
     {
-      label: '合計金額（税抜）',
+      label: '合計金額',
       value: formatNumber(exclTax),
       emphasize: true,
     },

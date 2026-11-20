@@ -102,7 +102,7 @@ const sumSides = (sides: AmountBreakdownSide[]): AmountBreakdownSide => {
   return result;
 };
 
-// 合計表どうしをセルごとに足す（税抜金額計＝追加口計＋センターフィ＋拡売費計に使う）。
+// 合計表どうしをセルごとに足す（金額　計＝追加口計＋センターフィ＋拡売費計に使う）。
 export const sumAmountBreakdowns = (
   breakdowns: AmountBreakdown[]
 ): AmountBreakdown => ({

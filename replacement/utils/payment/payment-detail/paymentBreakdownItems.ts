@@ -2,7 +2,7 @@
 //
 // 合計表は支払情報・追加口明細・拡売費明細の各エリアに出す。表示中の支払回数の明細だけを集計する
 //（支払回数ごとの合計表。全支払回数の合計は支払情報サマリで扱う）。
-//   支払情報エリア … 全項目（追加口　計・センターフィ・拡売費　計・税抜金額　計）
+//   支払情報エリア … 全項目（追加口　計・センターフィ・拡売費　計・金額　計）
 //   追加口明細エリア … 追加口　計
 //   拡売費明細エリア … 拡売費　計
 //
@@ -13,11 +13,11 @@
 //                  （手入力の列は0）。差額は「-」（請求と支払が同じ値のため）。
 //                  支払情報サマリのセンターフィ額（追加口明細×計画のセンターフィ率）とは別の値になる。
 //   拡売費　計   … 請求＝請求金額（未承認NETの明細は0）、支払＝支払金額。税率は税区分、データ元は明細
-//   税抜金額　計 … セルごとに 追加口　計＋センターフィ＋拡売費　計（差額＝請求－支払）
+//   金額　計 … セルごとに 追加口　計＋センターフィ＋拡売費　計（差額＝請求－支払）
 // 請求書無：
 //   請求・差額はすべて「-」。追加口　計の支払は8%の列。追加口明細はデータ元の区分を持たないため、
 //   データ元別（AIC入力・手入力）の列には入れない。拡売費　計のデータ元別は明細のデータ元で振り分ける。
-//   税抜金額　計の支払＝追加口　計＋拡売費　計。センターフィの行は持たない。
+//   金額　計の支払＝追加口　計＋拡売費　計。センターフィの行は持たない。
 // 拡売費の枝番行（分割先）・グループ合計行・総合計行は集計しない。値は分割前の明細の値とする。
 import type {
   AdditionalEntryData,
@@ -41,7 +41,7 @@ import type { DataSource } from '@/constants/dataSource';
 export interface BreakdownItem {
   label: string;
   breakdown: AmountBreakdown;
-  // 支払情報エリアの税抜金額　計。直前の項目との区切りを二重線にする。
+  // 支払情報エリアの金額　計。直前の項目との区切りを二重線にする。
   isGrandTotal?: boolean;
   // 請求データを持たない項目か。請求・差額の行を「-」で表示する（請求書無の全項目）。
   isBillUnavailable?: boolean;
@@ -136,7 +136,7 @@ export const computeExpenseBreakdown = (
     dataSource: (d) => d.dataSource ?? DEFAULT_DATA_SOURCE,
   });
 
-// 支払情報エリアの合計表（請求書有）。税抜金額　計＝追加口　計＋センターフィ＋拡売費　計（セルごと）。
+// 支払情報エリアの合計表（請求書有）。金額　計＝追加口　計＋センターフィ＋拡売費　計（セルごと）。
 // 未承認NET分は追加口　計と拡売費　計の両方に含まれるが、別軸の支払のため二重計上としない。
 export const buildWithInvoicePaymentItems = (breakdowns: {
   entry: AmountBreakdown;
@@ -151,7 +151,7 @@ export const buildWithInvoicePaymentItems = (breakdowns: {
   },
   { label: '拡売費　計', breakdown: breakdowns.expense },
   {
-    label: '税抜金額　計',
+    label: '金額　計',
     breakdown: sumAmountBreakdowns([
       breakdowns.entry,
       breakdowns.centerFee,
@@ -177,7 +177,7 @@ export const computeWithoutInvoiceEntryBreakdown = (
   });
 
 // 支払情報エリアの合計表（請求書無）。請求・差額はすべて「-」、
-// 税抜金額　計の支払＝追加口　計＋拡売費　計。センターフィの行は持たない。
+// 金額　計の支払＝追加口　計＋拡売費　計。センターフィの行は持たない。
 export const buildWithoutInvoicePaymentItems = (breakdowns: {
   entry: AmountBreakdown;
   expense: AmountBreakdown;
@@ -193,7 +193,7 @@ export const buildWithoutInvoicePaymentItems = (breakdowns: {
     isBillUnavailable: true,
   },
   {
-    label: '税抜金額　計',
+    label: '金額　計',
     breakdown: sumAmountBreakdowns([breakdowns.entry, breakdowns.expense]),
     isGrandTotal: true,
     isBillUnavailable: true,

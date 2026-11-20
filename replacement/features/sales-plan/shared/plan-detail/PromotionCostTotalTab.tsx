@@ -1340,7 +1340,6 @@ export function PromotionCostTotalTab({
             // 種類別で絞り込んだら配下のサブ項目も残す（絞り込みの値は全行で項目名。AG Grid 公式 filterValueGetter。UX-097）
             filterValueGetter: aggItemFilterValue,
             width: PROMOTION_ITEM_COL_WIDTH,
-            lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: ItemCellRenderer,
             rowSpan: (params) =>
@@ -1369,7 +1368,6 @@ export function PromotionCostTotalTab({
             // 備考で絞り込んだら項目ごと残す（備考は先頭の行にしか無いため、絞り込みの値は全行で項目の先頭の行の備考。UX-097）
             filterValueGetter: aggItemFirstRowFilterValue('description'),
             width: 128,
-            lockPinned: true,
             suppressAutoSize: true,
             editable: true,
             cellEditor: 'agTextCellEditor',
@@ -1398,7 +1396,6 @@ export function PromotionCostTotalTab({
             headerName: 'サブ項目',
             field: 'subItem',
             width: 88,
-            lockPinned: true,
             suppressAutoSize: true,
             cellRenderer: SubItemCellRenderer,
             // 横寄せは共通クラスで指定する（→ 02 §6 セルの寄せ）

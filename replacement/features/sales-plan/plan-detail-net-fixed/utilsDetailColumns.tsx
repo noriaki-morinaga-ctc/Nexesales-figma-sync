@@ -219,7 +219,6 @@ export const buildDetailColumnDefs = ({
       headerName: 'メタブランド',
       field: 'metaBrand',
       width: 112,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       cellStyle: (params: any) => ({
         ...(whiteCellStyle(params) || {}),
@@ -235,7 +234,6 @@ export const buildDetailColumnDefs = ({
       headerName: '容器容量G',
       field: 'containerCapacityG',
       width: 112,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       cellStyle: whiteCellStyle,
       filter: true,
@@ -247,7 +245,6 @@ export const buildDetailColumnDefs = ({
       headerName: 'サマリ商品',
       field: 'summaryProduct',
       width: 264,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       // サマリ商品名：商品区分が定番商品を除き全行を活性（編集可・黄）。定番商品のみ非活性（グレー）。
       cellStyle: makeCellStyle({ 定番商品: 'gray' }, 'yellow'),
@@ -305,7 +302,6 @@ export const buildDetailColumnDefs = ({
       headerName: '一般卸メッシュ',
       field: 'wholesaleMesh',
       width: 88,
-      lockPinned: true,
       cellClass: 'ag-cell-left-pinned',
       // 一般卸メッシュは全区分で非活性（自動表示）。定番商品も編集不可（グレー）。
       cellStyle: makeCellStyle({

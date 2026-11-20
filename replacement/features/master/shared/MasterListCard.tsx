@@ -343,7 +343,6 @@ export function MasterListCard({
       resizable: false,
       suppressMovable: true,
       lockPosition: 'left',
-      lockPinned: true,
       suppressHeaderMenuButton: true,
       cellRendererParams: { suppressCount: true },
     };

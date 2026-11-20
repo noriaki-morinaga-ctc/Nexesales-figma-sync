@@ -23,6 +23,7 @@ import {
   GRID_DEFAULT_COL_DEF,
   GRID_WRAP_HEADER_COL_DEF,
   revertNonNumericValueParser,
+  withNumberOnlyCellEditors,
   isEmptyCellDisplay,
   GRID_EMPTY_TEXT,
   useGridColumnState,
@@ -1462,18 +1463,23 @@ export default function PlanDetailVending() {
 
   // AG Grid用のカラム定義（3レベルヘッダー）
   // 列の定義は最初の描画で1回だけ作る（作り直さない。セルの値・強調は ref から読む）。
+  // 入力できるセルは数字だけ打ち込める入力欄（手売りと同じ → 02 §7「入力値のチェック」・UX-122）。
+  // 整数だけ。PM/PC商談見込（col12。率）だけ小数も可
   const [salesPlanColumnDefs] = useState(() =>
-    buildSalesPlanColumnDefs({
-      highlightedCellsRef,
-      gridRef,
-      recalculateSalesPlan,
-      recalculateAll,
-      evalSalesMultiplyFormula,
-      setSalesPlanData,
-      salesPlanDataRef,
-      isCellEditable,
-      getCellStyle,
-    })
+    withNumberOnlyCellEditors(
+      buildSalesPlanColumnDefs({
+        highlightedCellsRef,
+        gridRef,
+        recalculateSalesPlan,
+        recalculateAll,
+        evalSalesMultiplyFormula,
+        setSalesPlanData,
+        salesPlanDataRef,
+        isCellEditable,
+        getCellStyle,
+      }),
+      (colDef) => (colDef.field === 'col12' ? undefined : 0)
+    )
   );
 
   // 販売計画グリッド専用 defaultColDef（差分表示 cellRenderer を含む）
@@ -1948,19 +1954,23 @@ export default function PlanDetailVending() {
 
   // 経費計画用のカラム定義（転置：行=経費項目、列=拠点/区分の2レベルヘッダー）
   // 列の定義は最初の描画で1回だけ作る（作り直さない。セルの値・強調は ref から読む）。
+  // 入力できるセル（金額）は整数だけ打ち込める入力欄（手売りと同じ → UX-122）
   const [expensePlanColumnDefs] = useState(() =>
-    buildExpensePlanColumnDefs({
-      expenseHighlightedCellsRef,
-      isDiffModeRef,
-      expenseBaselineData,
-      recalculateExpensePlan,
-      setExpensePlanData,
-      expensePlanDataRef,
-      isExpenseCellEditable,
-      getExpenseCellStyle,
-      computeCatPlanValues,
-      computeExpenseActual,
-    })
+    withNumberOnlyCellEditors(
+      buildExpensePlanColumnDefs({
+        expenseHighlightedCellsRef,
+        isDiffModeRef,
+        expenseBaselineData,
+        recalculateExpensePlan,
+        setExpensePlanData,
+        expensePlanDataRef,
+        isExpenseCellEditable,
+        getExpenseCellStyle,
+        computeCatPlanValues,
+        computeExpenseActual,
+      }),
+      () => 0
+    )
   );
 
   // マウスオーバー時のツールチップ（画面設計標準準拠）を付与した列定義。

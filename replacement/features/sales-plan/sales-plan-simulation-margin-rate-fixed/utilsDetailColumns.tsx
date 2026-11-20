@@ -273,7 +273,6 @@ export const buildDetailColumnDefs = ({
       field: 'targetMonth',
       ...GRID_MONTH_TEXT_FILTER,
       width: 104,
-      lockPinned: true,
       cellClass: 'ag-cell-left',
       // 自動表示の白背景に、行の追加経路を示すカラーバー（左罫線）を合成
       cellStyle: (params: any) => ({
@@ -289,7 +288,6 @@ export const buildDetailColumnDefs = ({
       headerName: '企画',
       field: 'campaign',
       width: 80,
-      lockPinned: true,
       cellClass: 'ag-cell-left',
       cellStyle: requiredCellStyle,
       editable: baseEditable,

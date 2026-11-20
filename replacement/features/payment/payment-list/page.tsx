@@ -1171,7 +1171,7 @@ export default function PaymentList() {
       },
       // ── ③金額 ──
       {
-        headerName: '支払金額(税抜)',
+        headerName: '支払金額',
         field: 'paymentAmount',
         cellClass: 'cell-right',
         valueFormatter: (params) =>

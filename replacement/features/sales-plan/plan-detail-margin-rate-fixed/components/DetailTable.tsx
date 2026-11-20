@@ -438,9 +438,12 @@ export const DetailTable = forwardRef<DetailTableHandle, DetailTableProps>(
       // 計画保存時：左端の帯（明細コピー・明細追加由来）と編集セルの強調を消す。
       // 保存した値を新たな元値とするため、元値の記録と未保存状態もリセットする。
       clearSavedMarks: () => {
+        // 保存したら、保存前に突合した行の印も外す（突合の取消は保存するまで）
         const strip = (prev: ProductData[]) =>
           prev.map((r) =>
-            r._copySource ? { ...r, _copySource: undefined } : r
+            r._copySource || r._ediMatchUnsaved
+              ? { ...r, _copySource: undefined, _ediMatchUnsaved: undefined }
+              : r
           );
         setRegularProductsData(strip);
         setNewProductsData(strip);

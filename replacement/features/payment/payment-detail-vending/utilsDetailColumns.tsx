@@ -10,7 +10,7 @@ import {
   suppressEditNavKeys,
   useLinkedCellUndo,
   GRID_NUMBER_TEXT_FILTER,
-  revertNonNumericValueParser,
+  numberOnlyCellEditorProps,
   requiredEmptyCellStyle,
 } from '@/components/grid';
 
@@ -95,8 +95,6 @@ export const buildDetailColumnDefs = (
       valueSetter: managementCategorySetter,
       onCellValueChanged: handleManagementCategoryChanged,
       valueFormatter: (p) => splitCategoryCode(p.value) || GRID_EMPTY_TEXT,
-      // 横スクロールしても管理区分列は左端に固定する
-      lockPinned: true,
       editable: true,
       cellEditor: SingleComboboxCellEditor,
       cellEditorParams: {
@@ -223,9 +221,8 @@ export const buildDetailColumnDefs = (
           : GRID_EMPTY_TEXT,
       // 分割先行は編集不可（金額をブランクとし負担金額で管理する）。
       editable: (params) => !isSplitDestRow(params.data),
-      cellEditor: 'agTextCellEditor',
-      // 数字以外を入れたら元の値へ戻す（手売りと同じ → UI/UX UX-089）
-      valueParser: revertNonNumericValueParser,
+      // 数字（整数）だけ打ち込める入力欄。数字以外は元の値へ戻す（手売りと同じ → UX-089・UX-122）
+      ...numberOnlyCellEditorProps(0),
       // 分割元は、分割先の負担金額の合計を下回る支払金額にできない（手売りと同じ → UX-089）
       valueSetter: (params) => {
         const d = params.data as ExpenseItemData;
@@ -242,7 +239,7 @@ export const buildDetailColumnDefs = (
           );
           return false;
         }
-        d.amount = params.newValue as ExpenseItemData['amount'];
+        d.amount = String(params.newValue ?? ''); // 入力欄の値は数値で届くため文字で持つ
         return true;
       },
       // 横寄せは cellClass、背景色のみ cellStyle（→ 02 §6/§7）
@@ -265,7 +262,7 @@ export const buildDetailColumnDefs = (
       field: 'splitAmount',
       ...GRID_NUMBER_TEXT_FILTER,
       editable: (params) => isSplitDestRow(params.data),
-      cellEditor: 'agTextCellEditor',
+      ...numberOnlyCellEditorProps(0), // 数字（整数）だけ打ち込める入力欄（→ UX-122）
       valueGetter: (params) => {
         const d = params.data as ExpenseItemData | undefined;
         if (!d) return '';
@@ -278,8 +275,7 @@ export const buildDetailColumnDefs = (
           ? formatNumber(parseNumber(params.value))
           : GRID_EMPTY_TEXT,
       // valueGetter を持つため編集反映には valueSetter が必要（分割先行のみ splitAmount へ書き戻す）。
-      // 数字以外を入れたら元の値へ戻す（→ UX-089）
-      valueParser: revertNonNumericValueParser,
+      // 数字以外を入れたら元の値へ戻す（numberOnlyCellEditorProps の valueParser → UX-089）
       valueSetter: (params) => {
         if (!isSplitDestRow(params.data)) return false;
         // 分割先の負担金額の合計は、分割元の支払金額を超えられない（手売りと同じ → UX-089）
@@ -305,7 +301,7 @@ export const buildDetailColumnDefs = (
           );
           return false;
         }
-        params.data.splitAmount = params.newValue;
+        params.data.splitAmount = String(params.newValue ?? ''); // 数値で届くため文字で持つ
         return true;
       },
       cellClass: 'cell-right',

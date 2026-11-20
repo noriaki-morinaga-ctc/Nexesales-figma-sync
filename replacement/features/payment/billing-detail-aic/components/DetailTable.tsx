@@ -1076,7 +1076,7 @@ export function DetailTable({
   const taxKbnBreakdown = BILLING_TAX_KBN_OPTIONS.filter(
     (kbn) => totals.billAmountByTaxKbn[kbn] != null
   ).map((kbn) => ({
-    label: `${kbn.split(':')[1]} 請求金額(税抜)`,
+    label: `${kbn.split(':')[1]} 請求金額`,
     value: formatNumber(totals.billAmountByTaxKbn[kbn], 2),
   }));
   const summaryGroups = [
@@ -1084,7 +1084,7 @@ export function DetailTable({
       label: '請求',
       items: [
         {
-          label: '請求金額合計(税抜)',
+          label: '請求金額合計',
           value: formatNumber(totals.billAmount, 2),
         },
         ...taxKbnBreakdown,
@@ -1097,7 +1097,7 @@ export function DetailTable({
         {
           // 請求明細グリッドの支払金額の合計であるため「支払金額合計」とする
           //（→ 20260821_第31回 決定事項20）
-          label: '支払金額合計(税抜)',
+          label: '支払金額合計',
           value: formatNumber(totals.payAmount, 2),
         },
         {
@@ -1113,7 +1113,7 @@ export function DetailTable({
       label: '確定（検印）後',
       items: [
         {
-          label: '確定(検印)済 支払金額合計(税抜)',
+          label: '確定(検印)済 支払金額合計',
           value: formatNumber(totals.sealedPayAmount, 2),
           emphasize: true,
         },

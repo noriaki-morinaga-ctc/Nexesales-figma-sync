@@ -55,7 +55,7 @@ const EDI_MARKER_BADGE_CLASS: Record<EdiMatchStatus, string> = {
 
 const hasValue = (value: unknown): boolean => String(value ?? '').trim() !== '';
 
-// 行頭マーカーの列（補足8-7 ②）。計画行は突合の状態（自動・手動・追加）を出し、手動の行には「取消」を置く。
+// 行頭マーカーの列（補足8-7 ②）。計画行は突合の状態（自動・手動・追加）を出し、保存前に手動で突合した行には「取消」を置く。
 // 追加の行には、計画行へドラッグして突合するためのハンドル（AG Grid 公式の rowDrag）も出す。
 // コピー由来カラーバー（明細コピー・明細追加の左端の帯）も左端のこの列に付ける（→ 02 §10.1）。
 export const buildEdiMarkerColumn = (
@@ -63,11 +63,14 @@ export const buildEdiMarkerColumn = (
 ): ColDef<ProductData> => ({
   headerName: 'EDI',
   colId: 'ediMarker',
+  // 手動の行はバッジと取消ボタンが並ぶ。localStorage に保存済みの狭い幅が復元されても
+  // 取消ボタンが見切れないよう、minWidth も同じ値にする。
   width: 88,
+  minWidth: 88,
   cellClass: 'cell-center',
   sortable: false,
   headerTooltip:
-    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（取消で戻せる）／追加＝一致する計画納価が無いため、実販EDIの反映で追加した行（入力するか、同じサマリ商品の計画行へドラッグして突合する）',
+    'EDI[自動表示]実販FACT（実販EDI）の突合の状態。自動＝反映ルールで自動で反映／手動＝担当者が突合（保存するまでは取消で戻せる）／追加＝一致する計画納価が無いため、実販EDIの反映で追加した行（入力するか、同じサマリ商品の計画行へドラッグして突合する）',
   // 追加の行だけドラッグできる（ドロップした計画行へ突合する。行は動かさない＝rowDragManaged なし）
   rowDrag: (params: RowDragCallbackParams<ProductData>) =>
     isAddedByEdiRow(params.data) && !params.node.rowPinned,
@@ -107,7 +110,8 @@ export const buildEdiMarkerColumn = (
         {EDI_MARKER_LABELS[status]}
       </Badge>
     );
-    if (status !== 'manual') return badge;
+    // 取消は保存するまで（保存前に突合した行だけ取消を出す）
+    if (status !== 'manual' || !row._ediMatchUnsaved) return badge;
     return (
       <span className="inline-flex items-center gap-1">
         {badge}
